@@ -1093,3 +1093,15 @@
         scroll-behavior: auto !important;
     }
 }
+
+/* Tenant Sidebar Icon Colors */
+.nav-link[data-page="dashboard"] .nav-icon { color: #10b981; }         /* Green */
+.nav-link[data-page="messages"] .nav-icon { color: #3b82f6; }          /* Blue */
+.nav-link[data-page="leaseTenant"] .nav-icon { color: #8b5cf6; }       /* Purple */
+.nav-link[data-page="paymentTenant"] .nav-icon { color: #f59e0b; }     /* Orange */
+.nav-link[data-page="maintenanceTenant"] .nav-icon { color: #ef4444; } /* Red */
+
+.nav-link:hover .nav-icon,
+.nav-link.active .nav-icon {
+    color: inherit !important;
+}
