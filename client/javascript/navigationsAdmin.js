@@ -662,9 +662,6 @@ class NavigationManager {
             setTimeout(() => {
                 window.navigationManager = new NavigationManager(config);
             }, 100);
-        } else {
-            // Initialize without components if loading fails
-            window.navigationManager = new NavigationManager(config);
         }
     }
 
