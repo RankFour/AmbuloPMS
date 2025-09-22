@@ -79,8 +79,8 @@ class TenantNavigationManager {
         this.cacheDOMElements();
         this.setupPageTitles();
 
-        this.loadCollapsedState();
         this.applyInitialCollapsedState();
+        this.loadCollapsedState();
 
         this.bindEvents();
         this.updateLayout();
