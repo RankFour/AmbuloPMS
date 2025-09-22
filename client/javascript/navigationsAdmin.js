@@ -633,7 +633,7 @@ class NavigationManager {
                 .querySelectorAll("#notificationMenu .dropdown-item")
                 .forEach((item) => {
                     item.addEventListener("click", () => {
-                        const titleElement = item.querySelector(".dropdown-item-title");    
+                        const titleElement = item.querySelector(".dropdown-item-title");
                         item.style.opacity = "0.7";
 
                         const badge = document.getElementById("notificationBadge");
@@ -692,7 +692,7 @@ class NavigationManager {
             return false;
         }
     }
-
+    
     static async initializeNavigation(config = {}) {
         const sidebarLoaded = await NavigationManager.loadComponent(
             "/components/sidebar.html",
@@ -722,13 +722,21 @@ class NavigationManager {
                 setupAdminNavbar();
                 setupSidebar('admin');
                 window.navigationManager.setActiveNavItem();
+
+                const mobileSidebarOpenBtn = document.getElementById('mobileSidebarOpenBtn');
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('overlay');
+                if (mobileSidebarOpenBtn && sidebar && overlay) {
+                    mobileSidebarOpenBtn.addEventListener('click', function () {
+                        sidebar.classList.add('mobile-open');
+                        overlay.classList.add('active');
+                    });
+                }
             }, 10);
         } else {
             window.navigationManager = new NavigationManager(config);
         }
     }
-
-
 
     updateNavigation(updates) {
         if (updates.currentPage) {

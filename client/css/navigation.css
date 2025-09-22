@@ -1183,3 +1183,59 @@
     overflow-y: auto;
   }
 }
+
+/* Floating mobile sidebar open button */
+.mobile-sidebar-open-btn {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-sidebar-open-btn {
+    display: flex;
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 1102;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .sidebar-toggle {
+    display: none !important;
+  }
+
+  .sidebar.mobile-open ~ .mobile-sidebar-open-btn {
+    display: none !important;
+  }
+
+    .sidebar {
+    left: auto;
+    right: 0;
+    transform: translateX(100%);
+    box-shadow: none;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-heavy);
+    right: 0;
+    left: auto;
+  }
+  .overlay {
+    left: 0;
+    right: 0;
+  }
+  .mobile-sidebar-open-btn {
+    left: auto;
+    right: 24px;
+  }
+}

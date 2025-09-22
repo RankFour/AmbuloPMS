@@ -627,13 +627,23 @@ class TenantNavigationManager {
     static async initializeTenantNavigation(config = {}) {
         const sidebarLoaded = await TenantNavigationManager.loadComponent('/components/sidebar.html', 'sidebarContainer');
         const navbarLoaded = await TenantNavigationManager.loadComponent('/components/top-navbar.html', 'navbarContainer');
-
+    
         if (sidebarLoaded || navbarLoaded) {
             setTimeout(() => {
                 window.tenantNavigationManager = new TenantNavigationManager(config);
                 setupTenantNavbar();
                 setupSidebar('tenant');
                 window.tenantNavigationManager.setActiveNavItem();
+    
+                const mobileSidebarOpenBtn = document.getElementById('mobileSidebarOpenBtn');
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('overlay');
+                if (mobileSidebarOpenBtn && sidebar && overlay) {
+                    mobileSidebarOpenBtn.addEventListener('click', function() {
+                        sidebar.classList.add('mobile-open');
+                        overlay.classList.add('active');
+                    });
+                }
             }, 10);
         } else {
             window.tenantNavigationManager = new TenantNavigationManager(config);
