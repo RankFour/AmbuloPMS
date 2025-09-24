@@ -310,7 +310,7 @@ body:has(.sidebar.collapsed) .main-content,
   font-weight: 500;
 }
 
-/* Charges Table - Fully Responsive */
+/* Charges Table - Full Responsive */
 .charges-table-container {
   overflow: hidden;
   margin: 0;

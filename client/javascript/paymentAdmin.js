@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setDynamicInfo();
 });
 
-// Enhanced data structure with payment history
+//Data structure with payment history
 const leasesData = [
     {
         id: 'lease-1',
