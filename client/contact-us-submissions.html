@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/fonts.css">
+    <link rel="stylesheet" href="/css/contact-us-submissions.css">
+    <link rel="stylesheet" href="/css/navigationsAdmin.css">
+    <title>Ambulo PMS - Contact Us Submissions</title>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    
+    <div id="sidebarContainer"></div>
+    <div id="navbarContainer"></div>
+
+        <div class="main-content">
+        <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div>
+                    <h1>Contact Submissions</h1>
+                    <p>Manage and respond to customer inquiries</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <i class="fas fa-inbox"></i>
+                <span class="stat-label">Total Submissions</span>
+                <span class="stat-value" id="totalCount">0</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-clock"></i>
+                <span class="stat-label">Pending Response</span>
+                <span class="stat-value" id="pendingCount">0</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-check-circle"></i>
+                <span class="stat-label">Responded</span>
+                <span class="stat-value" id="respondedCount">0</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-chart-line"></i>
+                <span class="stat-label">Response Rate</span>
+                <span class="stat-value" id="responseRate">0%</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search submissions..." oninput="filterSubmissions()">
+            </div>
+            
+            <div class="filter-controls">
+                <select class="form-select" id="statusFilter" onchange="filterSubmissions()">
+                    <option value="">All Status</option>
+                    <option value="Pending Response">Pending Response</option>
+                    <option value="Responded">Responded</option>
+                </select>
+                
+                <select class="form-select" id="typeFilter" onchange="filterSubmissions()">
+                    <option value="">All Types</option>
+                    <option value="Product Support">Product Support</option>
+                    <option value="Technical Support">Technical Support</option>
+                    <option value="Billing">Billing</option>
+                    <option value="General">General</option>
+                </select>
+                
+                <button class="btn btn-secondary" onclick="clearFilters()">
+                    <i class="fas fa-times"></i>
+                    Clear Filters
+                </button>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <table class="table" id="submissionsTable">
+                <thead class="table-header">
+                    <tr>
+                        <th class="sortable" onclick="sortTable('name')">Name</th>
+                        <th class="sortable" onclick="sortTable('email')">Email</th>
+                        <th class="sortable" onclick="sortTable('subject')">Subject</th>
+                        <th class="sortable" onclick="sortTable('type')">Type</th>
+                        <th class="sortable" onclick="sortTable('date')">Date</th>
+                        <th class="sortable" onclick="sortTable('status')">Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            
+            <div id="noResults" class="no-results" style="display: none;">
+                <i class="fas fa-search"></i>
+                <h3>No submissions found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div id="submissionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <h2>Submission Details</h2>
+                    <p class="modal-subtitle">Review and respond to customer inquiry</p>
+                </div>
+                <button class="close-btn" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>Customer Name</label>
+                        <span id="modalName"></span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Email Address</label>
+                        <span id="modalEmail"></span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Subject Line</label>
+                        <span id="modalSubject"></span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Inquiry Type</label>
+                        <span id="modalType"></span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Submission Date</label>
+                        <span id="modalDate"></span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Ticket ID</label>
+                        <span id="modalId"></span>
+                    </div>
+                </div>
+
+                <div class="message-section">
+                    <label>Customer Message</label>
+                    <p id="modalMessage"></p>
+                </div>
+
+                <div class="status-section">
+                    <label style="font-weight: 700; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Current Status:</label>
+                    <select id="statusSelect" class="status-select" onchange="updateStatus()">
+                        <option value="Pending Response">Pending Response</option>
+                        <option value="Responded">Responded</option>
+                    </select>
+                </div>
+
+                <div class="compose-section">
+                    <h3>
+                        <i class="fas fa-reply"></i>
+                        Compose Response
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email Template</label>
+                        <select id="templateSelect" class="form-select" onchange="loadTemplate()">
+                            <option value="">Select a template...</option>
+                            <option value="product-support">Product Support Template</option>
+                            <option value="technical-support">Technical Support Template</option>
+                            <option value="billing">Billing Inquiry Template</option>
+                            <option value="general">General Inquiry Template</option>
+                            <option value="custom">Custom Response</option>
+                        </select>
+                    </div>
+
+                    <div id="templateInfo" class="template-info" style="display: none;">
+                        Template loaded successfully! You can modify the content before sending.
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Subject Line</label>
+                        <input type="text" class="form-input" id="replySubject" placeholder="Re: [Original Subject]">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Response Message</label>
+                        <textarea class="form-textarea" id="replyMessage" placeholder="Type your professional response here..."></textarea>
+                    </div>
+
+                    <button class="send-btn" onclick="sendResponse()">
+                        <i class="fas fa-paper-plane"></i>
+                        Send Response
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification">
+        <span id="notificationText"></span>
+    </div>
+    <script src="/javascript/contact-us-submissions.js"></script>
+    <script src="/javascript/navigationsAdmin.js"></script>
+</body>
+</html>
