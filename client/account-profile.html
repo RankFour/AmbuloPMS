@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+    <link rel="stylesheet" href="/css/fonts.css">
+    <link rel="stylesheet" href="/css/navigation.css">
+    <link rel="stylesheet" href="/css/account-profile.css">
+    <title>Account Profile</title>
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    <div id="sidebarContainer"></div>
+    <div id="navbarContainer"></div>
+
+    <div class="main-content">
+    <div class="container">
+        <div class="tabs-header">
+            <div class="tabs-navigation">
+                <div class="tab-item active" data-section="profile">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                    <span>Profile</span>
+                </div>
+                <div class="tab-item" data-section="password">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                    </svg>
+                    <span>Password</span>
+                </div>
+                <div class="tab-item" data-section="notifications">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                    </svg>
+                    <span>Notifications</span>
+                </div>
+                <div class="tab-item" data-section="verification">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
+                    </svg>
+                    <span>Verification</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="content-section active" id="profile">
+                <h2 class="section-title">Profile Settings</h2>
+                
+                <div class="profile-section">
+                    <div class="avatar-container">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop" alt="Profile" class="avatar" id="avatarImg">
+                        <div class="camera-icon" onclick="document.getElementById('fileInput').click()">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 15.2l-3.5-3.5 1.4-1.4 1.6 1.6V8h2v3.9l1.6-1.6 1.4 1.4-3.5 3.5zM19 20H5c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2h2.5l2-2h5l2 2H19c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2z"/>
+                            </svg>
+                        </div>
+                        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="avatar-buttons">
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-upload"></i> Upload New
+                        </button>
+                        <button class="btn btn-secondary" onclick="deleteAvatar()">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+
+                <form id="profileForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>First Name <span class="required">*</span></label>
+                            <input type="text" id="firstName" placeholder="First name" value="Maria" required>
+                            <span class="error-message" id="firstNameError"></span>
+                        </div>
+                        <div class="form-group">
+                            <label>Last Name <span class="required">*</span></label>
+                            <input type="text" id="lastName" placeholder="Last name" value="Santos" required>
+                            <span class="error-message" id="lastNameError"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Email <span class="required">*</span></label>
+                            <input type="email" id="email" placeholder="example@gmail.com" value="maria.santos@gmail.com" required>
+                            <span class="error-message" id="emailError"></span>
+                        </div>
+                        <div class="form-group">
+                            <label>Mobile Number <span class="required">*</span></label>
+                            <div class="phone-input">
+                                <select id="phoneCountryCode">
+                                    <option value="+1">+1 (US/CA)</option>
+                                    <option value="+44">+44 (UK)</option>
+                                    <option value="+63" selected>+63 (PH)</option>
+                                    <option value="+81">+81 (JP)</option>
+                                    <option value="+82">+82 (KR)</option>
+                                    <option value="+86">+86 (CN)</option>
+                                    <option value="+91">+91 (IN)</option>
+                                    <option value="+65">+65 (SG)</option>
+                                    <option value="+60">+60 (MY)</option>
+                                    <option value="+66">+66 (TH)</option>
+                                    <option value="+84">+84 (VN)</option>
+                                    <option value="+62">+62 (ID)</option>
+                                    <option value="+61">+61 (AU)</option>
+                                </select>
+                                <input type="tel" id="phone" placeholder="917 123 4567" value="917 123 4567" required>
+                            </div>
+                            <span class="error-message" id="phoneError"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Gender</label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="gender" value="male">
+                                    <span>Male</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="gender" value="female" checked>
+                                    <span>Female</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Tenant ID</label>
+                            <input type="text" value="TNT-2024-00157" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>TIN (Tax Identification Number)</label>
+                            <input type="text" id="tin" placeholder="123-456-789-000" value="123-456-789-000">
+                        </div>
+                        <div class="form-group">
+                            <label>Tax Identification Country</label>
+                            <input type="text" value="Philippines" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Current Rental Address <span class="required">*</span></label>
+                        <input type="text" id="address" placeholder="Unit 201, Makati Ave, Makati City" value="Unit 3B, 123 Rizal Street, Quezon City, Metro Manila" required>
+                        <span class="error-message" id="addressError"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary save-button">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+
+            <div class="content-section" id="password">
+                <h2 class="section-title">Change Password</h2>
+                
+                <form id="passwordForm" style="max-width: 600px;">
+                    <div class="form-group">
+                        <label>Current Password <span class="required">*</span></label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="currentPassword" placeholder="Enter current password" required>
+                            <button type="button" class="password-toggle" onclick="togglePassword('currentPassword')">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                        <span class="error-message" id="currentPasswordError"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>New Password <span class="required">*</span></label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="newPassword" placeholder="Enter new password" required>
+                            <button type="button" class="password-toggle" onclick="togglePassword('newPassword')">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                        <span class="password-hint">Password must be at least 8 characters with uppercase, lowercase, and numbers</span>
+                        <span class="error-message" id="newPasswordError"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confirm New Password <span class="required">*</span></label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+                            <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                        <span class="error-message" id="confirmPasswordError"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary save-button">
+                        <i class="fas fa-lock"></i> Update Password
+                    </button>
+                </form>
+            </div>
+
+            <div class="content-section" id="notifications">
+                <h2 class="section-title">Notification Preferences</h2>
+                
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <h4>Email Notifications</h4>
+                        <p>Receive email updates about your account activity</p>
+                    </div>
+                    <div class="toggle-switch active" onclick="toggleNotification(this)"></div>
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <h4>Rent Payment Reminders</h4>
+                        <p>Get notified before your rent payment is due</p>
+                    </div>
+                    <div class="toggle-switch active" onclick="toggleNotification(this)"></div>
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <h4>Maintenance Updates</h4>
+                        <p>Receive updates about maintenance requests and schedules</p>
+                    </div>
+                    <div class="toggle-switch active" onclick="toggleNotification(this)"></div>
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <h4>Property Announcements</h4>
+                        <p>Stay informed about property-wide announcements</p>
+                    </div>
+                    <div class="toggle-switch" onclick="toggleNotification(this)"></div>
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <h4>SMS Notifications</h4>
+                        <p>Receive important alerts via text message</p>
+                    </div>
+                    <div class="toggle-switch" onclick="toggleNotification(this)"></div>
+                </div>
+
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <h4>Marketing Communications</h4>
+                        <p>Receive promotional offers and updates</p>
+                    </div>
+                    <div class="toggle-switch" onclick="toggleNotification(this)"></div>
+                </div>
+            </div>
+
+            <div class="content-section" id="verification">
+                <h2 class="section-title">Account Verification</h2>
+                
+                <div class="verification-card">
+                    <h4>Email Verification</h4>
+                    <p>Verify your email address to secure your account</p>
+                    <span class="verification-status status-verified">
+                        <i class="fas fa-check-circle"></i> Verified
+                    </span>
+                </div>
+
+                <div class="verification-card">
+                    <h4>Phone Number Verification</h4>
+                    <p>Verify your phone number for additional security</p>
+                    <span class="verification-status status-verified">
+                        <i class="fas fa-check-circle"></i> Verified
+                    </span>
+                </div>
+
+                <div class="verification-card">
+                    <h4>Identity Verification</h4>
+                    <p>Upload a valid government-issued ID for identity verification</p>
+                    <span class="verification-status status-pending">
+                        <i class="fas fa-clock"></i> Pending Review
+                    </span>
+                    <div style="margin-top: 16px;">
+                        <button class="btn btn-secondary">
+                            <i class="fas fa-upload"></i> Upload ID Document
+                        </button>
+                    </div>
+                </div>
+
+                <div class="verification-card">
+                    <h4>Two-Factor Authentication (2FA)</h4>
+                    <p>Add an extra layer of security to your account</p>
+                    <span class="verification-status status-unverified">
+                        <i class="fas fa-times-circle"></i> Not Enabled
+                    </span>
+                    <div style="margin-top: 16px;">
+                        <button class="btn btn-primary" onclick="enable2FA()">
+                            <i class="fas fa-shield-alt"></i> Enable 2FA
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Dialog Modals -->
+    <div class="dialog-overlay" id="saveDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <div class="dialog-icon save">
+                    <i class="fas fa-save"></i>
+                </div>
+                <h3 class="dialog-title">Save Changes?</h3>
+            </div>
+            <p class="dialog-message">
+                Are you sure you want to save these changes to your profile? This will update your account information.
+            </p>
+            <div class="dialog-actions">
+                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('saveDialog')">Cancel</button>
+                <button class="dialog-btn dialog-btn-confirm" onclick="confirmSaveProfile()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dialog-overlay" id="deleteDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <div class="dialog-icon delete">
+                    <i class="fas fa-trash-alt"></i>
+                </div>
+                <h3 class="dialog-title">Delete Profile Picture?</h3>
+            </div>
+            <p class="dialog-message">
+                Are you sure you want to remove your profile picture? Your avatar will be reset to the default image.
+            </p>
+            <div class="dialog-actions">
+                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('deleteDialog')">Cancel</button>
+                <button class="dialog-btn dialog-btn-delete" onclick="confirmDeleteAvatar()">Delete Picture</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dialog-overlay" id="passwordDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <div class="dialog-icon save">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <h3 class="dialog-title">Update Password?</h3>
+            </div>
+            <p class="dialog-message">
+                Are you sure you want to change your password? You will need to use the new password for your next login.
+            </p>
+            <div class="dialog-actions">
+                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('passwordDialog')">Cancel</button>
+                <button class="dialog-btn dialog-btn-confirm" onclick="confirmPasswordChange()">Update Password</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dialog-overlay" id="notificationDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <div class="dialog-icon save">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <h3 class="dialog-title" id="notificationDialogTitle">Change Notification Setting?</h3>
+            </div>
+            <p class="dialog-message" id="notificationDialogMessage">
+                Are you sure you want to change this notification preference?
+            </p>
+            <div class="dialog-actions">
+                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('notificationDialog')">Cancel</button>
+                <button class="dialog-btn dialog-btn-confirm" onclick="confirmNotificationToggle()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dialog-overlay" id="enable2FADialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <div class="dialog-icon save">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3 class="dialog-title">Enable Two-Factor Authentication?</h3>
+            </div>
+            <p class="dialog-message">
+                Two-Factor Authentication adds an extra layer of security to your account. You'll receive a verification code via email whenever you log in. Do you want to proceed?
+            </p>
+            <div class="dialog-actions">
+                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('enable2FADialog')">Cancel</button>
+                <button class="dialog-btn dialog-btn-confirm" onclick="confirmEnable2FA()">Enable 2FA</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dialog-overlay" id="uploadIDDialog">
+        <div class="dialog">
+            <div class="dialog-header">
+                <div class="dialog-icon save">
+                    <i class="fas fa-id-card"></i>
+                </div>
+                <h3 class="dialog-title">Upload ID Document</h3>
+            </div>
+            <p class="dialog-message">
+                Please upload a clear photo of your government-issued ID. Accepted formats: JPG, PNG, PDF. Maximum size: 5MB. Your document will be reviewed within 1-2 business days.
+            </p>
+            <div class="dialog-actions">
+                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('uploadIDDialog')">Cancel</button>
+                <button class="dialog-btn dialog-btn-confirm" onclick="triggerIDUpload()">Choose File</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="idFileInput" accept="image/*,.pdf" style="display: none;">
+
+    <div class="toast" id="toast"></div>
+
+    <script src="/javascript/account-profile.js"></script>
+    <script src="/javascript/navigationsAdmin.js"></script>
+</body>
+</html>
