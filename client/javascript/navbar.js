@@ -15,6 +15,35 @@ function setupNavbarFeatures() {
   const navbar =
     document.querySelector("header") || document.getElementById("navbar");
 
+  // ADD THIS NEW CODE FOR HAMBURGER MENU
+  const hamburger = document.querySelector('.hamburger');
+  const navLinks = document.querySelector('.nav-links');
+
+  // Hamburger menu toggle
+  if (hamburger && navLinks) {
+    hamburger.addEventListener('click', () => {
+      hamburger.classList.toggle('active');
+      navLinks.classList.toggle('active');
+    });
+
+    // Close menu when clicking on a link
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        hamburger.classList.remove('active');
+        navLinks.classList.remove('active');
+      });
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!navbar.contains(e.target)) {
+        hamburger.classList.remove('active');
+        navLinks.classList.remove('active');
+      }
+    });
+  }
+  // END OF NEW CODE FOR HAMBURGER MENU
+
   const revealElements = document.querySelectorAll(".reveal-element");
 
   const revealOnScroll = () => {
@@ -138,7 +167,9 @@ if (contactForm) {
   window.addEventListener("scroll", () => {
     const scrolled = window.pageYOffset;
     const parallax = document.querySelector(".hero");
-    const speed = scrolled * 0.5;
-    parallax.style.transform = `translateY(${speed}px)`;
+    if (parallax) {
+      const speed = scrolled * 0.5;
+      parallax.style.transform = `translateY(${speed}px)`;
+    }
   });
 }

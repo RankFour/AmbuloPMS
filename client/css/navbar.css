@@ -82,3 +82,139 @@ nav {
     color: #e0e0e0;
     background: rgba(255, 255, 255, 0.15);
 }
+
+.hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    z-index: 1001;
+    background: none;
+    border: none;
+    padding: 5px;
+}
+
+.hamburger span {
+    width: 25px;
+    height: 3px;
+    background-color: #ffffff;
+    margin: 3px 0;
+    transition: all 0.3s ease;
+    border-radius: 3px;
+}
+
+/* Hamburger animation when active */
+.hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(8px, 8px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -7px);
+}
+
+/* Tablet styles */
+@media (max-width: 768px) {
+    .nav-container {
+        padding: 0 15px;
+    }
+
+    .logo {
+        font-size: 20px;
+    }
+
+    .logo::before {
+        font-size: 18px;
+        margin-right: 6px;
+    }
+
+    .hamburger {
+        display: flex;
+    }
+
+    .nav-links {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        height: 100vh;
+        width: 70%;
+        max-width: 300px;
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(10px);
+        flex-direction: column;
+        padding: 80px 30px 30px;
+        gap: 0;
+        transition: right 0.3s ease;
+        box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .nav-links.active {
+        right: 0;
+    }
+
+    .nav-links li {
+        width: 100%;
+        margin: 10px 0;
+    }
+
+    .nav-links a {
+        display: block;
+        width: 100%;
+        padding: 12px 20px;
+        font-size: 16px;
+        text-align: left;
+    }
+
+    header {
+        padding: 15px 0;
+    }
+}
+
+/* Mobile styles */
+@media (max-width: 480px) {
+    .nav-container {
+        padding: 0 10px;
+    }
+
+    .logo {
+        font-size: 18px;
+    }
+
+    .logo::before {
+        font-size: 16px;
+        margin-right: 5px;
+    }
+
+    .nav-links {
+        width: 80%;
+        max-width: 280px;
+        padding: 70px 20px 20px;
+    }
+
+    .nav-links a {
+        font-size: 15px;
+        padding: 10px 16px;
+    }
+
+    header {
+        padding: 12px 0;
+    }
+
+    .hamburger span {
+        width: 22px;
+        height: 2.5px;
+    }
+}
+
+/* Small mobile styles */
+@media (max-width: 360px) {
+    .logo {
+        font-size: 16px;
+    }
+
+    .nav-links {
+        width: 85%;
+    }
+}
