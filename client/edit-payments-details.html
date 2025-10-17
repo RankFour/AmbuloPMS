@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/edit-payments-details.css">
+    <title>Document</title>
+</head>
+<body>
+    <div class="container">
+        <!-- Breadcrumb -->
+        <div class="breadcrumb-container">
+            <nav class="breadcrumb-nav">
+                <a href="#"><i class="fas fa-home"></i> Dashboard</a>
+                <span class="breadcrumb-separator">›</span>
+                <span class="breadcrumb-current">Payment Methods</span>
+            </nav>
+        </div>
+
+        <!-- Header -->
+        <header>
+            <h1><i class="fas fa-credit-card"></i> Payment Management</h1>
+            <p class="subtitle">Manage wallet transfers and bank account details for tenant payments</p>
+        </header>
+
+        <!-- Menu Tabs -->
+        <div class="menu-tabs">
+            <button class="tab-btn active" onclick="switchTab('wallets')">
+                <i class="fas fa-wallet"></i> E-Wallets
+            </button>
+            <button class="tab-btn" onclick="switchTab('bank')">
+                <i class="fas fa-university"></i> Bank Transfer
+            </button>
+            <button class="tab-btn" onclick="switchTab('cash')">
+                <i class="fas fa-money-bill-wave"></i> Cash Payment
+            </button>
+            <button class="tab-btn" onclick="switchTab('check')">
+                <i class="fas fa-money-check"></i> Check Payment
+            </button>
+            <button class="tab-btn" onclick="switchTab('tutorial')">
+                <i class="fas fa-graduation-cap"></i> Tutorial
+            </button>
+        </div>
+
+        <!-- Wallets Section -->
+        <div id="wallets" class="content-section active">
+            <button class="add-btn" onclick="openModal('add', 'wallet')">
+                <i class="fas fa-plus"></i> Add New Wallet
+            </button>
+
+            <div class="payment-grid" id="walletGrid">
+                <!-- Wallet cards will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Bank Transfer Section -->
+        <div id="bank" class="content-section">
+            <button class="add-btn" onclick="openModal('add', 'bank')">
+                <i class="fas fa-edit"></i> Edit Bank Details
+            </button>
+
+            <div class="bank-section" id="bankDetails">
+                <!-- Bank details will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Cash Payment Section -->
+        <div id="cash" class="content-section">
+            <button class="add-btn" onclick="openModal('edit', 'cash')">
+                <i class="fas fa-edit"></i> Edit Cash Payment Details
+            </button>
+            <div id="cashContent"></div>
+        </div>
+
+        <!-- Check Payment Section -->
+        <div id="check" class="content-section">
+            <button class="add-btn" onclick="openModal('edit', 'check')">
+                <i class="fas fa-edit"></i> Edit Check Payment Details
+            </button>
+            <div id="checkContent"></div>
+        </div>
+
+        <!-- Tutorial Section -->
+        <div id="tutorial" class="content-section">
+            <button class="add-btn" onclick="openModal('edit', 'tutorial')">
+                <i class="fas fa-edit"></i> Edit Tutorial Instructions
+            </button>
+            <div id="tutorialContent"></div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <h2 id="modalTitle">Add Payment Method</h2>
+                    <p class="modal-subtitle">Fill in the details below</p>
+                </div>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+
+            <form id="paymentForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editId">
+                    <input type="hidden" id="editType">
+
+                    <div id="walletFields">
+                        <div class="form-group">
+                            <label class="form-label">Wallet Name</label>
+                            <input type="text" class="form-input" id="walletName" placeholder="e.g., GCash">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Account Name</label>
+                            <input type="text" class="form-input" id="accountName" placeholder="Enter account name">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Account Number</label>
+                            <input type="text" class="form-input" id="accountNumber" placeholder="Enter account number">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Reference ID</label>
+                            <input type="text" class="form-input" id="referenceId" placeholder="e.g., Include lease ID">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">QR Code Image</label>
+                            <div class="file-upload" onclick="document.getElementById('qrUpload').click()">
+                                <input type="file" id="qrUpload" accept="image/*" onchange="previewImage(this)">
+                                <p><i class="fas fa-cloud-upload-alt"></i> Click to upload QR code</p>
+                                <div class="upload-preview" id="qrPreview"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="bankFields" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">QR Code Image (Optional)</label>
+                            <div class="file-upload" onclick="document.getElementById('bankQrUpload').click()">
+                                <input type="file" id="bankQrUpload" accept="image/*" onchange="previewImage(this)">
+                                <p><i class="fas fa-cloud-upload-alt"></i> Click to upload QR code</p>
+                                <div class="upload-preview" id="bankQrPreview"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Bank Name</label>
+                            <input type="text" class="form-input" id="bankName" placeholder="e.g., BDO Unibank">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Account Name</label>
+                            <input type="text" class="form-input" id="bankAccountName" placeholder="Enter account name">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Account Number</label>
+                            <input type="text" class="form-input" id="bankAccountNo" placeholder="Enter account number">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Branch</label>
+                            <input type="text" class="form-input" id="branch" placeholder="Enter branch location">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cash Fields Section -->
+                <div id="cashFields" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-input" id="cashTitle" placeholder="e.g., Cash Payment">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-input" id="cashDescription" rows="4" placeholder="Enter payment description and instructions"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Office Hours</label>
+                        <input type="text" class="form-input" id="officeHours" placeholder="e.g., Monday - Friday, 9:00 AM - 5:00 PM">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Office Location</label>
+                        <input type="text" class="form-input" id="officeLocation" placeholder="e.g., Main Office, Ground Floor">
+                    </div>
+                </div>
+
+                <!-- Check Fields Section -->
+                <div id="checkFields" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-input" id="checkTitle" placeholder="e.g., Check Payment">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-input" id="checkDescription" rows="4" placeholder="Enter payment description and instructions"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Payable To</label>
+                        <input type="text" class="form-input" id="payableTo" placeholder="e.g., Ambulo Property Management">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Additional Instructions</label>
+                        <input type="text" class="form-input" id="checkInstructions" placeholder="e.g., Write full name, unit, and contact number at the back">
+                    </div>
+                </div>
+
+                <!-- Tutorial Fields Section -->
+                <div id="tutorialFields" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Tutorial Title</label>
+                        <input type="text" class="form-input" id="tutorialTitle" placeholder="e.g., Payment Instructions">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Upload Instructions</label>
+                        <textarea class="form-input" id="uploadInstructions" rows="3" placeholder="Instructions for uploading payment proof"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Wallet Instructions</label>
+                        <textarea class="form-input" id="walletInstructions" rows="3" placeholder="Instructions for e-wallet payments"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Bank Instructions</label>
+                        <textarea class="form-input" id="bankInstructions" rows="3" placeholder="Instructions for bank transfers"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Additional Notes</label>
+                        <textarea class="form-input" id="additionalNotes" rows="3" placeholder="Any additional notes or reminders"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-save">
+                        <i class="fas fa-check"></i> Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/javascript/edit-payments-details.js"></script>
+</body>
+</html>
