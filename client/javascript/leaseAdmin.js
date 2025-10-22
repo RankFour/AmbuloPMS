@@ -746,7 +746,7 @@ function clearForm() {
   document.getElementById("endDate").value = "";
   document.getElementById("status").value = "PENDING";
   document.getElementById("monthlyRent").value = "";
-  document.getElementById("paymentFrequency").value = "Monthly";
+  // document.getElementById("paymentFrequency").value = "Monthly";
   document.getElementById("quarterlyTax").value = "";
   document.getElementById("securityDeposit").value = "";
   document.getElementById("advancePayment").value = "";
