@@ -211,6 +211,51 @@
     </div>
 
     <script type="module" src="/javascript/adminDashboard.js"></script>
+
+    <script>window.API_VERSION = window.API_VERSION || 'v1';</script>
+    <script src="/javascript/assistant-webchat.js"></script>
+
+    <script src="https://cdn.botpress.cloud/webchat/v3.3/inject.js"></script>
+    <script src="https://files.bpcontent.cloud/2025/10/20/20/20251020204110-KI06VUC7.js" defer></script>
+    <style>
+        /* Ensure BotPress widget is on top and clickable */
+        #bp-web-widget, #bpWidgetContainer, [id^="bp-web-widget"], .bp-widget, .bpw-floating-button, .bpFab {
+            z-index: 2147483647 !important;
+            pointer-events: auto !important;
+        }
+        /* Improve visibility of floating button with transparent PNG */
+        .bpw-floating-button, .bpFab {
+            border-radius: 9999px !important;
+            border: 2px solid rgba(0,0,0,0.15) !important; /* subtle visible ring */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.18) !important;
+            background-color: rgba(255,255,255,0.8) !important; /* faint white backdrop for transparent icons */
+            backdrop-filter: saturate(120%) blur(2px);
+        }
+        .bpw-floating-button img, .bpFab img {
+            border-radius: 9999px !important;
+        }
+    </style>
+    <script>
+        // Auto-open BotPress widget after embed (helps verify it loaded)
+        (function () {
+            var tries = 0;
+            function attempt() {
+                tries++;
+                var bp = window.botpressWebChat || window.botpress;
+                if (bp) {
+                    try {
+                        if (typeof bp.open === 'function') bp.open();
+                        else if (typeof bp.sendEvent === 'function') bp.sendEvent({ type: 'show' });
+                    } catch (e) { }
+                    return;
+                }
+                if (tries < 40) setTimeout(attempt, 250);
+            }
+            // delay slightly to allow deferred config to run
+            setTimeout(attempt, 500);
+        })();
+    </script>
+
     <script>
         var user = null;
         try {
@@ -231,4 +276,5 @@
     </script>
 
 </body>
+
 </html>
