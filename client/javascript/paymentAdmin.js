@@ -1318,7 +1318,7 @@ function getStatusDisplay(charge) {
         const iconHtml = (function () {
             switch (chargeStatus) {
                 case "overdue":
-                    return '<i class="fas fa-circle" style="color:#ef4444;margin-right:6px;"></i>';
+                    return "";
                 case "paid":
                     return '<i class="fas fa-circle" style="color:#10b981;margin-right:6px;"></i>';
                 case "due-soon":
@@ -1333,7 +1333,7 @@ function getStatusDisplay(charge) {
 
     switch (chargeStatus) {
         case "overdue":
-            return `<span class="status-indicator overdue"><i class="fas fa-circle" style="color:#ef4444;margin-right:6px;"></i>${Math.abs(
+            return `<span class="status-indicator overdue">${Math.abs(
                 daysUntilDue
             )} days overdue</span>`;
         case "due-soon":
@@ -3433,27 +3433,29 @@ function renderChargesTable() {
                 </td>
                 <td class="due-date">${formatDate(charge.dueDate)}</td>
                 <td class="td-actions">
-                    <div class="action-buttons">
-                        <button onclick="viewChargeDetails(${charge.id
-            })" class="btn btn-sm btn-info" title="View Details">
-                            <i class="fas fa-eye"></i>
+                    <div style="position:relative; display:inline-block;">
+                        <button class="kebab-btn btn btn-sm" onclick="toggleChargeKebab(event, ${charge.id
+            })" title="Actions">
+                            <i class="fas fa-ellipsis-v"></i>
                         </button>
-                        <button onclick="editCharge(${charge.id
-            })" class="btn btn-sm btn-warning" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        ${!isFullyPaid
+                        <div id="kebab-menu-${charge.id
+            }" class="kebab-dropdown" style="display:none; position:absolute; right:0; top:36px; min-width:160px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; box-shadow:0 6px 18px rgba(2,6,23,0.08); z-index:9999; overflow:hidden;">
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); viewChargeDetails(${charge.id
+            }); toggleChargeKebab(e, ${charge.id
+            });})(event)">View Details</button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); editCharge(${charge.id
+            }); toggleChargeKebab(e, ${charge.id
+            });})(event)">Edit</button>
+                            ${!isFullyPaid
                 ? `
-                            <button onclick="recordPayment(${charge.id})" class="btn btn-sm btn-success" title="Record Payment">
-                                <i class="fas fa-credit-card"></i>
-                            </button>
-                        `
+                                <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); recordPayment(${charge.id}); toggleChargeKebab(e, ${charge.id});})(event)">Record Payment</button>
+                            `
                 : ""
             }
-                        <button onclick="removeCharge(${charge.id
-            })" class="btn btn-sm btn-danger" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px; color:#ef4444;" onclick="(function(e){e.stopPropagation(); removeCharge(${charge.id
+            }); toggleChargeKebab(e, ${charge.id
+            });})(event)">Delete</button>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -3677,17 +3679,25 @@ function renderChargesTable() {
                     charge.dueDate
                 )}</span></div>
                     </div>
-                    <div class="card-actions">
-                        <button onclick="viewChargeDetails(${charge.id
-                })" class="btn btn-sm btn-info" title="View Details"><i class="fas fa-eye"></i></button>
-                        <button onclick="editCharge(${charge.id
-                })" class="btn btn-sm btn-warning" title="Edit"><i class="fas fa-edit"></i></button>
-                        ${!isFullyPaid
-                    ? `<button onclick=\"recordPayment(${charge.id})\" class=\"btn btn-sm btn-success\" title=\"Record Payment\"><i class=\"fas fa-credit-card\"></i></button>`
+                    <div class="card-actions" style="position:relative;">
+                        <button class="kebab-btn btn btn-sm" onclick="toggleChargeKebab(event, 'mobile-${charge.id
+                }')" title="Actions"><i class="fas fa-ellipsis-v"></i></button>
+                        <div id="kebab-menu-mobile-${charge.id
+                }" class="kebab-dropdown" style="display:none; position:absolute; right:0; top:36px; min-width:160px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; box-shadow:0 6px 18px rgba(2,6,23,0.08); z-index:9999; overflow:hidden;">
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); viewChargeDetails(${charge.id
+                }); toggleChargeKebab(e, 'mobile-${charge.id
+                }');})(event)"><i class="fas fa-eye"></i> View Details</button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); editCharge(${charge.id
+                }); toggleChargeKebab(e, 'mobile-${charge.id
+                }');})(event)"><i class="fas fa-edit"></i> Edit</button>
+                            ${!isFullyPaid
+                    ? `<button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); recordPayment(${charge.id}); toggleChargeKebab(e, 'mobile-${charge.id}');})(event)"><i class=\"fas fa-credit-card\"></i> Record Payment</button>`
                     : ""
                 }
-                        <button onclick="removeCharge(${charge.id
-                })" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px; color:#ef4444;" onclick="(function(e){e.stopPropagation(); removeCharge(${charge.id
+                }); toggleChargeKebab(e, 'mobile-${charge.id
+                }');})(event)"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
                     </div>
                 </div>`;
         };
@@ -4030,6 +4040,112 @@ function generateReceipt(paymentId) {
     receiptWindow.document.write(receiptHTML);
     receiptWindow.document.close();
 }
+
+window.toggleChargeKebab = function (evt, id) {
+    try {
+        if (evt && evt.stopPropagation) evt.stopPropagation();
+
+        const idStr = String(id);
+        const portalId = `kebab-portal-${idStr.replace(/\s+/g, "-")}`;
+
+        const existingPortal = document.getElementById(portalId);
+        if (existingPortal) {
+            existingPortal.remove();
+            return;
+        }
+
+        window.closeOpenKebabMenus();
+
+        const candidateIds = [
+            `kebab-menu-${idStr}`,
+            `kebab-menu-mobile-${idStr}`,
+            `kebab-menu-${idStr.replace(/^mobile-/, "")}`,
+        ];
+        let templateEl = null;
+        for (const tid of candidateIds) {
+            const t = document.getElementById(tid);
+            if (t) {
+                templateEl = t;
+                break;
+            }
+        }
+
+        const menuHtml = templateEl
+            ? templateEl.innerHTML
+            : "<div style='padding:8px 12px;color:#374151;'>No actions</div>";
+
+        const portal = document.createElement("div");
+        portal.id = portalId;
+        portal.className = "kebab-dropdown kebab-portal";
+
+        Object.assign(portal.style, {
+            position: "fixed",
+            zIndex: "2147483647",
+            minWidth: "160px",
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "6px",
+            boxShadow: "0 6px 18px rgba(2,6,23,0.08)",
+            overflow: "hidden",
+            padding: "4px 0",
+        });
+        portal.innerHTML = menuHtml;
+
+        portal.addEventListener("click", (e) => e.stopPropagation());
+
+        document.body.appendChild(portal);
+
+        let btnRect = null;
+        try {
+            const btn =
+                evt && evt.target && evt.target.closest
+                    ? evt.target.closest(".kebab-btn")
+                    : null;
+            if (btn && typeof btn.getBoundingClientRect === "function")
+                btnRect = btn.getBoundingClientRect();
+        } catch (_) { }
+
+        requestAnimationFrame(() => {
+            const measured = portal.getBoundingClientRect();
+            let top = window.innerHeight / 2 - measured.height / 2;
+            let left = Math.max(8, (window.innerWidth - measured.width) / 2);
+
+            if (btnRect) {
+                top = btnRect.bottom + 6;
+                left = Math.min(
+                    Math.max(btnRect.right - measured.width, 8),
+                    window.innerWidth - measured.width - 8
+                );
+
+                if (top + measured.height > window.innerHeight - 8) {
+                    top = Math.max(btnRect.top - measured.height - 6, 8);
+                }
+            }
+
+            portal.style.left = `${Math.round(left)}px`;
+            portal.style.top = `${Math.round(top)}px`;
+        });
+    } catch (err) {
+        console.error("toggleChargeKebab error", err);
+    }
+};
+
+window.closeOpenKebabMenus = function () {
+    document.querySelectorAll(".kebab-portal").forEach((d) => d.remove());
+
+    document.querySelectorAll(".kebab-dropdown").forEach((d) => {
+        if (!d.classList.contains("kebab-portal")) d.style.display = "none";
+    });
+};
+
+document.addEventListener("click", function (e) {
+    if (
+        e.target.closest &&
+        (e.target.closest(".kebab-portal") || e.target.closest(".kebab-btn"))
+    )
+        return;
+    window.closeOpenKebabMenus();
+});
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);

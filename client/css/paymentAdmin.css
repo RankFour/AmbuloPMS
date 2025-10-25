@@ -745,7 +745,7 @@ body:has(.sidebar.collapsed) .main-content,
 }
 
 .data-table .th-actions {
-  width: 200px;
+  width: 90px;
   text-align: center;
 }
 
@@ -1437,6 +1437,70 @@ body:has(.sidebar.collapsed) .main-content,
 }
 .mobile-group-body {
   padding: 8px 0;
+}
+
+/* Kebab menu portal styles (moved from inline) */
+.kebab-dropdown {
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.08);
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.kebab-portal {
+  position: fixed;
+  z-index: 2147483647; /* extremely high to sit above headers */
+  animation: kebabPopIn 160ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.kebab-dropdown .kebab-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.kebab-dropdown .kebab-item:hover {
+  background: #f8fafc;
+}
+
+@keyframes kebabPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Improve contrast for overdue status: show a distinct white indicator dot */
+.status-indicator.overdue {
+  position: relative;
+  padding-left: 34px; /* leave space for the dot */
+}
+.status-indicator.overdue::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff; /* white inner for contrast */
+  border: 2px solid #dc2626; /* red ring */
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.06);
 }
 
 @media (max-width: 768px) {
