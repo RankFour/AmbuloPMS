@@ -714,7 +714,7 @@ body:has(.sidebar.collapsed) .main-content,
 }
 
 .data-table .th-unit {
-  width: 280px;
+  width: 230px;
 }
 
 .data-table .th-type {
@@ -731,7 +731,7 @@ body:has(.sidebar.collapsed) .main-content,
 }
 
 .data-table .th-paid {
-  width: 140px;
+  width: 120px;
   text-align: right;
 }
 
@@ -1439,7 +1439,7 @@ body:has(.sidebar.collapsed) .main-content,
   padding: 8px 0;
 }
 
-/* Kebab menu portal styles (moved from inline) */
+
 .kebab-dropdown {
   min-width: 160px;
   background: #fff;
@@ -1452,7 +1452,7 @@ body:has(.sidebar.collapsed) .main-content,
 
 .kebab-portal {
   position: fixed;
-  z-index: 2147483647; /* extremely high to sit above headers */
+  z-index: 2147483647; 
   animation: kebabPopIn 160ms cubic-bezier(0.2, 0, 0.2, 1);
 }
 
@@ -1484,10 +1484,10 @@ body:has(.sidebar.collapsed) .main-content,
   }
 }
 
-/* Improve contrast for overdue status: show a distinct white indicator dot */
+
 .status-indicator.overdue {
   position: relative;
-  padding-left: 34px; /* leave space for the dot */
+  padding-left: 34px; 
 }
 .status-indicator.overdue::before {
   content: "";
@@ -1498,8 +1498,8 @@ body:has(.sidebar.collapsed) .main-content,
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #fff; /* white inner for contrast */
-  border: 2px solid #dc2626; /* red ring */
+  background: #fff; 
+  border: 2px solid #dc2626; 
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.06);
 }
 

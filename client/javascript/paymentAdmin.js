@@ -74,6 +74,51 @@ const CHARGE_STATUS_MAPPINGS_CONST = (window.AppConstants &&
 
 const API_BASE_URL = "/api/v1";
 
+
+
+
+const showAlert = (message, type = "info") => {
+    try {
+        if (window.ModalHelpers && typeof window.ModalHelpers.showAlert === "function") {
+            return window.ModalHelpers.showAlert(message, type);
+        }
+        if (typeof window.showAlert === "function") {
+            return window.showAlert(message, type);
+        }
+    } catch (e) {
+        console.warn("showAlert binding failed, falling back to window.alert", e);
+    }
+    return window.alert((type ? type.toUpperCase() + ": " : "") + String(message));
+};
+
+const showConfirm = (message, title = "Confirm") => {
+    try {
+        if (window.ModalHelpers && typeof window.ModalHelpers.showConfirm === "function") {
+            return window.ModalHelpers.showConfirm(message, title);
+        }
+        if (typeof window.showConfirm === "function") {
+            return window.showConfirm(message, title);
+        }
+    } catch (e) {
+        console.warn("showConfirm binding failed, falling back to native confirm", e);
+    }
+    return Promise.resolve(window.confirm(String(message)));
+};
+
+const showPrompt = (message, placeholder = "", title = "Input") => {
+    try {
+        if (window.ModalHelpers && typeof window.ModalHelpers.showPrompt === "function") {
+            return window.ModalHelpers.showPrompt(message, placeholder, title);
+        }
+        if (typeof window.showPrompt === "function") {
+            return window.showPrompt(message, placeholder, title);
+        }
+    } catch (e) {
+        console.warn("showPrompt binding failed, falling back to native prompt", e);
+    }
+    return Promise.resolve(window.prompt(String(message)));
+};
+
 const CACHE_TTLS = {
     payments: 60 * 1000,
     charges: 60 * 1000,
@@ -1589,40 +1634,40 @@ function getCurrentMonth() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function showAlert(message, type = "info") {
-    const alertColors = {
-        success: "#10b981",
-        error: "#ef4444",
-        warning: "#f59e0b",
-        info: "#3b82f6",
+
+
+if (typeof showAlert === "undefined") {
+    window.showAlert = function (message, type = "info") {
+        try {
+            if (window.ModalHelpers && typeof window.ModalHelpers.showAlert === "function") {
+                return window.ModalHelpers.showAlert(message, type);
+            }
+        } catch (e) {}
+        
+        alert((type ? type.toUpperCase() + ': ' : '') + String(message));
     };
+}
 
-    const alertIcons = {
-        success: "check-circle",
-        error: "exclamation-triangle",
-        warning: "exclamation-circle",
-        info: "info-circle",
+if (typeof showConfirm === "undefined") {
+    window.showConfirm = function (message, title) {
+        try {
+            if (window.ModalHelpers && typeof window.ModalHelpers.showConfirm === "function") {
+                return window.ModalHelpers.showConfirm(message, title);
+            }
+        } catch (e) {}
+        return Promise.resolve(confirm(String(message)));
     };
+}
 
-    const existingAlerts = document.querySelectorAll(".alert-notification");
-    existingAlerts.forEach((alert) => alert.remove());
-
-    const alert = document.createElement("div");
-    alert.className = "alert-notification";
-    alert.style.background = alertColors[type];
-    alert.innerHTML = `
-        <i class="fas fa-${alertIcons[type]}"></i>
-        ${message}
-    `;
-
-    document.body.appendChild(alert);
-
-    setTimeout(() => {
-        if (alert.parentNode) {
-            alert.style.animation = "slideOutRight 0.3s ease forwards";
-            setTimeout(() => alert.remove(), 300);
-        }
-    }, 4000);
+if (typeof showPrompt === "undefined") {
+    window.showPrompt = function (message, placeholder, title) {
+        try {
+            if (window.ModalHelpers && typeof window.ModalHelpers.showPrompt === "function") {
+                return window.ModalHelpers.showPrompt(message, placeholder, title);
+            }
+        } catch (e) {}
+        return Promise.resolve(prompt(String(message)));
+    };
 }
 
 async function updateStatistics({ force = false } = {}) {
@@ -5225,7 +5270,8 @@ function setupAdvancedChargesModalFunctions(
             return;
         }
 
-        if (confirm("Are you sure you want to remove this charge?")) {
+        showConfirm("Are you sure you want to remove this charge?", "Remove charge").then((ok) => {
+            if (!ok) return;
             const chargeItem = document.getElementById(`advancedCharge-${id}`);
             if (chargeItem) {
                 chargeItem.style.transition = "all 0.3s ease";
@@ -5237,7 +5283,7 @@ function setupAdvancedChargesModalFunctions(
                     updateAdvancedSummary();
                 }, 300);
             }
-        }
+        });
     };
 
     window.duplicateAdvancedCharge = function (id) {
@@ -5451,18 +5497,18 @@ function setupAdvancedChargesModalFunctions(
     };
 
     window.resetAdvancedAllCharges = function () {
-        if (
-            confirm(
-                "Are you sure you want to reset all charges? This will remove all entered data."
-            )
-        ) {
+        showConfirm(
+            "Are you sure you want to reset all charges? This will remove all entered data.",
+            "Reset all charges"
+        ).then((ok) => {
+            if (!ok) return;
             const chargesList = document.getElementById("advancedChargesList");
             chargesList.innerHTML = "";
             chargeCounter = 0;
             addAdvancedNewCharge();
             updateAdvancedSummary();
             showAlert("All charges have been reset.", "success");
-        }
+        });
     };
 
     window.previewAdvancedAllCharges = function () {
@@ -6696,11 +6742,26 @@ window.copyPaymentId = function (id) {
 
 window.showFullPaymentId = function (id) {
     if (!id) return;
+    try {
+        if (typeof Modal !== "undefined" && Modal && typeof Modal.open === "function") {
+            Modal.open({
+                title: "Payment ID",
+                body: `<pre style="white-space:pre-wrap;">${escapeHtml(id)}</pre>`,
+                showFooter: true,
+                showCancel: false,
+                confirmText: "OK",
+            });
+            return;
+        }
+    } catch (e) {
+        console.warn("Modal not available for showFullPaymentId", e);
+    }
     alert(`Payment ID:\n${id}`);
 };
 
 async function approvePayment(paymentId) {
-    if (!confirm("Confirm this payment?")) return;
+    const okApprove = await showConfirm("Confirm this payment?", "Confirm payment");
+    if (!okApprove) return;
 
     try {
         const token = localStorage.getItem("token") || "";
@@ -6741,7 +6802,7 @@ async function approvePayment(paymentId) {
 }
 
 async function rejectPayment(paymentId) {
-    const reason = prompt("Please provide a reason for rejection (optional):");
+    const reason = await showPrompt("Please provide a reason for rejection (optional):", "Optional reason", "Reject payment");
     if (reason === null) return;
 
     try {
