@@ -18,7 +18,7 @@ const conn = async () => {
       ssl: {
         rejectUnauthorized: false,
       },
-      port: process.env.NODE_ENV === 'development' ? parseInt(process.env.PORT_LOCAL) : parseInt(process.env.PORT),
+      port: process.env.NODE_ENV === 'development' ? parseInt(process.env.PORT_LOCAL) : parseInt(process.env.PORT_CLOUD),
       timezone: 'Z'
     }).promise();
 
