@@ -13,12 +13,12 @@ const conn = async () => {
       password: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_PASSWORD_LOCAL : process.env.MY_SQL_PASSWORD,
       database: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_DATABASE_LOCAL : process.env.MY_SQL_DATABASE,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: process.env.NODE_ENV === 'development' ? parseInt(process.env.CONNECTION_LIMIT_LOCAL) : parseInt(process.env.CONNECTION_LIMIT),
       queueLimit: 0,
       ssl: {
         rejectUnauthorized: false,
       },
-      port: 3306,
+      port: process.env.NODE_ENV === 'development' ? parseInt(process.env.PORT_LOCAL) : parseInt(process.env.PORT),
       timezone: 'Z'
     }).promise();
 
