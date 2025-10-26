@@ -2,14 +2,14 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="/css/fonts.css">
-    <link rel="stylesheet" href="/css/tenantDashboard.css">
-    <link rel="stylesheet" href="/css/navigation.css">
+    <link rel="stylesheet" href="/css/fonts.css" />
+    <link rel="stylesheet" href="/css/tenantDashboard.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
     <title>Tenant Dashboard</title>
 </head>
 
@@ -28,8 +28,10 @@
                     <div class="card-header">
                         <h3 class="card-title">Today, August 28</h3>
                     </div>
-                    <div class="reminder-content">You have 0 reminders for Today. <a href="#" class="see-all">View
-                            All</a></div>
+                    <div class="reminder-content">
+                        You have 0 reminders for Today.
+                        <a href="#" class="see-all">View All</a>
+                    </div>
                 </div>
 
                 <!-- Calendar Card -->
@@ -92,7 +94,7 @@
                         <div class="payment-label">Monthly Rent Payment</div>
                         <div class="payment-amount">23,000.00 PHP</div>
                         <button class="pay-now-btn">Pay Now</button>
-                        <div style="clear: both;"></div>
+                        <div style="clear: both"></div>
                     </div>
                 </div>
             </div>
@@ -104,7 +106,9 @@
                     <a href="#" class="see-all">See All</a>
                 </div>
                 <div class="maintenance-item">
-                    <div class="maintenance-icon"><i class="fa-solid fa-wrench"></i></div>
+                    <div class="maintenance-icon">
+                        <i class="fa-solid fa-wrench"></i>
+                    </div>
                     <div class="maintenance-details">
                         <div class="maintenance-type">Plumbing</div>
                         <div class="maintenance-id">Request ID: RR-001</div>
@@ -122,7 +126,9 @@
                     <div class="status done">Done</div>
                 </div>
                 <div class="maintenance-item">
-                    <div class="maintenance-icon"><i class="fa-solid fa-toilet"></i></div>
+                    <div class="maintenance-icon">
+                        <i class="fa-solid fa-toilet"></i>
+                    </div>
                     <div class="maintenance-details">
                         <div class="maintenance-type">Plumbing</div>
                         <div class="maintenance-id">Request ID: RR-003</div>
@@ -139,7 +145,9 @@
                     <a href="#" class="see-all">See All</a>
                 </div>
                 <div class="transaction-item">
-                    <div class="transaction-icon"><i class="fa-solid fa-house"></i></div>
+                    <div class="transaction-icon">
+                        <i class="fa-solid fa-house"></i>
+                    </div>
                     <div class="transaction-details">
                         <div class="transaction-type">Rent Payment</div>
                         <div class="transaction-date">15 April 2025, 9:25 AM</div>
@@ -221,7 +229,58 @@
     </div>
 
     <script src="/javascript/tenantDashboard.js"></script>
-    <script src="/javascript/navigations.js"></script>
+    <script>
+        window.API_VERSION = window.API_VERSION || "v1";
+    </script>
+    <script src="/javascript/assistant-webchat.js"></script>
+
+    <script src="https://cdn.botpress.cloud/webchat/v3.3/inject.js"></script>
+    <script src="https://files.bpcontent.cloud/2025/10/20/20/20251020204110-KI06VUC7.js" defer></script>
+    <style>
+        #bp-web-widget,
+        #bpWidgetContainer,
+        [id^="bp-web-widget"],
+        .bp-widget,
+        .bpw-floating-button,
+        .bpFab {
+            z-index: 2147483647 !important;
+            pointer-events: auto !important;
+        }
+
+        .bpw-floating-button,
+        .bpFab {
+            border-radius: 9999px !important;
+            border: 2px solid rgba(0, 0, 0, 0.15) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18) !important;
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            backdrop-filter: saturate(120%) blur(2px);
+        }
+
+        .bpw-floating-button img,
+        .bpFab img {
+            border-radius: 9999px !important;
+        }
+    </style>
+    <script>
+        (function () {
+            var tries = 0;
+            function attempt() {
+                tries++;
+                var bp = window.botpressWebChat || window.botpress;
+                if (bp) {
+                    try {
+                        if (typeof bp.open === "function") bp.open();
+                        else if (typeof bp.sendEvent === "function")
+                            bp.sendEvent({ type: "show" });
+                    } catch (e) { }
+                    return;
+                }
+                if (tries < 40) setTimeout(attempt, 250);
+            }
+
+            setTimeout(attempt, 500);
+        })();
+    </script>
 </body>
 
 </html>
