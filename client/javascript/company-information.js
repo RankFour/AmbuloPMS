@@ -3,7 +3,6 @@ import fetchAboutUsDetails from "../api/loadAboutUs.js";
 
 let companyId = null;
 
-
 const API_BASE_URL = "/api/v1/company-details";
 const ABOUT_API_URL = "/api/v1/about-us";
 
@@ -162,7 +161,6 @@ function setupAltLogoHandling() {
   const altLogoInput = document.getElementById("alt-logo-input");
   const altLogoPreview = document.getElementById("alt-logo-preview");
 
-  
   altLogoInput.addEventListener("change", function (e) {
     const file = e.target.files[0];
     if (file && file.type.startsWith("image/")) {
@@ -235,7 +233,15 @@ function displayAltLogo(altLogoData) {
 }
 
 function removeAltLogo() {
-  if (confirm("Are you sure you want to remove the alternate logo?")) {
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? (msg, title) => window.showConfirm(msg, title)
+      : (msg) => Promise.resolve(confirm(String(msg)));
+  confirmFn(
+    "Are you sure you want to remove the alternate logo?",
+    "Confirm remove"
+  ).then((ok) => {
+    if (!ok) return;
     const altLogoPreview = document.getElementById("alt-logo-preview");
     const removeAltLogoBtn = document.getElementById("remove-alt-logo-btn");
 
@@ -250,7 +256,7 @@ function removeAltLogo() {
     removeAltLogoBtn.style.display = "none";
     hasUnsavedChanges = true;
     showNotification("Alternate logo removed successfully!", "success");
-  }
+  });
 }
 
 function triggerAltLogoUpload() {
@@ -316,7 +322,15 @@ function displayLogo(logoData) {
 }
 
 function removeLogo() {
-  if (confirm("Are you sure you want to remove the company logo?")) {
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? (msg, title) => window.showConfirm(msg, title)
+      : (msg) => Promise.resolve(confirm(String(msg)));
+  confirmFn(
+    "Are you sure you want to remove the company logo?",
+    "Confirm remove"
+  ).then((ok) => {
+    if (!ok) return;
     const logoPreview = document.getElementById("logo-preview");
     const removeLogo = document.getElementById("remove-logo-btn");
 
@@ -331,7 +345,7 @@ function removeLogo() {
     removeLogo.style.display = "none";
     hasUnsavedChanges = true;
     showNotification("Logo removed successfully!", "success");
-  }
+  });
 }
 
 //#region Company Information
@@ -385,18 +399,102 @@ async function saveCompanyInfo() {
     adminEmailInput.value = adminEmail;
   }
 
-  const modal = document.getElementById("admin-password-modal");
-  modal.style.display = "block";
+  const promptFn =
+    typeof window !== "undefined" && typeof window.showPrompt === "function"
+      ? (msg, placeholder, title, inputType) =>
+        window.showPrompt(msg, placeholder, title, inputType)
+      : (msg, placeholder, title, inputType) => {
+        if (inputType === "password") {
+          return new Promise((resolve) => {
+            const overlay = document.createElement("div");
+            overlay.style.position = "fixed";
+            overlay.style.inset = "0";
+            overlay.style.background = "rgba(0,0,0,0.45)";
+            overlay.style.display = "flex";
+            overlay.style.alignItems = "center";
+            overlay.style.justifyContent = "center";
+            overlay.style.zIndex = 12000;
+
+            const box = document.createElement("div");
+            box.style.background = "#fff";
+            box.style.padding = "18px";
+            box.style.borderRadius = "10px";
+            box.style.minWidth = "320px";
+            box.style.maxWidth = "90%";
+            box.style.boxShadow = "0 10px 30px rgba(0,0,0,0.2)";
+
+            const label = document.createElement("div");
+            label.style.marginBottom = "8px";
+            label.style.fontWeight = "600";
+            label.textContent = String(msg);
+
+            const input = document.createElement("input");
+            input.type = "password";
+            input.name = `company-pw-fallback-${Date.now()}`;
+            input.autocomplete = "new-password";
+            input.autocorrect = "off";
+            input.autocapitalize = "off";
+            input.spellcheck = false;
+            input.placeholder = String(placeholder || "");
+            input.style.width = "100%";
+            input.style.padding = "8px";
+            input.style.border = "1px solid #e5e7eb";
+            input.style.borderRadius = "6px";
+            input.style.marginBottom = "12px";
+
+            const actions = document.createElement("div");
+            actions.style.display = "flex";
+            actions.style.gap = "8px";
+            actions.style.justifyContent = "flex-end";
+
+            const cancelBtn = document.createElement("button");
+            cancelBtn.textContent = "Cancel";
+            cancelBtn.className = "btn-cancel";
+            cancelBtn.onclick = () => {
+              if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+              resolve(null);
+            };
+
+            const okBtn = document.createElement("button");
+            okBtn.textContent = "OK";
+            okBtn.className = "btn-confirm";
+            okBtn.onclick = () => {
+              const v = input.value;
+              if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+              resolve(String(v));
+            };
+
+            actions.appendChild(cancelBtn);
+            actions.appendChild(okBtn);
+
+            box.appendChild(label);
+            box.appendChild(input);
+            box.appendChild(actions);
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            setTimeout(() => {
+              try {
+                input.focus();
+              } catch (e) { }
+            }, 20);
+          });
+        }
+
+        return Promise.resolve(prompt(String(msg)));
+      };
 
   return new Promise((resolve) => {
-    document.getElementById("admin-password-confirm-btn").onclick =
-      async function () {
-        const adminEmailValue = document.getElementById("admin-email-input").value;
-        const adminPassword = document.getElementById(
-          "admin-password-input"
-        ).value;
-        modal.style.display = "none";
-        if (!adminEmailValue || !adminPassword || adminPassword.trim() === "") {
+    const adminEmailValue =
+      document.getElementById("admin-email-input")?.value || adminEmail;
+    const promptMessage = "Enter admin password to confirm saving changes";
+
+    promptFn(promptMessage, "", "Admin Password", "password")
+      .then(async (adminPassword) => {
+        if (
+          adminPassword === null ||
+          adminPassword === undefined ||
+          String(adminPassword).trim() === ""
+        ) {
           showNotification(
             "Admin email and password are required to save changes.",
             "error"
@@ -404,18 +502,19 @@ async function saveCompanyInfo() {
           saveBtn.classList.remove("btn-loading");
           saveBtn.disabled = false;
           saveBtn.innerHTML = `<i class="fas fa-save"></i> Save Company Info`;
+          resolve();
           return;
         }
-        await continueSaveCompanyInfo(adminEmailValue, adminPassword);
+
+        await continueSaveCompanyInfo(adminEmailValue, String(adminPassword));
         resolve();
-      };
-    document.getElementById("admin-password-cancel-btn").onclick = function () {
-      modal.style.display = "none";
-      saveBtn.classList.remove("btn-loading");
-      saveBtn.disabled = false;
-      saveBtn.innerHTML = `<i class="fas fa-save"></i> Save Company Info`;
-      resolve();
-    };
+      })
+      .catch((err) => {
+        saveBtn.classList.remove("btn-loading");
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `<i class="fas fa-save"></i> Save Company Info`;
+        resolve();
+      });
   });
 }
 
@@ -577,11 +676,10 @@ function previewCompanyInfo() {
     <div class="company-profile-card">
       <div class="company-header">
         <div class="company-logo-display">
-          ${
-            logo
-              ? `<img src="${logo}" alt="Company Logo">`
-              : `<i class="fas fa-building"></i>`
-          }
+          ${logo
+      ? `<img src="${logo}" alt="Company Logo">`
+      : `<i class="fas fa-building"></i>`
+    }
         </div>
         <div class="company-details">
           <h2>${name}</h2>
@@ -595,11 +693,10 @@ function previewCompanyInfo() {
       <p>${businessHours}</p>
       <div>
         <h4>Alternate Logo</h4>
-        ${
-          altLogo
-            ? `<img src="${altLogo}" alt="Alternate Logo">`
-            : `<i class="fas fa-image"></i>`
-        }
+        ${altLogo
+      ? `<img src="${altLogo}" alt="Alternate Logo">`
+      : `<i class="fas fa-image"></i>`
+    }
       </div>
     </div>
   `;
@@ -621,7 +718,6 @@ function validateCompanyInfoForm() {
     .getElementById("alt-logo-preview")
     .querySelector("img");
 
-  
   const streetAddress = document
     .getElementById("company-street-address")
     .value.trim();
@@ -681,7 +777,7 @@ function setupRealtimeValidation() {
         warningSpan.style.display = "none";
       }
     });
-    
+
     if (!input.value.trim()) {
       warningSpan.textContent = field.warning;
       warningSpan.style.display = "inline";
@@ -828,12 +924,12 @@ function getAboutUsSession() {
 }
 
 async function loadAboutUsContent(forceRefresh = false) {
-    const about = await fetchAboutUsDetails(forceRefresh);
-    if (!about) {
-      showNotification("Failed to load About Us content.", "error");
-      return;
-    }
-    setAboutUsSession(about);
+  const about = await fetchAboutUsDetails(forceRefresh);
+  if (!about) {
+    showNotification("Failed to load About Us content.", "error");
+    return;
+  }
+  setAboutUsSession(about);
 
   if (!about) return;
 
@@ -953,28 +1049,49 @@ async function saveAboutContent() {
 }
 
 function previewAbout() {
+  const storyTitle = document.getElementById("story-title")?.value.trim() || "";
+  const storyContent = window.storyQuill
+    ? window.storyQuill.root.innerHTML
+    : "";
+  const mission = document.getElementById("mission-text")?.value.trim() || "";
+  const vision = document.getElementById("vision-text")?.value.trim() || "";
+  const values = document.getElementById("values-text")?.value.trim() || "";
+
   const previewContent = `
-                <div style="font-family: 'Poppins', sans-serif; line-height: 1.6;">
-                    <h2 style="color: #2c3e50; margin-bottom: 20px;">${about.story.title}</h2>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 30px;">
-                        <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
-                            <h4 style="color: #3b82f6; margin-bottom: 10px;">Mission</h4>
-                            <p style="color: #64748b; font-size: 14px;">${about.mvv.mission}</p>
-                        </div>
-                        <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
-                            <h4 style="color: #3b82f6; margin-bottom: 10px;">Vision</h4>
-                            <p style="color: #64748b; font-size: 14px;">${about.mvv.vision}</p>
-                        </div>
-                        <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
-                            <h4 style="color: #3b82f6; margin-bottom: 10px;">Values</h4>
-                            <p style="color: #64748b; font-size: 14px;">${about.mvv.values}</p>
-                        </div>
-                    </div>
-                </div>
-            `;
+    <div style="font-family: 'Poppins', sans-serif; line-height: 1.6;">
+      <h2 style="color: #2c3e50; margin-bottom: 20px;">${escapeHtml(
+    storyTitle
+  )}</h2>
+      <div style="margin-top: 10px;">${storyContent}</div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 30px;">
+        <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
+          <h4 style="color: #3b82f6; margin-bottom: 10px;">Mission</h4>
+          <p style="color: #64748b; font-size: 14px;">${escapeHtml(mission)}</p>
+        </div>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
+          <h4 style="color: #3b82f6; margin-bottom: 10px;">Vision</h4>
+          <p style="color: #64748b; font-size: 14px;">${escapeHtml(vision)}</p>
+        </div>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
+          <h4 style="color: #3b82f6; margin-bottom: 10px;">Values</h4>
+          <p style="color: #64748b; font-size: 14px;">${escapeHtml(values)}</p>
+        </div>
+      </div>
+    </div>
+  `;
 
   showPreview("About Page Preview", previewContent);
+}
+
+function escapeHtml(text) {
+  if (text == null) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 function generateAboutImageUploads() {
   const grid = document.getElementById("aboutImagesGrid");
@@ -1026,7 +1143,6 @@ function generateAboutImageUploads() {
   }
 }
 
-
 window.removeAboutImage = function (i) {
   const fileInput = document.getElementById(`aboutImage${i}`);
   const img = document.getElementById(`aboutImage${i}Current`);
@@ -1053,68 +1169,59 @@ function previewWebsite() {
                         <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
                             ${logoDisplay}
                             <div>
-                                <h1 style="color: white; font-size: 3em; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${
-                                  company.name
-                                }</h1>
-                                <p style="color: rgba(255,255,255,0.9); font-size: 1.3em; margin: 5px 0 0 0;">${
-                                  company.tagline
-                                }</p>
+                                <h1 style="color: white; font-size: 3em; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${company.name
+    }</h1>
+                                <p style="color: rgba(255,255,255,0.9); font-size: 1.3em; margin: 5px 0 0 0;">${company.tagline
+    }</p>
                             </div>
                         </div>
-                        <p style="font-size: 1.1em; line-height: 1.6; max-width: 800px; margin: 0 auto; opacity: 0.95;">Founded in ${
-                          company.founded
-                        }, delivering commercial real estate excellence</p>
+                        <p style="font-size: 1.1em; line-height: 1.6; max-width: 800px; margin: 0 auto; opacity: 0.95;">Founded in ${company.founded
+    }, delivering commercial real estate excellence</p>
                     </div>
                     
                     <section style="margin-bottom: 60px;">
-                        <h2 style="color: #2c3e50; margin-bottom: 30px; text-align: center; font-size: 2.5em;">${
-                          about.story.title
-                        }</h2>
+                        <h2 style="color: #2c3e50; margin-bottom: 30px; text-align: center; font-size: 2.5em;">${about.story.title
+    }</h2>
                     </section>
                     
                     <section style="margin-bottom: 60px;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; max-width: 1200px; margin: 0 auto;">
                             <div style="text-align: center; padding: 40px; background: linear-gradient(135deg, #3b82f6, #60a5fa); color: white; border-radius: 20px;">
                                 <h3 style="margin-bottom: 20px; font-size: 1.8em;">Mission</h3>
-                                <p style="line-height: 1.7; font-size: 1.05em;">${
-                                  about.mvv.mission
-                                }</p>
+                                <p style="line-height: 1.7; font-size: 1.05em;">${about.mvv.mission
+    }</p>
                             </div>
                             <div style="text-align: center; padding: 40px; background: linear-gradient(135deg, #10b981, #34d399); color: white; border-radius: 20px;">
                                 <h3 style="margin-bottom: 20px; font-size: 1.8em;">Vision</h3>
-                                <p style="line-height: 1.7; font-size: 1.05em;">${
-                                  about.mvv.vision
-                                }</p>
+                                <p style="line-height: 1.7; font-size: 1.05em;">${about.mvv.vision
+    }</p>
                             </div>
                             <div style="text-align: center; padding: 40px; background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; border-radius: 20px;">
                                 <h3 style="margin-bottom: 20px; font-size: 1.8em;">Values</h3>
-                                <p style="line-height: 1.7; font-size: 1.05em;">${
-                                  about.mvv.values
-                                }</p>
+                                <p style="line-height: 1.7; font-size: 1.05em;">${about.mvv.values
+    }</p>
                             </div>
                         </div>
                     </section>
                     
                     <section style="margin-bottom: 60px;">
-                        <h2 style="color: #2c3e50; margin-bottom: 15px; text-align: center; font-size: 2.5em;">${
-                          websiteData.services.title
-                        }</h2>
-                        <p style="color: #64748b; margin-bottom: 50px; text-align: center; font-size: 1.2em; max-width: 600px; margin-left: auto; margin-right: auto;">${
-                          websiteData.services.description
-                        }</p>
+                        <h2 style="color: #2c3e50; margin-bottom: 15px; text-align: center; font-size: 2.5em;">${websiteData.services.title
+    }</h2>
+                        <p style="color: #64748b; margin-bottom: 50px; text-align: center; font-size: 1.2em; max-width: 600px; margin-left: auto; margin-right: auto;">${websiteData.services.description
+    }</p>
                         
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 30px; max-width: 1400px; margin: 0 auto;">
                             ${websiteData.services.items
-                              .map(
-                                (service) => `
+      .map(
+        (service) => `
                                 <div style="background: white; border: 2px solid #e5e7eb; border-radius: 20px; padding: 30px; transition: all 0.3s ease; box-shadow: 0 8px 25px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
                                     <div style="position: absolute; top: -50px; right: -50px; width: 100px; height: 100px; background: linear-gradient(45deg, #10b981, #34d399); border-radius: 50%; opacity: 0.1;"></div>
                                     <h4 style="color: #1e293b; margin-bottom: 18px; font-size: 1.4em; font-weight: 600; position: relative; z-index: 1;">${service.title}</h4>
                                     <p style="color: #64748b; line-height: 1.7; font-size: 1.05em; position: relative; z-index: 1;">${service.description}</p>
                                 </div>
                             `
-                              )
-                              .join("")}
+      )
+      .join("")}
                         </div>
                     </section>
                 </div>
@@ -1124,13 +1231,65 @@ function previewWebsite() {
 }
 
 function showPreview(title, content) {
-  document.querySelector("#preview-modal .modal-title").textContent = title;
-  document.getElementById("preview-content").innerHTML = content;
-  document.getElementById("preview-modal").classList.add("show");
+  try {
+    if (
+      typeof Modal !== "undefined" &&
+      Modal &&
+      typeof Modal.open === "function"
+    ) {
+      Modal.open({
+        title,
+        body: String(content),
+        showFooter: true,
+        showCancel: false,
+        confirmText: "Close",
+        onConfirm: () => { },
+        variant: "default",
+      });
+      return;
+    }
+  } catch (e) {
+    console.warn(
+      "Modal.open preview failed, falling back to inline preview",
+      e
+    );
+  }
+
+  const titleEl = document.querySelector("#preview-modal .modal-title");
+  const contentEl = document.getElementById("preview-content");
+  const modalEl = document.getElementById("preview-modal");
+  if (titleEl && contentEl && modalEl) {
+    titleEl.textContent = title;
+    contentEl.innerHTML = content;
+    modalEl.classList.add("show");
+    return;
+  }
+
+  try {
+    const text = String(content).replace(/<[^>]+>/g, "");
+    if (typeof showAlert === "function") showAlert(text, "info");
+    else alert(text);
+  } catch (e) {
+    try {
+      alert(String(title) + "\n\n" + String(content));
+    } catch (err) { }
+  }
 }
 
 function closePreviewModal() {
-  document.getElementById("preview-modal").classList.remove("show");
+  try {
+    if (
+      typeof Modal !== "undefined" &&
+      Modal &&
+      typeof Modal.close === "function"
+    ) {
+      Modal.close();
+      return;
+    }
+  } catch (e) { }
+
+  const modalEl = document.getElementById("preview-modal");
+  if (modalEl) modalEl.classList.remove("show");
 }
 
 function showNotification(message, type = "info") {
@@ -1144,13 +1303,12 @@ function showNotification(message, type = "info") {
   const notification = document.createElement("div");
   notification.className = `notification ${type}`;
   notification.innerHTML = `
-                <i class="fas fa-${
-                  type === "success"
-                    ? "check-circle"
-                    : type === "error"
-                    ? "exclamation-triangle"
-                    : "info-circle"
-                }"></i>
+                <i class="fas fa-${type === "success"
+      ? "check-circle"
+      : type === "error"
+        ? "exclamation-triangle"
+        : "info-circle"
+    }"></i>
                 ${message}
             `;
 
@@ -1170,21 +1328,17 @@ function showNotification(message, type = "info") {
   }, 4000);
 }
 
-
 document.addEventListener("keydown", function (e) {
-  
   if ((e.ctrlKey || e.metaKey) && e.key === "s") {
     e.preventDefault();
     saveAllContent();
   }
 
-  
   if ((e.ctrlKey || e.metaKey) && e.key === "p") {
     e.preventDefault();
     previewWebsite();
   }
 
-  
   if (e.key === "Escape") {
     closeServiceModal();
     closeAdvantageModal();
@@ -1197,3 +1351,4 @@ window.previewCompanyInfo = previewCompanyInfo;
 window.saveCompanyInfo = saveCompanyInfo;
 window.previewAbout = previewAbout;
 window.saveAboutContent = saveAboutContent;
+window.removeAltLogo = removeAltLogo;

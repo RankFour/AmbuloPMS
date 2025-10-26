@@ -1,0 +1,14 @@
+{
+  "name": "ambulo-pms-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Root package for Heroku deployment; delegates to server/",
+  "engines": {
+    "node": "^20.0.0",
+    "npm": ">=9"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "heroku-postbuild": "npm install --prefix server"
+  }
+}

@@ -6,6 +6,42 @@ import formatDate from "../utils/formatDate.js";
 import formatAttachments from "../utils/formatAttachments.js";
 import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 
+// Lightweight dialog adapter: prefers app modal helpers when available, falls back to native dialogs.
+const showAlert = (msg, type = 'info') => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
+      window.showAlert(String(msg), type);
+      return;
+    }
+  } catch (e) {
+    // ignore and fallback
+  }
+  // fallback (synchronous)
+  alert(String(msg));
+};
+
+const showConfirm = async (msg, title = 'Confirm') => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
+      return !!(await window.showConfirm(String(msg), title));
+    }
+  } catch (e) {
+    // ignore and fallback
+  }
+  return confirm(String(msg));
+};
+
+const showPrompt = async (msg, placeholder = '', title = 'Input', inputType = 'text') => {
+  try {
+    if (typeof window !== 'undefined' && typeof window.showPrompt === 'function') {
+      return await window.showPrompt(String(msg), placeholder, title, inputType);
+    }
+  } catch (e) {
+    // ignore and fallback
+  }
+  return prompt(String(msg), placeholder);
+};
+
 let allUsers = [];
 let allProperties = [];
 let userLeases = {};
@@ -790,8 +826,11 @@ async function editTicket(ticketId) {
     if (isCompleted || isCancelled) {
       const statusText = isCompleted ? "completed" : "cancelled";
       const proceedMessage = `This ticket is ${statusText} and cannot be edited.\n\nWould you like to view its details anyway?`;
-
-      if (!confirm(proceedMessage)) {
+      const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+        ? ((msg, title) => window.showConfirm(msg, title))
+        : (msg => Promise.resolve(confirm(String(msg))));
+      const proceed = !!(await confirmFn(proceedMessage, 'Notice'));
+      if (!proceed) {
         return;
       }
     }
@@ -802,7 +841,7 @@ async function editTicket(ticketId) {
     modal.classList.add("active");
   } catch (error) {
     console.error("Error opening edit modal:", error);
-    alert("Failed to load ticket details. Please try again.");
+    showAlert("Failed to load ticket details. Please try again.", 'error');
   }
 }
 
@@ -1140,25 +1179,25 @@ function addFilesToEditSelection(files) {
   const maxNewFiles = AppConstants.FILE_UPLOAD.MAX_FILES - totalExistingFiles;
 
   if (maxNewFiles <= 0) {
-    alert(`Maximum ${AppConstants.FILE_UPLOAD.MAX_FILES} files allowed total (including existing attachments).`);
+    showAlert(`Maximum ${AppConstants.FILE_UPLOAD.MAX_FILES} files allowed total (including existing attachments).`, 'warning');
     return;
   }
 
   if (files.length > maxNewFiles) {
-    alert(`Can only add ${maxNewFiles} more file(s). You have ${totalExistingFiles} files already.`);
+    showAlert(`Can only add ${maxNewFiles} more file(s). You have ${totalExistingFiles} files already.`, 'warning');
     files = files.slice(0, maxNewFiles);
   }
 
   for (const file of files) {
 
     if (!AppConstants.FILE_UPLOAD.ALLOWED_TYPES.includes(file.type)) {
-      alert(`File type not supported: ${file.name}\nAllowed types: Images, Videos, PDF, Word documents, Text files`);
+        showAlert(`File type not supported: ${file.name}\nAllowed types: Images, Videos, PDF, Word documents, Text files`, 'error');
       continue;
     }
 
 
     if (file.size > AppConstants.FILE_UPLOAD.MAX_SIZE) {
-      alert(`File too large: ${file.name}\nMaximum size: ${AppConstants.FILE_UPLOAD.MAX_SIZE / (1024 * 1024)}MB`);
+        showAlert(`File too large: ${file.name}\nMaximum size: ${AppConstants.FILE_UPLOAD.MAX_SIZE / (1024 * 1024)}MB`, 'error');
       continue;
     }
 
@@ -1249,7 +1288,7 @@ async function submitEditTicket(event) {
   const ticketId = document.getElementById("editTicketId").value;
 
   if (submitBtn.disabled) {
-    alert("This ticket cannot be edited due to its current status.");
+    showAlert("This ticket cannot be edited due to its current status.", 'warning');
     return;
   }
 
@@ -1294,7 +1333,7 @@ async function submitEditTicket(event) {
 
   const validationErrors = validateEditTicketForm(ticketData);
   if (validationErrors.length > 0) {
-    alert("Please fix the following errors:\n\n" + validationErrors.join("\n"));
+    showAlert("Please fix the following errors:\n\n" + validationErrors.join("\n"), 'warning');
     return;
   }
 
@@ -1305,7 +1344,11 @@ async function submitEditTicket(event) {
     confirmMessage = `Are you sure you want to update this ticket?\n\nTicket: ${ticketData.ticket_title}\nType: ${ticketData.request_type}\nPriority: ${ticketData.priority}`;
   }
 
-  if (!confirm(confirmMessage)) {
+  const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+    ? ((msg, title) => window.showConfirm(msg, title))
+    : (msg => Promise.resolve(confirm(String(msg))));
+  const doSubmit = !!(await confirmFn(confirmMessage, 'Confirm'));
+  if (!doSubmit) {
     return;
   }
 
@@ -1331,7 +1374,7 @@ async function submitEditTicket(event) {
 
       for (const file of editSelectedFiles) {
         if (file.size > AppConstants.FILE_UPLOAD.MAX_SIZE) {
-          alert(`File "${file.name}" is too large. Maximum size is 10MB.`);
+          showAlert(`File "${file.name}" is too large. Maximum size is 10MB.`, 'error');
           return;
         }
 
@@ -1362,7 +1405,8 @@ async function submitEditTicket(event) {
           ? `❌ Ticket cancelled successfully!\n\nTicket "${ticketData.ticket_title}" has been cancelled.`
           : `✅ Ticket updated successfully!\n\nTicket "${ticketData.ticket_title}" has been updated.`;
 
-      alert(statusMessage);
+      // choose success for positive messages
+      showAlert(statusMessage, 'success');
       closeEditTicketModal();
 
       try { invalidateCacheByPrefix('/api/v1/tickets'); } catch (e) {}
@@ -1370,12 +1414,10 @@ async function submitEditTicket(event) {
     } else {
       throw new Error(result.message || "Failed to update ticket");
     }
-  } catch (error) {
-    console.error("Error updating ticket:", error);
-    alert(
-      `❌ Error updating ticket: ${error.message}\n\nPlease try again or contact support if the problem persists.`
-    );
-  } finally {
+    } catch (error) {
+      console.error("Error updating ticket:", error);
+      showAlert(`❌ Error updating ticket: ${error.message}\n\nPlease try again or contact support if the problem persists.`, 'error');
+    } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = "Update Ticket";
   }
@@ -1461,31 +1503,38 @@ function initializeFileUpload() {
   });
 }
 
-function deleteTicket(ticketId) {
+async function deleteTicket(ticketId) {
   const ticket = allTickets.find(t => t.ticket_id === ticketId);
   if (!ticket) {
-    alert("Ticket not found");
+    showAlert("Ticket not found", 'warning');
     return;
   }
-  if (!confirm(`Are you sure you want to delete ticket '${ticket.ticket_title}'? This action cannot be undone.`)) {
-    return;
-  }
-  fetch(`/api/v1/tickets/${ticketId}`, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include"
-  })
-    .then(res => res.json())
-    .then(result => {
-      if (result && result.message) alert(result.message);
+
+  const proceed = await showConfirm(`Are you sure you want to delete ticket '${ticket.ticket_title}'? This action cannot be undone.`, 'Delete Ticket');
+  if (!proceed) return;
+
+  try {
+    const response = await fetch(`/api/v1/tickets/${ticketId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    });
+    const result = await response.json();
+
+    if (response.ok) {
+      if (result && result.message) showAlert(result.message, 'success');
       allTickets = allTickets.filter(t => t.ticket_id !== ticketId);
       tickets = tickets.filter(t => t.ticket_id !== ticketId);
       try { invalidateCacheByPrefix('/api/v1/tickets'); } catch (e) {}
       renderTickets();
-    })
-    .catch(err => {
-      alert("Failed to delete ticket: " + err.message);
-    });
+    } else {
+      const msg = (result && result.message) ? result.message : 'Failed to delete ticket';
+      showAlert(msg, 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showAlert("Failed to delete ticket: " + (err && err.message ? err.message : String(err)), 'error');
+  }
 }
 
 function initializeModal() {
@@ -1536,7 +1585,7 @@ function initializeModal() {
         });
         const result = await response.json();
         if (response.ok) {
-          alert(`✅ Ticket created successfully!\n\nTicket ID: ${result.ticket_id}`);
+          showAlert(`✅ Ticket created successfully!\n\nTicket ID: ${result.ticket_id}`, 'success');
           modal.classList.remove("active");
           newTicketForm.reset();
           try { invalidateCacheByPrefix('/api/v1/tickets'); } catch (e) {}
@@ -1545,7 +1594,7 @@ function initializeModal() {
           throw new Error(result.message || "Failed to create ticket");
         }
       } catch (error) {
-        alert(`❌ Error creating ticket: ${error.message}`);
+        showAlert(`❌ Error creating ticket: ${error.message}`, 'error');
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = "Create Ticket";
@@ -1560,7 +1609,7 @@ function assignTicket(ticketId) {
     ticket = allTickets.find(t => t.ticket_id === ticketId);
   }
   if (!ticket) {
-    alert("Ticket not found");
+    showAlert("Ticket not found", 'warning');
     return;
   }
   document.getElementById("assignTicketId").value = ticket.ticket_id;
@@ -1583,8 +1632,8 @@ function assignTicket(ticketId) {
       const assignedTo = document.getElementById("assignedToInput").value.trim();
       const assignmentNotes = document.getElementById("assignmentNotes").value.trim();
       if (!assignedTo) {
-        alert("Please specify who to assign this ticket to.");
-        document.getElementById("assignedToInput").focus();
+          showAlert("Please specify who to assign this ticket to.", 'warning');
+          document.getElementById("assignedToInput").focus();
         return;
       }
       const submitBtn = assignTicketForm.querySelector(".btn-submit");
@@ -1603,7 +1652,7 @@ function assignTicket(ticketId) {
         });
         const result = await response.json();
         if (response.ok) {
-          alert("✅ Ticket assigned successfully!");
+          showAlert("✅ Ticket assigned successfully!", 'success');
           modal.classList.remove("active");
           assignTicketForm.reset();
           try { invalidateCacheByPrefix('/api/v1/tickets'); } catch (e) {}
@@ -1612,7 +1661,7 @@ function assignTicket(ticketId) {
           throw new Error(result.message || "Failed to assign ticket");
         }
       } catch (error) {
-        alert(`❌ Error assigning ticket: ${error.message}`);
+        showAlert(`❌ Error assigning ticket: ${error.message}`, 'error');
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = "Assign Ticket";
@@ -1657,7 +1706,7 @@ let currentTicketId = null;
 
 window.editCurrentTicket = function () {
   if (!currentTicketId || currentTicketId === 'null' || currentTicketId === null) {
-    alert('No valid ticket selected for editing.');
+    showAlert('No valid ticket selected for editing.', 'warning');
     return;
   }
   closeTicketDetailsModal();
@@ -1667,7 +1716,7 @@ window.editCurrentTicket = function () {
 };
 window.assignCurrentTicket = function () {
   if (!currentTicketId || currentTicketId === 'null' || currentTicketId === null) {
-    alert('No valid ticket selected for assignment.');
+    showAlert('No valid ticket selected for assignment.', 'warning');
     return;
   }
   closeTicketDetailsModal();

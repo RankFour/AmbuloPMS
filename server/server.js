@@ -11,8 +11,10 @@ import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { initializeSocket } from './config/socket.js';
+import fs from 'fs';
 
 /*  ========== Importing Routes ========== */
 import usersRoutes from './routes/usersRoutes.js';
@@ -38,7 +40,8 @@ import conn from './config/db.js';
 
 const app = express();
 const server = createServer(app);
-const __dirname = path.resolve();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const API_VERSION = process.env.API_VERSION;
@@ -46,16 +49,9 @@ const PORT = process.env.PORT || 5000;
 const PROJECT_NAME = process.env.PROJECT_NAME;
 
 const corsOptions = {
-    origin: [
-        'http://localhost:5500',  // Live Server
-        'http://127.0.0.1:5500',  // Live Server alternative
-        'http://localhost:3000',
-        'http://localhost:8080'
-    ],
-    credentials: true,
-    optionsSuccessStatus: 200,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+    origin: '*',
+    credentials: true, //access-control-allow-credentials:true
+    optionSuccessStatus: 200,
 };
 
 app.use(cors(corsOptions));
@@ -63,8 +59,24 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true, parameterLimit: 50000 }));
 app.use(cookieParser());
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '../client')));
+app.get('/index.html', (req, res) => {
+    const qsIndex = req.url.indexOf('?');
+    const qs = qsIndex !== -1 ? req.url.slice(qsIndex) : '';
+    return res.redirect(301, `/${qs}`);
+});
+
+app.get(/^\/(?:([^\/]+))\.html$/, (req, res, next) => {
+    const base = req.params[0];
+    const candidate = path.join(__dirname, '../client', `${base}.html`);
+    if (fs.existsSync(candidate)) {
+        const qsIndex = req.url.indexOf('?');
+        const qs = qsIndex !== -1 ? req.url.slice(qsIndex) : '';
+        return res.redirect(301, `/${base}${qs}`);
+    }
+    return next();
+});
+
+app.use(express.static(path.join(__dirname, '../client'), { index: false }));
 
 /*  ========== API - Routes ========== */
 app.use(`/api/${API_VERSION}/users`, usersRoutes);
@@ -92,17 +104,50 @@ app.use(`/api/${API_VERSION}/assistant`, assistantLimiter, assistantAnalytics, a
 
 // Serve login page
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client', 'login.html'));
+    res.sendFile(path.join(__dirname, '../client', 'index.html'));
 });
 
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, '../client', 'login.html'));
 });
 
+const prettyRoutes = {
+    '/properties': 'propertySpaces.html',
+    '/contact-us': 'contactus.html',
+    '/about-us': 'aboutus.html',
+    '/faqs': 'FAQs.html',
+    '/maintenance': 'maintenance.html',
+    '/documents': 'documents.html',
+    '/messages': 'messages.html',
+    '/tenants': 'tenants.html',
+    '/tenant-dashboard': 'tenantDashboard.html',
+    '/profile': 'account-profile.html',
+    '/payments': 'paymentTenant.html',
+    '/leases': 'leaseTenant.html',
+    '/admin/dashboard': 'adminDashboard.html'
+};
+
+for (const [routePath, htmlFile] of Object.entries(prettyRoutes)) {
+    app.get(routePath, (req, res) => {
+        res.sendFile(path.join(__dirname, '../client', htmlFile));
+    });
+}
+
+app.get(/^\/(?!api\/|assets\/|css\/|javascript\/|fonts\/|components\/|favicon\/).+$/, (req, res, next) => {
+    const slug = req.path.replace(/\/+$/, '');
+    if (!slug || slug === '/') return next();
+    const candidate = `${slug.slice(1)}.html`;
+    const absolute = path.join(__dirname, '../client', candidate);
+    if (fs.existsSync(absolute)) {
+        return res.sendFile(absolute);
+    }
+    return next();
+});
+
 if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, 'client', 'build')));
-    app.get('*', (req, res) => {
-        res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+    app.use(express.static(path.join(__dirname, '../client'), { index: false }));
+    app.get(/^\/(?!api\/).*/, (req, res) => {
+        res.sendFile(path.join(__dirname, '../client', 'index.html'));
     });
 } else {
     app.get(`/api/${API_VERSION}`, (req, res) => {
@@ -115,7 +160,6 @@ app.use(notFound);
 app.use(errorHandler);
 
 const startServer = async () => {
-    // Initialize Socket.IO and attach to app for controllers to use
     const io = initializeSocket(server);
     app.set('io', io);
     try {
@@ -126,12 +170,12 @@ const startServer = async () => {
 };
 
 const createTables = async () => {
-  try {
-    const pool = await conn();
-    await tables(pool);
-  } catch (error) {
-    console.error('Error setting up tables:', error);
-  }
+    try {
+        const pool = await conn();
+        await tables(pool);
+    } catch (error) {
+        console.error('Error setting up tables:', error);
+    }
 };
 
 

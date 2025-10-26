@@ -223,7 +223,7 @@
     </div>
 
     <!-- Confirmation Dialog Modal -->
-    <div class="modal-overlay" id="confirmationModal" style="display: none;">
+    <div class="modal-overlay" id="confirmationModal">
         <div class="modal-dialog">
             <div class="modal-header">
                 <h3>Confirm Ticket Submission</h3>
@@ -249,24 +249,7 @@
 
     <script type="module" src="/constants/constants.js"></script>
     <script type="module" src="/javascript/maintenanceTenant.js"></script>
-        <script>
-        var user = null;
-        try {
-            user = JSON.parse(localStorage.getItem('user'));
-        } catch (e) { }
-
-        var userRole = (user && user.role) ? user.role.toUpperCase() : 'TENANT';
-
-        if (userRole === 'ADMIN') {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsAdmin.js';
-            document.body.appendChild(script);
-        } else {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsTenant.js';
-            document.body.appendChild(script);
-        }
-    </script>
+    <script src="/javascript/navigations.js"></script>
 </body>
 
 </html>

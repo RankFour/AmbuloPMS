@@ -6,24 +6,31 @@ dotenv.config();
 
 const conn = async () => {
   try {
-    
+
     const pool = mysql.createPool({
-      host: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_HOST : process.env.MY_SQL_HOST_PROD,
-      user: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_USER : process.env.MY_SQL_USER_PROD,
-      password: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_PASSWORD : process.env.MY_SQL_PASSWORD_PROD,
-      database: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_DATABASE : process.env.MY_SQL_DATABASE_PROD,
+      host: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_HOST_LOCAL : process.env.MY_SQL_HOST,
+      user: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_USER_LOCAL : process.env.MY_SQL_USER,
+      password: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_PASSWORD_LOCAL : process.env.MY_SQL_PASSWORD,
+      database: process.env.NODE_ENV === 'development' ? process.env.MY_SQL_DATABASE_LOCAL : process.env.MY_SQL_DATABASE,
       waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0
+      connectionLimit: process.env.NODE_ENV === 'development' ? parseInt(process.env.CONNECTION_LIMIT_LOCAL) : parseInt(process.env.CONNECTION_LIMIT),
+      queueLimit: 0,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      port: process.env.NODE_ENV === 'development' ? parseInt(process.env.PORT_LOCAL) : parseInt(process.env.PORT_CLOUD),
+      timezone: 'Z'
     }).promise();
 
-    // Check if the connection works by getting a connection from the pool
     await pool.getConnection();
-    console.log(colors.bold.yellow('Database is connected...'));
+    if (process.env.NODE_ENV === 'development') {
+      console.log(colors.bold.yellow('Database is connected locally...'));
+    } else {
+      console.log(colors.bold.yellow('Database is connected on live...'));
+    }
 
     return pool;
   } catch (error) {
-    // Handle different types of MySQL errors
     if (error.code === 'ER_ACCESS_DENIED_ERROR') {
       console.error(colors.red('Invalid MySQL credentials. Please check your username and password.'));
     } else if (error.code === 'ER_BAD_DB_ERROR') {
@@ -31,7 +38,6 @@ const conn = async () => {
     } else if (error.code === 'ECONNREFUSED') {
       console.error(colors.red('Connection refused. Check if your MySQL server is running.'));
     } else {
-      // General error
       console.error(colors.red(`Error connecting to the database: ${error.message}`));
     }
     throw new Error(error.message);

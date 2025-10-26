@@ -1,9 +1,12 @@
-import { getJwtToken } from "/utils/getCookie.js";
-import formatTimeFlexible from "/utils/formatTime.js";
+import { getJwtToken, getCookie } from "../utils/getCookie.js";
+import formatTimeFlexible from "../utils/formatTime.js";
+import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 
 const announcements = [];
 
 let chatContacts = [];
+let allChatContacts = [];
+let lastChatSearchQuery = "";
 const chatMessagesCache = {};
 
 let currentAnnouncementFilter = "all";
@@ -15,19 +18,83 @@ let socket = null;
 let jwtToken = null;
 let currentUser = null;
 let typingTimeouts = {};
+let chatSearchDebounce = null;
 const API_BASE = "/api/v1";
 let pendingAttachments = [];
 let pendingTmpMap = new Map();
 
 document.addEventListener("DOMContentLoaded", async function () {
-  jwtToken = getJwtToken();
+  
+  try {
+    console.debug("messages: DOMContentLoaded - script running");
+  } catch (e) {}
+
+  
+  try {
+    if (typeof getCookie === "function") {
+      const t = getCookie("token");
+      if (t) jwtToken = t;
+    }
+  } catch (e) {}
+
+  if (!jwtToken) {
+    try {
+      
+      jwtToken = getJwtToken();
+    } catch (e) {
+      jwtToken = null;
+      console.debug("messages: getJwtToken threw or redirected; proceeding without token");
+    }
+  }
   try {
     const userStr = localStorage.getItem("user");
     if (userStr) currentUser = JSON.parse(userStr);
   } catch {}
 
+  
+  try {
+    console.debug("messages:init jwt present:", !!jwtToken);
+    console.debug("messages:init currentUser:", currentUser ? { id: currentUser.user_id, role: currentUser.role } : null);
+  } catch (e) {}
+
   renderAnnouncements();
   setupEventListeners();
+
+  try {
+    const company = await fetchCompanyDetails();
+    if (company) {
+      try {
+        if (company.name) {
+          document.title = `Messages - ${company.name}`;
+        }
+        const pageIcon = document.getElementById("pageIcon");
+        if (pageIcon) {
+          if (company.logoHtml) pageIcon.innerHTML = company.logoHtml;
+          else if (company.altLogoHtml) pageIcon.innerHTML = company.altLogoHtml;
+        }
+        if (company.icon_logo_url) {
+          let link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.head.appendChild(link);
+          }
+          link.href = company.icon_logo_url;
+        }
+      } catch (e) {
+        console.warn("Failed to apply company details to page", e);
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load company details", err);
+  }
+
+  
+  try {
+    await ensureModalHelpers();
+  } catch (e) {
+    console.debug('messages: ensureModalHelpers failed or timed out', e);
+  }
 
   tryInitSocket();
 
@@ -55,6 +122,73 @@ document.addEventListener("DOMContentLoaded", async function () {
       role === "ADMIN" || role === "MANAGER" ? "inline-flex" : "none";
   }
 });
+
+
+
+function ensureModalHelpers(timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.showConfirm === 'function' && typeof window.Modal !== 'undefined') {
+        return resolve(true);
+      }
+
+      let loaded = 0;
+      function checkDone() {
+        if (typeof window !== 'undefined' && typeof window.showConfirm === 'function' && typeof window.Modal !== 'undefined') {
+          resolve(true);
+          return true;
+        }
+        return false;
+      }
+
+      if (checkDone()) return;
+
+      
+      function inject(src) {
+        return new Promise((res, rej) => {
+          try {
+            const found = Array.from(document.getElementsByTagName('script')).find(s => s.src && s.src.indexOf(src) !== -1);
+            if (found) return res(found);
+            const s = document.createElement('script');
+            s.src = src;
+            s.async = false;
+            s.onload = () => res(s);
+            s.onerror = (e) => rej(e);
+            document.head.appendChild(s);
+          } catch (e) { rej(e); }
+        });
+      }
+
+      
+      inject('/javascript/dialog-modal.js')
+        .catch(() => null)
+        .then(() => inject('/javascript/utils/modalHelpers.js').catch(() => null))
+        .then(() => {
+          if (checkDone()) return;
+          
+          const start = Date.now();
+          const iv = setInterval(() => {
+            if (checkDone() || Date.now() - start > timeoutMs) {
+              clearInterval(iv);
+              resolve(checkDone());
+            }
+          }, 100);
+        })
+        .catch(() => {
+          
+          const start = Date.now();
+          const iv = setInterval(() => {
+            if (checkDone() || Date.now() - start > timeoutMs) {
+              clearInterval(iv);
+              resolve(checkDone());
+            }
+          }, 100);
+        });
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
 
 function switchTab(tabName, tabElement) {
   document
@@ -555,21 +689,41 @@ async function loadConversationsOnly() {
   try {
     chatContacts = [];
     if (currentUser && currentUser.user_id) {
-      const convRes = await fetch(
-        `${API_BASE}/messages/conversations/${currentUser.user_id}`,
-        { credentials: "include" }
-      );
-      const convs = await convRes.json();
-      chatContacts = (convs || []).map((c) => ({
-        id: c.other_user_id,
-        name: c.other_user_name,
-        avatar: getInitialsFromName(c.other_user_name),
-        avatarUrl: c.other_user_avatar || null,
-        online: false,
-        lastMessage: c.last_message || "",
-        lastTime: c.last_message_time ? formatTime(c.last_message_time) : "",
-        unreadCount: 0,
-      }));
+      try {
+        console.debug("messages: loadConversationsOnly - fetching conversations", {
+          jwtPresent: !!jwtToken,
+          currentUser: currentUser ? { id: currentUser.user_id, role: currentUser.role } : null,
+        });
+
+        const convRes = await fetch(
+          `${API_BASE}/messages/conversations/${currentUser.user_id}`,
+          { credentials: "include" }
+        );
+
+        let convs = null;
+        try {
+          convs = await convRes.json();
+        } catch (e) {
+          console.warn("messages: conversations response JSON parse failed", e);
+          convs = null;
+        }
+
+        console.debug("messages: conversations fetch result", { status: convRes.status, ok: convRes.ok, bodySample: Array.isArray(convs) ? convs.slice(0,3) : convs });
+
+        chatContacts = (convs || []).map((c) => ({
+          id: c.other_user_id,
+          name: c.other_user_name,
+          avatar: getInitialsFromName(c.other_user_name),
+          avatarUrl: c.other_user_avatar || null,
+          online: false,
+          lastMessage: c.last_message || "",
+          lastTime: c.last_message_time ? formatTime(c.last_message_time) : "",
+          unreadCount: 0,
+        }));
+      } catch (e) {
+        console.error("messages: failed to fetch conversations", e);
+        chatContacts = [];
+      }
     }
   } catch (e) {
     console.error("Failed to load contacts", e);
@@ -590,19 +744,19 @@ function renderChatContacts() {
     const safeId = String(contact.id).replace(/'/g, "\\'");
     const safeName = escapeHtml(contact.name || "");
     const safeLast = escapeHtml(contact.lastMessage || "");
+    const highlightedName = lastChatSearchQuery
+      ? highlightMatch(safeName, lastChatSearchQuery)
+      : safeName;
+    const highlightedLast = lastChatSearchQuery
+      ? highlightMatch(safeLast, lastChatSearchQuery)
+      : safeLast;
 
     html += `
             <div class="contact-item ${activeClass}" onclick="selectChatContact('${safeId}')">
-                <div class="contact-avatar ${onlineClass}" style="display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    ${
-                      contact.avatarUrl
-                        ? `<img src="${contact.avatarUrl}" alt="${safeName}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;"/>`
-                        : `${contact.avatar}`
-                    }
-                </div>
+        ${createAvatarHtml(contact.avatarUrl || null, contact.name || "", 36, onlineClass)}
                 <div class="contact-info">
-                    <div class="contact-name">${safeName}</div>
-                    <div class="contact-last-message">${safeLast}</div>
+          <div class="contact-name">${highlightedName}</div>
+          <div class="contact-last-message">${highlightedLast}</div>
                 </div>
                 <div class="contact-meta">
                     <div class="contact-time">${contact.lastTime}</div>
@@ -658,17 +812,7 @@ function renderChatMain(contact) {
             <button type="button" class="chat-mobile-toggle-btn" onclick="openChatSidebarMobile()" title="Conversations" style="display:none; border:none; background:transparent; color: var(--primary-color); font-size:1.25rem; cursor:pointer;">
                 <i class="fas fa-bars"></i>
             </button>
-            <div class="contact-avatar ${
-              contact.online ? "online" : ""
-            }" style="display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                ${
-                  contact.avatarUrl
-                    ? `<img src="${contact.avatarUrl}" alt="${escapeHtml(
-                        contact.name || "User"
-                      )}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;"/>`
-                    : `${contact.avatar}`
-                }
-            </div>
+            ${createAvatarHtml(contact.avatarUrl || null, contact.name || "User", 36, contact.online ? "online" : "")}
             <div>
                 <h3 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0;">${
                   contact.name
@@ -1690,18 +1834,66 @@ function updateChatBadge() {
 }
 
 function showModal(modalId) {
+  try {
+    if (modalId === 'newMessageModal') {
+      const m = document.getElementById(modalId);
+      if (m) {
+        m.classList.add('show');
+        m.classList.add('active');
+        try { (m.querySelector('textarea') || m.querySelector('input'))?.focus(); } catch(e){}
+      }
+      return;
+    }
+
+    if (typeof Modal !== 'undefined' && Modal && typeof Modal.open === 'function' && document.getElementById('globalModal')) {
+      const src = document.getElementById(modalId);
+      if (!src) return;
+
+      const titleEl = src.querySelector('.modal-title') || src.querySelector('h1, h2, h3, h4');
+      const titleText = titleEl ? (titleEl.textContent || titleEl.innerText || '') : '';
+
+      const clone = src.cloneNode(true);
+
+      const rem = clone.querySelectorAll('.modal-header, h1, h2, h3, .modal-title');
+      rem.forEach(n => n.parentNode && n.parentNode.removeChild(n));
+      const bodyHtml = clone.innerHTML;
+      Modal.open({ title: titleText || modalId, body: bodyHtml, showFooter: false });
+      return;
+    }
+  } catch (e) {
+    console.warn('showModal via Modal failed, falling back to DOM show', e);
+  }
   const modal = document.getElementById(modalId);
-  modal.classList.add("show");
+  if (modal) modal.classList.add('show');
 }
 
 function closeModal(modalId) {
+  try {
+    // If the modal is the page-local new message modal, close it directly.
+    if (modalId === 'newMessageModal') {
+      const m = document.getElementById(modalId);
+      if (m) {
+        m.classList.remove('show');
+        m.classList.remove('active');
+      }
+      return;
+    }
+
+    if (typeof Modal !== 'undefined' && Modal && typeof Modal.close === 'function' && document.getElementById('globalModal')) {
+      Modal.close();
+      return;
+    }
+  } catch (e) {
+    console.warn('closeModal via Modal failed, falling back', e);
+  }
   const modal = document.getElementById(modalId);
-  modal.classList.remove("show");
+  if (modal) modal.classList.remove('show');
 }
 
 document.addEventListener("click", function (e) {
   if (e.target.classList.contains("modal-overlay")) {
     e.target.classList.remove("show");
+    e.target.classList.remove("active");
   }
 });
 
@@ -1713,7 +1905,31 @@ function setupEventListeners() {
 
   const chatSearchInput = document.getElementById("chatSearchInput");
   if (chatSearchInput) {
-    chatSearchInput.addEventListener("input", function (e) {});
+    chatSearchInput.addEventListener("input", function (e) {
+      const q = (e.target.value || "").trim();
+      
+      clearTimeout(chatSearchDebounce);
+      chatSearchDebounce = setTimeout(() => {
+        searchChatContacts(q);
+      }, 250);
+    });
+  }
+
+  
+  const recipientSearchInput = document.getElementById("recipientSearch");
+  if (recipientSearchInput) {
+    let recipientDebounce = null;
+    recipientSearchInput.addEventListener("input", function (e) {
+      const q = (e.target.value || "").trim();
+      if (recipientDebounce) clearTimeout(recipientDebounce);
+      recipientDebounce = setTimeout(() => {
+        try {
+          searchRecipients(q);
+        } catch (err) {
+          console.error("recipient search failed", err);
+        }
+      }, 300);
+    });
   }
 
   document.addEventListener("input", function (e) {
@@ -1747,6 +1963,17 @@ function updateSendButtonState() {
 }
 
 function showNotification(message, type = "success") {
+  try {
+    if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
+      
+      window.showAlert(String(message || ''), type === 'error' ? 'error' : type === 'info' ? 'info' : 'success');
+      return;
+    }
+  } catch (e) {
+    console.warn('showNotification via showAlert failed', e);
+  }
+
+  
   const notification = document.createElement("div");
   notification.className = "notification";
   notification.textContent = message;
@@ -1793,6 +2020,81 @@ function getInitialsFromName(name) {
   return s || "U";
 }
 
+
+function createAvatarHtml(avatarUrl, displayName, size = 40, extraClass = "") {
+  const s = size || 40;
+  const initials = escapeHtml(getInitialsFromName(displayName || ""));
+  if (avatarUrl) {
+    const safeUrl = escapeHtml(avatarUrl);
+    const safeAlt = escapeHtml(displayName || "User");
+    
+    return `
+      <div class="contact-avatar ${extraClass}" style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;">
+        <img src="${safeUrl}" alt="${safeAlt}" style="width:${s}px;height:${s}px;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.closest('.contact-avatar').innerHTML='${initials}'" />
+      </div>
+    `;
+  }
+  return `
+    <div class="contact-avatar ${extraClass}" style="width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--background-light);">
+      ${initials}
+    </div>
+  `;
+}
+
+function highlightMatch(text, query) {
+  if (!query) return text;
+  try {
+    const q = String(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(q, "ig");
+    return String(text).replace(re, (m) => `<mark style="background:var(--mark-bg, #ffd54d);color:inherit;padding:0 .125rem;border-radius:0.125rem">${m}</mark>`);
+  } catch (e) {
+    return text;
+  }
+}
+
+async function searchChatContacts(query) {
+  lastChatSearchQuery = query || "";
+  const container = document.getElementById("chatContacts");
+  if (container) container.innerHTML = '<div style="padding:0.5rem; color: var(--text-muted);">Searching...</div>';
+  try {
+    if (!currentUser || !currentUser.user_id) {
+      if (container) container.innerHTML = '<div style="padding:0.5rem; color: var(--text-muted);">No conversations.</div>';
+      return;
+    }
+    const res = await fetch(`${API_BASE}/messages/conversations/${currentUser.user_id}`, { credentials: 'include' });
+    const convs = await res.json();
+    const mapped = (convs || []).map((c) => ({
+      id: c.other_user_id,
+      name: c.other_user_name || "",
+      avatar: getInitialsFromName(c.other_user_name || ""),
+      avatarUrl: c.other_user_avatar || null,
+      online: false,
+      lastMessage: c.last_message || "",
+      lastTime: c.last_message_time ? formatTime(c.last_message_time) : "",
+      unreadCount: 0,
+    }));
+    allChatContacts = mapped;
+    if (query) {
+      const ql = String(query).toLowerCase();
+      chatContacts = mapped.filter((c) => {
+        const name = (c.name || '').toLowerCase();
+        const last = (c.lastMessage || '').toLowerCase();
+        return name.includes(ql) || last.includes(ql);
+      });
+    } else {
+      chatContacts = mapped;
+    }
+    if (!chatContacts.length) {
+      if (container) container.innerHTML = '<div style="padding:0.5rem; color: var(--text-muted);">No conversations found.</div>';
+      return;
+    }
+    renderChatContacts();
+  } catch (err) {
+    console.error('searchChatContacts failed', err);
+    if (container) container.innerHTML = '<div style="padding:0.5rem; color: var(--text-muted);">Failed to load conversations.</div>';
+  }
+}
+
 let selectedRecipient = null;
 function openNewMessageModal() {
   selectedRecipient = null;
@@ -1802,6 +2104,11 @@ function openNewMessageModal() {
   if (input) input.value = "";
   const msg = document.getElementById("newMessageText");
   if (msg) msg.value = "";
+  
+  try {
+    
+    searchRecipients("");
+  } catch (e) {}
   showModal("newMessageModal");
 }
 
@@ -1811,7 +2118,8 @@ async function searchRecipients(query) {
   results.innerHTML =
     '<div style="padding:0.5rem; color: var(--text-muted);">Searching...</div>';
   try {
-    const url = `${API_BASE}/users?role=TENANT&limit=20${
+    
+    const url = `${API_BASE}/users?role=TENANT&limit=50${
       query ? `&search=${encodeURIComponent(query)}` : ""
     }`;
     const res = await fetch(url, { credentials: "include" });
@@ -1823,32 +2131,31 @@ async function searchRecipients(query) {
       return;
     }
     results.innerHTML = users
-      .map(
-        (u) => `
-            <div class="contact-item" style="cursor:pointer" onclick="selectRecipient('${
-              u.user_id
-            }', '${(u.first_name || "").replace(/'/g, "\\'")}', '${(
-          u.last_name || ""
-        ).replace(/'/g, "\\'")}')">
-                <div class="contact-avatar">${getInitials(
-                  u.first_name,
-                  u.last_name
-                )}</div>
+      .map((u) => {
+        const avatarUrl = u.avatar || u.avatarUrl || u.profile_image || u.photo || "";
+        const safeFirst = (u.first_name || "").replace(/'/g, "\\'");
+        const safeLast = (u.last_name || "").replace(/'/g, "\\'");
+        const displayName = `${u.first_name || ""} ${u.last_name || ""}`.trim();
+        const nameEsc = escapeHtml(displayName);
+        const emailEsc = escapeHtml(u.email || "");
+        const avatarHtml = createAvatarHtml(avatarUrl, displayName, 40);
+
+        return `
+            <div class="contact-item" style="cursor:pointer" onclick="selectRecipient('${u.user_id}', '${safeFirst}', '${safeLast}')">
+                ${avatarHtml}
                 <div class="contact-info">
-                    <div class="contact-name">${u.first_name || ""} ${
-          u.last_name || ""
-        }</div>
-                    <div class="contact-last-message" style="color: var(--text-muted); font-size: 0.8125rem">${
-                      u.email || ""
-                    }</div>
+                    <div class="contact-name">${nameEsc}</div>
+                    <div class="contact-last-message" style="color: var(--text-muted); font-size: 0.8125rem">${emailEsc}</div>
                 </div>
             </div>
-        `
-      )
+        `;
+      })
       .join("");
-  } catch (e) {
-    results.innerHTML =
-      '<div style="padding:0.5rem; color: var(--error-color);">Failed to search tenants.</div>';
+    // We've populated the recipient results for the New Message modal.
+    // No need to mutate chatContacts here — stop after rendering the results.
+    return;
+  } catch (err) {
+    console.error("Chat contact search failed", err);
   }
 }
 
@@ -1926,6 +2233,96 @@ function closeChatSidebarMobile() {
   } catch {}
 }
 
+
+
+async function globalLogout() {
+  try {
+    
+    await ensureModalHelpers(1500);
+  } catch (e) {}
+
+  const confirmWithOverlay = () =>
+    new Promise((resolve) => {
+      try {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.classList.add('active');
+        overlay.style.zIndex = 12000;
+
+        const container = document.createElement('div');
+        container.className = 'modal-container';
+
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'modal-title';
+        const titleText = document.createElement('span');
+        titleText.className = 'modal-title-text';
+        titleText.textContent = 'Sign out';
+        titleEl.appendChild(titleText);
+        header.appendChild(titleEl);
+
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+        body.style.padding = '16px 22px';
+        body.textContent = 'Are you sure you want to sign out?';
+
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-cancel';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          resolve(false);
+        };
+
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn-confirm';
+        okBtn.textContent = 'OK';
+        okBtn.onclick = function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          resolve(true);
+        };
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(okBtn);
+        container.appendChild(header);
+        container.appendChild(body);
+        container.appendChild(footer);
+        overlay.appendChild(container);
+        (document.body || document.documentElement).appendChild(overlay);
+        setTimeout(function () {
+          try { okBtn.focus(); } catch (e) {}
+        }, 20);
+      } catch (e) {
+        try { resolve(confirm('Are you sure you want to sign out?')); } catch (_) { resolve(false); }
+      }
+    });
+
+  let ok = false;
+  try {
+    if (typeof window.showConfirm === 'function') {
+      ok = !!(await window.showConfirm('Are you sure you want to sign out?', 'Sign out'));
+    } else {
+      ok = !!(await confirmWithOverlay());
+    }
+  } catch (e) {
+    ok = !!window.confirm?.('Are you sure you want to sign out?');
+  }
+  if (!ok) return;
+
+  try { localStorage.clear(); } catch (e) {}
+  try { sessionStorage.clear(); } catch (e) {}
+  try {
+    fetch('/api/v1/users/logout', { method: 'POST', credentials: 'include' })
+      .finally(() => { window.location.href = '/login.html'; });
+  } catch (e) {
+    window.location.href = '/login.html';
+  }
+}
+
 window.openNewMessageModal = openNewMessageModal;
 window.searchRecipients = searchRecipients;
 window.selectRecipient = selectRecipient;
@@ -1961,3 +2358,5 @@ window.switchConvMediaTab = switchConvMediaTab;
 window.openChatSidebarMobile = openChatSidebarMobile;
 window.closeChatSidebarMobile = closeChatSidebarMobile;
 window.closeModal = closeModal;
+
+window.logout = globalLogout;

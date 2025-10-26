@@ -2,11 +2,11 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/fonts.css">
-    <link rel="stylesheet" href="/css/footer.css">
-    <link rel="stylesheet" href="../assets/fontawesome/all.min.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/css/fonts.css" />
+    <link rel="stylesheet" href="/css/footer.css" />
+    <link rel="stylesheet" href="../assets/fontawesome/all.min.css" />
 </head>
 
 <body>
@@ -17,8 +17,11 @@
             <div class="footer-grid">
                 <div class="footer-brand">
                     <h3><span id="ft-dynamic-company-name">Ambulo Properties</span></h3>
-                    <p><span id="ft-dynamic-company-description">Your trusted partner for premium commercial spaces in
-                            Silang, Cavite. We help businesses find their perfect location.</span></p>
+                    <p>
+                        <span id="ft-dynamic-company-description">Your trusted partner for premium commercial spaces in
+                            Silang,
+                            Cavite. We help businesses find their perfect location.</span>
+                    </p>
                 </div>
 
                 <div class="footer-section">
@@ -46,19 +49,44 @@
                     <div class="contact-item">
                         <p id="ft-dynamic-company-address">Silang, Cavite, Philippines</p>
                     </div>
-                    <p class="contact-phone" id="ft-dynamic-company-phone">📞 +63 xxx xxx xxxx | <span id="ft-dynamic-company-alt-phone">+63 xxx xxx xxxx</span></p>
-                    <p class="contact-email" id="ft-dynamic-company-email">📧 ambulosproperty@gmail.com</p>
+                    <p class="contact-phone" id="ft-dynamic-company-phone">
+                        📞 +63 xxx xxx xxxx |
+                        <span id="ft-dynamic-company-alt-phone">+63 xxx xxx xxxx</span>
+                    </p>
+                    <p class="contact-email" id="ft-dynamic-company-email">
+                        📧 ambulosproperty@gmail.com
+                    </p>
                 </div>
             </div>
 
             <div class="footer-bottom">
-                <p>&copy; 2025 <span id="ft-dynamic-company-name">Ambulo Properties</span>. All rights reserved. | Designed
-                    with care for growing businesses.</p>
+                <p>
+                    &copy; 2025
+                    <span id="ft-dynamic-company-name">Ambulo Properties</span>. All
+                    rights reserved. | Designed with care for growing businesses.
+                </p>
             </div>
         </div>
     </footer>
     <script type="module" src="/javascript/footer.js"></script>
-</body>
+    <script src="/javascript/dialog-modal.js"></script>
+    <script src="/javascript/utils/modalHelpers.js"></script>
 
+    <!-- Global dialog modal markup (shared) -->
+    <link rel="stylesheet" href="/css/dialog-modal.css" />
+    <div class="modal-overlay" id="globalModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Modal Title</h3>
+                <button class="modal-close" onclick="Modal.close()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">Modal content goes here</div>
+            <div class="modal-footer" id="modalFooter">
+                <button class="btn-cancel" onclick="Modal.close()">Cancel</button>
+                <button class="btn-confirm" onclick="Modal.close()">OK</button>
+            </div>
+        </div>
+    </div>
+</body>
 
 </html>

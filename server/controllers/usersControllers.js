@@ -10,17 +10,19 @@ const authUser = expressAsync(async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
 
     const response = await usersServices.authUser(email, password);
 
-    res.cookie('token', response.token, {
-      httpOnly: false, 
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 24 * 60 * 60 * 1000
+    res.cookie("token", response.token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.json(response);
@@ -32,16 +34,18 @@ const authUser = expressAsync(async (req, res) => {
 
 const createUser = expressAsync(async (req, res) => {
   try {
-    const avatar = req.files && req.files['avatar'] ? req.files['avatar'][0].path : "";
+    const avatar =
+      req.files && req.files["avatar"] ? req.files["avatar"][0].path : "";
 
-    const tenant_id_file = req.files && req.files['tenant_id_file']
-      ? req.files['tenant_id_file'].map(file => ({ id_url: file.path }))
-      : [];
+    const tenant_id_file =
+      req.files && req.files["tenant_id_file"]
+        ? req.files["tenant_id_file"].map((file) => ({ id_url: file.path }))
+        : [];
 
-    const payload = { 
-      ...req.body, 
+    const payload = {
+      ...req.body,
       avatar,
-      tenant_id_file
+      tenant_id_file,
     };
 
     const response = await usersServices.createUser(payload);
@@ -74,25 +78,32 @@ const getSingleUserById = expressAsync(async (req, res) => {
 
 const updateSingleUserById = expressAsync(async (req, res) => {
   try {
-    const currentUser = await usersServices.getSingleUserById(req.params.user_id);
+    const currentUser = await usersServices.getSingleUserById(
+      req.params.user_id
+    );
 
     let keepFiles = [];
     if (req.body.tenant_id_files) {
-      keepFiles = typeof req.body.tenant_id_files === "string"
-        ? JSON.parse(req.body.tenant_id_files)
-        : req.body.tenant_id_files;
+      keepFiles =
+        typeof req.body.tenant_id_files === "string"
+          ? JSON.parse(req.body.tenant_id_files)
+          : req.body.tenant_id_files;
     }
 
     let newFiles = [];
     if (req.files && req.files["tenant_id_file"]) {
-      newFiles = req.files["tenant_id_file"].map((file) => ({ id_url: file.path }));
+      newFiles = req.files["tenant_id_file"].map((file) => ({
+        id_url: file.path,
+      }));
     }
 
     let mergedFiles = [];
     if (Array.isArray(keepFiles)) {
-      const prevFiles = Array.isArray(currentUser.tenant_id_files) ? currentUser.tenant_id_files : [];
-      mergedFiles = keepFiles.filter(f =>
-        prevFiles.some(pf => pf.id_url === f.id_url)
+      const prevFiles = Array.isArray(currentUser.tenant_id_files)
+        ? currentUser.tenant_id_files
+        : [];
+      mergedFiles = keepFiles.filter((f) =>
+        prevFiles.some((pf) => pf.id_url === f.id_url)
       );
     }
     mergedFiles = mergedFiles.concat(newFiles);
@@ -130,14 +141,18 @@ const deleteUserById = expressAsync(async (req, res) => {
 });
 
 const logoutUser = (req, res) => {
-    res.clearCookie('token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-        domain: process.env.COOKIE_DOMAIN || undefined
-    });
-    res.json({ message: 'Logged out successfully' });
+  const cookieDomain =
+    process.NODE_ENV === "production"
+      ? process.env.COOKIE_DOMAIN
+      : process.env.COOKIE_DOMAIN_LOCAL;
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    domain: cookieDomain,
+  });
+  res.json({ message: "Logged out successfully" });
 };
 
 export {
@@ -147,5 +162,5 @@ export {
   getSingleUserById,
   updateSingleUserById,
   deleteUserById,
-  logoutUser
+  logoutUser,
 };

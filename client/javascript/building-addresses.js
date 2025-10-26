@@ -75,8 +75,6 @@ document.addEventListener("DOMContentLoaded", function () {
         closeModal();
       }
     });
-
-  showNotification("Contact Management System loaded successfully!", "success");
 });
 
 function renderBuildings() {
@@ -189,7 +187,7 @@ function renderBuildings() {
               <input type="text" class="form-input" value="${building.postal_code
       }" 
                 ${isEditable}
-                maxlength="20" pattern="^[0-9\-]+$">
+                maxlength="20" pattern="^[0-9\\-]+$">
             </div>
             <div class="form-group" style="flex: 1;">
               <label class="form-label">Country</label>
@@ -252,7 +250,6 @@ function renderBuildings() {
 
             input.oninput = (e) => {
               building[field] = e.target.value;
-              markUnsavedChanges();
 
               const errors = validateBuildingFields(building);
               errorEl.textContent = errors[field] || "";
@@ -286,8 +283,18 @@ async function saveBuilding(buildingId) {
     province: building.province,
     postal_code: building.postal_code,
     country: building.country,
-    latitude: building.latitude,
-    longitude: building.longitude,
+    latitude:
+      building.latitude === "" ||
+        building.latitude === null ||
+        building.latitude === undefined
+        ? null
+        : Number(building.latitude),
+    longitude:
+      building.longitude === "" ||
+        building.longitude === null ||
+        building.longitude === undefined
+        ? null
+        : Number(building.longitude),
   };
 
   try {
@@ -323,7 +330,6 @@ async function saveBuilding(buildingId) {
     building.editMode = false;
     delete building._backup;
     renderBuildings();
-    markUnsavedChanges();
   } catch (error) {
     showNotification(error.message || "Failed to save address", "error");
     console.error(error);
@@ -379,62 +385,50 @@ function addNewBuildingCard() {
   contactData.buildings.unshift(newBuilding);
   renderBuildings();
   showNotification("New address card added!", "success");
-  markUnsavedChanges();
 }
 
 async function removeBuilding(buildingId) {
   const building = contactData.buildings.find((b) => b.id === buildingId);
   if (!building) return;
 
-  if (
-    confirm(
-      "Are you sure you want to remove this building and all its contacts?"
-    )
-  ) {
-    try {
-      if (building.isNew) {
-        contactData.buildings = contactData.buildings.filter(
-          (b) => b.id !== buildingId
-        );
-        showNotification("Unsaved address removed.", "success");
-      } else {
-        if (!building.address_id || isNaN(Number(building.address_id))) {
-          showNotification("Invalid address_id. Cannot delete.", "error");
-          return;
-        }
-
-        const response = await fetch(
-          `${API_BASE_URL}/addresses/${Number(building.address_id)}`,
-          {
-            method: "DELETE",
-          }
-        );
-        if (!response.ok) throw new Error("Failed to delete address");
-        contactData.buildings = contactData.buildings.filter(
-          (b) => b.id !== buildingId
-        );
-        showNotification("Building removed successfully!", "success");
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? (msg, title) => window.showConfirm(msg, title)
+      : (msg) => Promise.resolve(confirm(String(msg)));
+  const ok = !!(await confirmFn(
+    "Are you sure you want to remove this building and all its contacts?",
+    "Confirm remove"
+  ));
+  if (!ok) return;
+  try {
+    if (building.isNew) {
+      contactData.buildings = contactData.buildings.filter(
+        (b) => b.id !== buildingId
+      );
+      showNotification("Unsaved address removed.", "success");
+    } else {
+      if (!building.address_id || isNaN(Number(building.address_id))) {
+        showNotification("Invalid address_id. Cannot delete.", "error");
+        return;
       }
-      renderBuildings();
-      markUnsavedChanges();
-    } catch (error) {
-      showNotification(error.message || "Failed to delete address", "error");
-      console.error(error);
+
+      const response = await fetch(
+        `${API_BASE_URL}/addresses/${Number(building.address_id)}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) throw new Error("Failed to delete address");
+      contactData.buildings = contactData.buildings.filter(
+        (b) => b.id !== buildingId
+      );
+      showNotification("Building removed successfully!", "success");
     }
+    renderBuildings();
+  } catch (error) {
+    showNotification(error.message || "Failed to delete address", "error");
+    console.error(error);
   }
-}
-
-function updateBuilding(buildingId, field, value) {
-  const building = contactData.buildings.find((b) => b.id === buildingId);
-  if (building) {
-    building[field] = value;
-    markUnsavedChanges();
-  }
-}
-
-function saveBuildingAddresses() {
-  showNotification("Building addresses saved successfully!", "success");
-  clearUnsavedChanges();
 }
 
 function previewBuildings() {
@@ -555,8 +549,6 @@ document.addEventListener("DOMContentLoaded", function () {
         closeModal();
       }
     });
-
-  showNotification("Contact Management System loaded successfully!", "success");
 });
 
 function copyToClipboard(text) {
@@ -585,15 +577,15 @@ function closeAddressModal() {
 }
 
 function populateAddressForm(address) {
-  document.getElementById("building_name").value = address.building_name || "";
-  document.getElementById("street").value = address.street || "";
-  document.getElementById("barangay").value = address.barangay || "";
-  document.getElementById("city").value = address.city || "";
-  document.getElementById("province").value = address.province || "";
-  document.getElementById("postal_code").value = address.postal_code || "";
-  document.getElementById("country").value = address.country || "Philippines";
-  document.getElementById("latitude").value = address.latitude || "";
-  document.getElementById("longitude").value = address.longitude || "";
+  document.getElementById("building_name").value = address.building_name ?? "";
+  document.getElementById("street").value = address.street ?? "";
+  document.getElementById("barangay").value = address.barangay ?? "";
+  document.getElementById("city").value = address.city ?? "";
+  document.getElementById("province").value = address.province ?? "";
+  document.getElementById("postal_code").value = address.postal_code ?? "";
+  document.getElementById("country").value = address.country ?? "Philippines";
+  document.getElementById("latitude").value = address.latitude ?? "";
+  document.getElementById("longitude").value = address.longitude ?? "";
 }
 
 function validateBuildingFields(building) {
@@ -675,7 +667,6 @@ window.editBuilding = editBuilding;
 window.cancelEditBuilding = cancelEditBuilding;
 window.saveBuilding = saveBuilding;
 window.previewBuildings = previewBuildings;
-window.goBack = goBack;
 window.showAddressModal = showAddressModal;
 window.closeAddressModal = closeAddressModal;
 window.copyToClipboard = copyToClipboard;

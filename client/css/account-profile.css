@@ -1,12 +1,77 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+:root {
+  --primary-color: #6366f1;
+  --primary-light: #8b5cf6;
+  --primary-dark: #4f46e5;
+  --secondary-color: #06b6d4;
+  --accent-color: #f59e0b;
+  --success-color: #10b981;
+  --success-light: #34d399;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --border-color: rgba(226, 232, 240, 0.8);
+  --border-light: rgba(226, 232, 240, 0.4);
+  --background-white: #ffffff;
+  --background-gray: #f8fafc;
+  --background-light: #f1f5f9;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--primary-color),
+    var(--primary-dark)
+  );
+  --gradient-success: linear-gradient(
+    135deg,
+    var(--success-color),
+    var(--success-light)
+  );
+}
+
+html {
+  font-size: 13px;
 }
 
 body {
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+h1 {
+  font-size: 1.25rem;
+}
+h2 {
+  font-size: 1.125rem;
+}
+h3 {
+  font-size: 1rem;
+}
+h4 {
+  font-size: 0.875rem;
+}
+h5 {
+  font-size: 0.8125rem;
+}
+h6 {
+  font-size: 0.75rem;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Poppins, sans-serif;
+  background: var(--background-gray);
+  color: var(--text-primary);
     min-height: 100vh;
     padding: 20px;
 }

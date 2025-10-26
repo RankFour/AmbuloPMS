@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/dialog-modal.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/dialog-modal.css" />
 </head>
+
 <body>
   <!-- Global Modal Structure -->
   <div class="modal-overlay" id="globalModal">
@@ -13,9 +15,7 @@
         <h3 class="modal-title" id="modalTitle">Modal Title</h3>
         <button class="modal-close" onclick="Modal.close()">&times;</button>
       </div>
-      <div class="modal-body" id="modalBody">
-        Modal content goes here
-      </div>
+      <div class="modal-body" id="modalBody">Modal content goes here</div>
       <div class="modal-footer" id="modalFooter">
         <button class="btn-cancel" onclick="Modal.close()">Cancel</button>
         <button class="btn-confirm" onclick="Modal.close()">OK</button>
@@ -23,6 +23,8 @@
     </div>
   </div>
 
-<script src="/javascript/dialog-modal.js"></script>
+  <script src="/javascript/dialog-modal.js"></script>
+  <script src="/javascript/utils/modalHelpers.js"></script>
 </body>
+
 </html>

@@ -146,23 +146,6 @@
         integrity="sha384-G/EV+4j2dNv+tEPo3++6LCgdCROaejBqfUeNjuKAiuXbjrxilcCdDz6ZAVfHWe1Y"
         crossorigin="anonymous"></script>
     <script src="/javascript/lease-terms-cms.js"></script>
-    <script>
-        var user = null;
-        try {
-            user = JSON.parse(localStorage.getItem('user'));
-        } catch (e) { }
-
-        var userRole = (user && user.role) ? user.role.toUpperCase() : 'TENANT';
-
-        if (userRole === 'ADMIN') {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsAdmin.js';
-            document.body.appendChild(script);
-        } else {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsTenant.js';
-            document.body.appendChild(script);
-        }
-    </script>
+    <script src="/javascript/navigations.js"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@ let leaseTerms = [];
 
 let editingId = null;
 let deleteId = null;
-const API_BASE_URL = "api/v1/lease-defaults"
+const API_BASE_URL = "api/v1/lease-defaults";
 
 document.addEventListener("DOMContentLoaded", function () {
     populateLeaseTermsTable();
@@ -29,7 +29,12 @@ async function populateLeaseTermsTable() {
             data_type = "percentage";
         } else if (key.includes("months") || key.includes("days")) {
             data_type = "number";
-        } else if (obj.value === "1" || obj.value === "0" || obj.value === true || obj.value === false) {
+        } else if (
+            obj.value === "1" ||
+            obj.value === "0" ||
+            obj.value === true ||
+            obj.value === false
+        ) {
             data_type = "boolean";
         } else if (!isNaN(obj.value) && obj.value !== "") {
             data_type = "number";
@@ -39,7 +44,7 @@ async function populateLeaseTermsTable() {
             setting_key: key,
             setting_value: obj.value,
             data_type,
-            description: obj.description || ""
+            description: obj.description || "",
         };
     });
     renderLeaseTermsTable();
@@ -88,9 +93,9 @@ function renderLeaseTermsTable() {
                                     </td>
                                     <td>
                                         <span class="setting-value">${formatValue(
-                        term.setting_value,
-                        term.data_type
-                    )}</span>
+                    term.setting_value,
+                    term.data_type
+                )}</span>
                                     </td>
                                     <td>
                                         <span class="data-type-badge data-type-${term.data_type
@@ -103,11 +108,6 @@ function renderLeaseTermsTable() {
                     })">
                                             <i class="fas fa-edit"></i>
                                             Edit
-                                        </button>
-                                        <button class="btn btn-danger btn-small" onclick="deleteLeaseTerm(${term.id
-                    })">
-                                            <i class="fas fa-trash"></i>
-                                            Delete
                                         </button>
                                     </td>
                                 </tr>
@@ -133,11 +133,17 @@ function formatSettingKey(key) {
         grace_period_days: ["Grace Period", "Days"],
         auto_termination_after_months: ["Auto Termination After", "Months"],
         termination_trigger_days: ["Termination Trigger", "Days"],
-        advance_payment_forfeited_on_cancel: ["Advance Payment Forfeited On Cancel", ""],
+        advance_payment_forfeited_on_cancel: [
+            "Advance Payment Forfeited On Cancel",
+            "",
+        ],
         is_security_deposit_refundable: ["Security Deposit (if Refundable)", ""],
         notice_before_cancel_days: ["Notice Before Cancel", "Days"],
         notice_before_renewal_days: ["Notice Before Renewal", "Days"],
-        rent_increase_on_renewal_percentage: ["Rent Increase On Renewal", "Percentage"]
+        rent_increase_on_renewal_percentage: [
+            "Rent Increase On Renewal",
+            "Percentage",
+        ],
     };
 
     if (keyMap[key]) {
@@ -154,15 +160,15 @@ function formatValue(value, dataType) {
         case "boolean":
             return value === "1" || value === true ? "Yes" : "No";
         case "number":
-            return !isNaN(value) && value !== "" ? Number(value).toLocaleString() : value;
+            return !isNaN(value) && value !== ""
+                ? Number(value).toLocaleString()
+                : value;
         default:
             return value;
     }
 }
 
-
 function switchTab(tabName) {
-    
     document
         .querySelectorAll(".tab-button")
         .forEach((btn) => btn.classList.remove("active"));
@@ -197,7 +203,6 @@ function editLeaseTerm(id) {
     clearFormErrors();
     document.getElementById("lease-term-modal").classList.add("show");
 }
-
 
 function deleteLeaseTerm(id) {
     deleteId = id;
@@ -280,7 +285,6 @@ function validateForm() {
     return isValid;
 }
 
-
 function validateForm() {
     let isValid = true;
     clearFormErrors();
@@ -291,29 +295,43 @@ function validateForm() {
     const description = document.getElementById("description").value.trim();
 
     if (!settingKey) {
-        document.getElementById("setting_key_error").textContent = "Setting key is required";
+        document.getElementById("setting_key_error").textContent =
+            "Setting key is required";
         document.getElementById("setting_key").classList.add("error");
         isValid = false;
     } else if (!/^[a-z_]+$/.test(settingKey)) {
-        document.getElementById("setting_key_error").textContent = "Setting key must contain only lowercase letters and underscores";
+        document.getElementById("setting_key_error").textContent =
+            "Setting key must contain only lowercase letters and underscores";
         document.getElementById("setting_key").classList.add("error");
         isValid = false;
     }
 
     if (!settingValue) {
-        document.getElementById("setting_value_error").textContent = "Setting value is required";
+        document.getElementById("setting_value_error").textContent =
+            "Setting value is required";
         document.getElementById("setting_value").classList.add("error");
         isValid = false;
     } else {
-        if (["number", "months", "days", "percentage"].includes(dataType) || settingKey.endsWith("_months") || settingKey.endsWith("_days") || settingKey.endsWith("_percentage")) {
+        if (
+            ["number", "months", "days", "percentage"].includes(dataType) ||
+            settingKey.endsWith("_months") ||
+            settingKey.endsWith("_days") ||
+            settingKey.endsWith("_percentage")
+        ) {
             if (isNaN(settingValue)) {
-                document.getElementById("setting_value_error").textContent = "Value must be a number";
+                document.getElementById("setting_value_error").textContent =
+                    "Value must be a number";
                 document.getElementById("setting_value").classList.add("error");
                 isValid = false;
             }
-        } else if (dataType === "boolean" || settingKey.startsWith("is_") || settingKey.endsWith("_forfeited_on_cancel")) {
+        } else if (
+            dataType === "boolean" ||
+            settingKey.startsWith("is_") ||
+            settingKey.endsWith("_forfeited_on_cancel")
+        ) {
             if (!(settingValue === "0" || settingValue === "1")) {
-                document.getElementById("setting_value_error").textContent = "Boolean value must be 0 or 1";
+                document.getElementById("setting_value_error").textContent =
+                    "Boolean value must be 0 or 1";
                 document.getElementById("setting_value").classList.add("error");
                 isValid = false;
             }
@@ -321,7 +339,8 @@ function validateForm() {
     }
 
     if (!description) {
-        document.getElementById("description_error").textContent = "Description is required";
+        document.getElementById("description_error").textContent =
+            "Description is required";
         document.getElementById("description").classList.add("error");
         isValid = false;
     }
@@ -339,7 +358,7 @@ document
         }
 
         const formData = {
-            setting_id: editingId, 
+            setting_id: editingId,
             setting_value: document.getElementById("setting_value").value.trim(),
             description: document.getElementById("description").value.trim(),
         };
@@ -350,8 +369,8 @@ document
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     settingValue: formData.setting_value,
-                    description: formData.description
-                })
+                    description: formData.description,
+                }),
             });
             showNotification("Lease term updated successfully!", "success");
         } catch (err) {
@@ -408,7 +427,6 @@ document.addEventListener("click", function (e) {
         }
     }
 });
-
 
 document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {

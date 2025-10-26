@@ -8,6 +8,7 @@
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/css/fonts.css">
+    <link rel="stylesheet" href="/css/dialog-modal.css">
     <link rel="stylesheet" href="/css/paymentAdmin.css">
     <link rel="stylesheet" href="/css/navigation.css">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png">
@@ -218,7 +219,8 @@
 
                         <!-- View Toggle Switch -->
                         <div class="view-toggle-container">
-                            <button class="view-toggle-btn active" data-view="pending" onclick="switchPaymentView('pending')">
+                            <button class="view-toggle-btn active" data-view="pending"
+                                onclick="switchPaymentView('pending')">
                                 <i class="fas fa-hourglass-half"></i>
                                 <span>Process Payments</span>
                             </button>
@@ -278,7 +280,9 @@
                                             <tr>
                                                 <th class="th-number">#</th>
                                                 <th>Reference
-                                                    <button class="col-toggle" title="Show/Hide Reference" onclick="toggleReferenceVisibility()" style="margin-left:8px; background:none; border:none; cursor:pointer; color:#64748b">
+                                                    <button class="col-toggle" title="Show/Hide Reference"
+                                                        onclick="toggleReferenceVisibility()"
+                                                        style="margin-left:8px; background:none; border:none; cursor:pointer; color:#64748b">
                                                         <i class="fas fa-eye"></i>
                                                     </button>
                                                 </th>
@@ -362,15 +366,15 @@
                                                 <th class="th-number">#</th>
                                                 <th>Payment ID</th>
                                                 <th>Tenant</th>
-                                                    <th>Description</th>
-                                                    <th>Charge Type</th>
-                                                    <th>Due Date</th>
-                                                    <th>Amount</th>
+                                                <th>Description</th>
+                                                <th>Charge Type</th>
+                                                <th>Due Date</th>
+                                                <th>Amount</th>
                                                 <th>Method</th>
                                                 <th>Submitted</th>
                                                 <th>Proofs</th>
-                                                    <th class="col-processed-by">Processed By</th>
-                                                    <th class="col-processed-at">Processed At</th>
+                                                <th class="col-processed-by">Processed By</th>
+                                                <th class="col-processed-at">Processed At</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
@@ -395,25 +399,25 @@
     </div>
 
     <script src="/constants/constants.js"></script>
+    <!-- Global modal markup and scripts so pages can use the shared Modal API -->
+    <div class="modal-overlay" id="globalModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Modal Title</h3>
+                <button class="modal-close" onclick="Modal.close()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">Modal content goes here</div>
+            <div class="modal-footer" id="modalFooter">
+                <button class="btn-cancel" onclick="Modal.close()">Cancel</button>
+                <button class="btn-confirm" onclick="Modal.close()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/javascript/dialog-modal.js"></script>
+    <script src="/javascript/utils/modalHelpers.js"></script>
     <script type="module" src="/javascript/paymentAdmin.js"></script>
-    <script>
-        var user = null;
-        try {
-            user = JSON.parse(localStorage.getItem('user'));
-        } catch (e) { }
-
-        var userRole = (user && user.role) ? user.role.toUpperCase() : 'TENANT';
-
-        if (userRole === 'ADMIN') {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsAdmin.js';
-            document.body.appendChild(script);
-        } else {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsTenant.js';
-            document.body.appendChild(script);
-        }
-    </script>
+    <script src="/javascript/navigations.js"></script>
 </body>
 
 </html>

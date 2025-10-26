@@ -419,22 +419,38 @@ function clearSelection() {
 
 function messageSelected() {
   if (selectedTenants.size === 0) {
-    alert("Please select tenants to message.");
+    if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+      window.showAlert("Please select tenants to message.", "warning");
+    } else {
+      alert("Please select tenants to message.");
+    }
     return;
   }
 
   const selectedIds = Array.from(selectedTenants);
-  alert(`Messaging ${selectedTenants.size} selected tenant(s)`);
+  if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+    window.showAlert(`Messaging ${selectedTenants.size} selected tenant(s)`, "info");
+  } else {
+    alert(`Messaging ${selectedTenants.size} selected tenant(s)`);
+  }
 }
 
 function exportSelected() {
   if (selectedTenants.size === 0) {
-    alert("Please select tenants to export.");
+    if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+      window.showAlert("Please select tenants to export.", "warning");
+    } else {
+      alert("Please select tenants to export.");
+    }
     return;
   }
 
   const selectedIds = Array.from(selectedTenants);
-  alert(`Exporting ${selectedTenants.size} selected tenant(s)`);
+  if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+    window.showAlert(`Exporting ${selectedTenants.size} selected tenant(s)`, "info");
+  } else {
+    alert(`Exporting ${selectedTenants.size} selected tenant(s)`);
+  }
 }
 
 function searchTenants() {
@@ -805,9 +821,18 @@ function goToPage(page) {
   }
 }
 
-function deleteTenant(tenantId) {
-  if (confirm("Are you sure you want to delete this tenant?")) {
-  }
+async function deleteTenant(tenantId) {
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? (msg, title) => window.showConfirm(msg, title)
+      : (msg) => Promise.resolve(confirm(String(msg)));
+
+  const ok = await confirmFn("Are you sure you want to delete this tenant?", "Delete tenant");
+  if (!ok) return;
+
+  
+  
+  
 }
 
 function openCreateAccountInline() {

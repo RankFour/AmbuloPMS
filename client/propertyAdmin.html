@@ -14,6 +14,7 @@
         integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="/css/fonts.css">
     <link rel="stylesheet" href="/css/propertyAdmin.css">
+    <link rel="stylesheet" href="/css/dialog-modal.css">
     <link rel="stylesheet" href="/css/navigation.css">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png">
     <title>Properties</title>
@@ -649,25 +650,24 @@
         integrity="sha384-G/EV+4j2dNv+tEPo3++6LCgdCROaejBqfUeNjuKAiuXbjrxilcCdDz6ZAVfHWe1Y"
         crossorigin="anonymous"></script>
     <script src="constants/constants.js"></script>
+        <!-- Global modal markup and scripts so pages can use the shared Modal API -->
+    <div class="modal-overlay" id="globalModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Modal Title</h3>
+                <button class="modal-close" onclick="Modal.close()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">Modal content goes here</div>
+            <div class="modal-footer" id="modalFooter">
+                <button class="btn-cancel" onclick="Modal.close()">Cancel</button>
+                <button class="btn-confirm" onclick="Modal.close()">OK</button>
+            </div>
+        </div>
+    </div>
+    <script src="/javascript/dialog-modal.js"></script>
+    <script src="/javascript/utils/modalHelpers.js"></script>
     <script type="module" src="/javascript/propertyAdmin.js"></script>
-    <script>
-        var user = null;
-        try {
-            user = JSON.parse(localStorage.getItem('user'));
-        } catch (e) { }
-
-        var userRole = (user && user.role) ? user.role.toUpperCase() : 'TENANT';
-
-        if (userRole === 'ADMIN') {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsAdmin.js';
-            document.body.appendChild(script);
-        } else {
-            var script = document.createElement('script');
-            script.src = '/javascript/navigationsTenant.js';
-            document.body.appendChild(script);
-        }
-    </script>
+    <script src="/javascript/navigations.js"></script>
 </body>
 
 </html>

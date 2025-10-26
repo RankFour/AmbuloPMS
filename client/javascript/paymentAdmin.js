@@ -74,6 +74,51 @@ const CHARGE_STATUS_MAPPINGS_CONST = (window.AppConstants &&
 
 const API_BASE_URL = "/api/v1";
 
+
+
+
+const showAlert = (message, type = "info") => {
+    try {
+        if (window.ModalHelpers && typeof window.ModalHelpers.showAlert === "function") {
+            return window.ModalHelpers.showAlert(message, type);
+        }
+        if (typeof window.showAlert === "function") {
+            return window.showAlert(message, type);
+        }
+    } catch (e) {
+        console.warn("showAlert binding failed, falling back to window.alert", e);
+    }
+    return window.alert((type ? type.toUpperCase() + ": " : "") + String(message));
+};
+
+const showConfirm = (message, title = "Confirm") => {
+    try {
+        if (window.ModalHelpers && typeof window.ModalHelpers.showConfirm === "function") {
+            return window.ModalHelpers.showConfirm(message, title);
+        }
+        if (typeof window.showConfirm === "function") {
+            return window.showConfirm(message, title);
+        }
+    } catch (e) {
+        console.warn("showConfirm binding failed, falling back to native confirm", e);
+    }
+    return Promise.resolve(window.confirm(String(message)));
+};
+
+const showPrompt = (message, placeholder = "", title = "Input") => {
+    try {
+        if (window.ModalHelpers && typeof window.ModalHelpers.showPrompt === "function") {
+            return window.ModalHelpers.showPrompt(message, placeholder, title);
+        }
+        if (typeof window.showPrompt === "function") {
+            return window.showPrompt(message, placeholder, title);
+        }
+    } catch (e) {
+        console.warn("showPrompt binding failed, falling back to native prompt", e);
+    }
+    return Promise.resolve(window.prompt(String(message)));
+};
+
 const CACHE_TTLS = {
     payments: 60 * 1000,
     charges: 60 * 1000,
@@ -1318,7 +1363,7 @@ function getStatusDisplay(charge) {
         const iconHtml = (function () {
             switch (chargeStatus) {
                 case "overdue":
-                    return '<i class="fas fa-circle" style="color:#ef4444;margin-right:6px;"></i>';
+                    return "";
                 case "paid":
                     return '<i class="fas fa-circle" style="color:#10b981;margin-right:6px;"></i>';
                 case "due-soon":
@@ -1333,7 +1378,7 @@ function getStatusDisplay(charge) {
 
     switch (chargeStatus) {
         case "overdue":
-            return `<span class="status-indicator overdue"><i class="fas fa-circle" style="color:#ef4444;margin-right:6px;"></i>${Math.abs(
+            return `<span class="status-indicator overdue">${Math.abs(
                 daysUntilDue
             )} days overdue</span>`;
         case "due-soon":
@@ -1589,40 +1634,40 @@ function getCurrentMonth() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function showAlert(message, type = "info") {
-    const alertColors = {
-        success: "#10b981",
-        error: "#ef4444",
-        warning: "#f59e0b",
-        info: "#3b82f6",
+
+
+if (typeof showAlert === "undefined") {
+    window.showAlert = function (message, type = "info") {
+        try {
+            if (window.ModalHelpers && typeof window.ModalHelpers.showAlert === "function") {
+                return window.ModalHelpers.showAlert(message, type);
+            }
+        } catch (e) {}
+        
+        alert((type ? type.toUpperCase() + ': ' : '') + String(message));
     };
+}
 
-    const alertIcons = {
-        success: "check-circle",
-        error: "exclamation-triangle",
-        warning: "exclamation-circle",
-        info: "info-circle",
+if (typeof showConfirm === "undefined") {
+    window.showConfirm = function (message, title) {
+        try {
+            if (window.ModalHelpers && typeof window.ModalHelpers.showConfirm === "function") {
+                return window.ModalHelpers.showConfirm(message, title);
+            }
+        } catch (e) {}
+        return Promise.resolve(confirm(String(message)));
     };
+}
 
-    const existingAlerts = document.querySelectorAll(".alert-notification");
-    existingAlerts.forEach((alert) => alert.remove());
-
-    const alert = document.createElement("div");
-    alert.className = "alert-notification";
-    alert.style.background = alertColors[type];
-    alert.innerHTML = `
-        <i class="fas fa-${alertIcons[type]}"></i>
-        ${message}
-    `;
-
-    document.body.appendChild(alert);
-
-    setTimeout(() => {
-        if (alert.parentNode) {
-            alert.style.animation = "slideOutRight 0.3s ease forwards";
-            setTimeout(() => alert.remove(), 300);
-        }
-    }, 4000);
+if (typeof showPrompt === "undefined") {
+    window.showPrompt = function (message, placeholder, title) {
+        try {
+            if (window.ModalHelpers && typeof window.ModalHelpers.showPrompt === "function") {
+                return window.ModalHelpers.showPrompt(message, placeholder, title);
+            }
+        } catch (e) {}
+        return Promise.resolve(prompt(String(message)));
+    };
 }
 
 async function updateStatistics({ force = false } = {}) {
@@ -3433,27 +3478,29 @@ function renderChargesTable() {
                 </td>
                 <td class="due-date">${formatDate(charge.dueDate)}</td>
                 <td class="td-actions">
-                    <div class="action-buttons">
-                        <button onclick="viewChargeDetails(${charge.id
-            })" class="btn btn-sm btn-info" title="View Details">
-                            <i class="fas fa-eye"></i>
+                    <div style="position:relative; display:inline-block;">
+                        <button class="kebab-btn btn btn-sm" onclick="toggleChargeKebab(event, ${charge.id
+            })" title="Actions">
+                            <i class="fas fa-ellipsis-v"></i>
                         </button>
-                        <button onclick="editCharge(${charge.id
-            })" class="btn btn-sm btn-warning" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        ${!isFullyPaid
+                        <div id="kebab-menu-${charge.id
+            }" class="kebab-dropdown" style="display:none; position:absolute; right:0; top:36px; min-width:160px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; box-shadow:0 6px 18px rgba(2,6,23,0.08); z-index:9999; overflow:hidden;">
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); viewChargeDetails(${charge.id
+            }); toggleChargeKebab(e, ${charge.id
+            });})(event)">View Details</button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); editCharge(${charge.id
+            }); toggleChargeKebab(e, ${charge.id
+            });})(event)">Edit</button>
+                            ${!isFullyPaid
                 ? `
-                            <button onclick="recordPayment(${charge.id})" class="btn btn-sm btn-success" title="Record Payment">
-                                <i class="fas fa-credit-card"></i>
-                            </button>
-                        `
+                                <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); recordPayment(${charge.id}); toggleChargeKebab(e, ${charge.id});})(event)">Record Payment</button>
+                            `
                 : ""
             }
-                        <button onclick="removeCharge(${charge.id
-            })" class="btn btn-sm btn-danger" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px; color:#ef4444;" onclick="(function(e){e.stopPropagation(); removeCharge(${charge.id
+            }); toggleChargeKebab(e, ${charge.id
+            });})(event)">Delete</button>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -3677,17 +3724,25 @@ function renderChargesTable() {
                     charge.dueDate
                 )}</span></div>
                     </div>
-                    <div class="card-actions">
-                        <button onclick="viewChargeDetails(${charge.id
-                })" class="btn btn-sm btn-info" title="View Details"><i class="fas fa-eye"></i></button>
-                        <button onclick="editCharge(${charge.id
-                })" class="btn btn-sm btn-warning" title="Edit"><i class="fas fa-edit"></i></button>
-                        ${!isFullyPaid
-                    ? `<button onclick=\"recordPayment(${charge.id})\" class=\"btn btn-sm btn-success\" title=\"Record Payment\"><i class=\"fas fa-credit-card\"></i></button>`
+                    <div class="card-actions" style="position:relative;">
+                        <button class="kebab-btn btn btn-sm" onclick="toggleChargeKebab(event, 'mobile-${charge.id
+                }')" title="Actions"><i class="fas fa-ellipsis-v"></i></button>
+                        <div id="kebab-menu-mobile-${charge.id
+                }" class="kebab-dropdown" style="display:none; position:absolute; right:0; top:36px; min-width:160px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; box-shadow:0 6px 18px rgba(2,6,23,0.08); z-index:9999; overflow:hidden;">
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); viewChargeDetails(${charge.id
+                }); toggleChargeKebab(e, 'mobile-${charge.id
+                }');})(event)"><i class="fas fa-eye"></i> View Details</button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); editCharge(${charge.id
+                }); toggleChargeKebab(e, 'mobile-${charge.id
+                }');})(event)"><i class="fas fa-edit"></i> Edit</button>
+                            ${!isFullyPaid
+                    ? `<button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px;" onclick="(function(e){e.stopPropagation(); recordPayment(${charge.id}); toggleChargeKebab(e, 'mobile-${charge.id}');})(event)"><i class=\"fas fa-credit-card\"></i> Record Payment</button>`
                     : ""
                 }
-                        <button onclick="removeCharge(${charge.id
-                })" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                            <button class="kebab-item btn btn-block" style="width:100%; text-align:left; border:none; background:transparent; padding:10px 12px; color:#ef4444;" onclick="(function(e){e.stopPropagation(); removeCharge(${charge.id
+                }); toggleChargeKebab(e, 'mobile-${charge.id
+                }');})(event)"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
                     </div>
                 </div>`;
         };
@@ -4030,6 +4085,112 @@ function generateReceipt(paymentId) {
     receiptWindow.document.write(receiptHTML);
     receiptWindow.document.close();
 }
+
+window.toggleChargeKebab = function (evt, id) {
+    try {
+        if (evt && evt.stopPropagation) evt.stopPropagation();
+
+        const idStr = String(id);
+        const portalId = `kebab-portal-${idStr.replace(/\s+/g, "-")}`;
+
+        const existingPortal = document.getElementById(portalId);
+        if (existingPortal) {
+            existingPortal.remove();
+            return;
+        }
+
+        window.closeOpenKebabMenus();
+
+        const candidateIds = [
+            `kebab-menu-${idStr}`,
+            `kebab-menu-mobile-${idStr}`,
+            `kebab-menu-${idStr.replace(/^mobile-/, "")}`,
+        ];
+        let templateEl = null;
+        for (const tid of candidateIds) {
+            const t = document.getElementById(tid);
+            if (t) {
+                templateEl = t;
+                break;
+            }
+        }
+
+        const menuHtml = templateEl
+            ? templateEl.innerHTML
+            : "<div style='padding:8px 12px;color:#374151;'>No actions</div>";
+
+        const portal = document.createElement("div");
+        portal.id = portalId;
+        portal.className = "kebab-dropdown kebab-portal";
+
+        Object.assign(portal.style, {
+            position: "fixed",
+            zIndex: "2147483647",
+            minWidth: "160px",
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "6px",
+            boxShadow: "0 6px 18px rgba(2,6,23,0.08)",
+            overflow: "hidden",
+            padding: "4px 0",
+        });
+        portal.innerHTML = menuHtml;
+
+        portal.addEventListener("click", (e) => e.stopPropagation());
+
+        document.body.appendChild(portal);
+
+        let btnRect = null;
+        try {
+            const btn =
+                evt && evt.target && evt.target.closest
+                    ? evt.target.closest(".kebab-btn")
+                    : null;
+            if (btn && typeof btn.getBoundingClientRect === "function")
+                btnRect = btn.getBoundingClientRect();
+        } catch (_) { }
+
+        requestAnimationFrame(() => {
+            const measured = portal.getBoundingClientRect();
+            let top = window.innerHeight / 2 - measured.height / 2;
+            let left = Math.max(8, (window.innerWidth - measured.width) / 2);
+
+            if (btnRect) {
+                top = btnRect.bottom + 6;
+                left = Math.min(
+                    Math.max(btnRect.right - measured.width, 8),
+                    window.innerWidth - measured.width - 8
+                );
+
+                if (top + measured.height > window.innerHeight - 8) {
+                    top = Math.max(btnRect.top - measured.height - 6, 8);
+                }
+            }
+
+            portal.style.left = `${Math.round(left)}px`;
+            portal.style.top = `${Math.round(top)}px`;
+        });
+    } catch (err) {
+        console.error("toggleChargeKebab error", err);
+    }
+};
+
+window.closeOpenKebabMenus = function () {
+    document.querySelectorAll(".kebab-portal").forEach((d) => d.remove());
+
+    document.querySelectorAll(".kebab-dropdown").forEach((d) => {
+        if (!d.classList.contains("kebab-portal")) d.style.display = "none";
+    });
+};
+
+document.addEventListener("click", function (e) {
+    if (
+        e.target.closest &&
+        (e.target.closest(".kebab-portal") || e.target.closest(".kebab-btn"))
+    )
+        return;
+    window.closeOpenKebabMenus();
+});
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -5109,7 +5270,8 @@ function setupAdvancedChargesModalFunctions(
             return;
         }
 
-        if (confirm("Are you sure you want to remove this charge?")) {
+        showConfirm("Are you sure you want to remove this charge?", "Remove charge").then((ok) => {
+            if (!ok) return;
             const chargeItem = document.getElementById(`advancedCharge-${id}`);
             if (chargeItem) {
                 chargeItem.style.transition = "all 0.3s ease";
@@ -5121,7 +5283,7 @@ function setupAdvancedChargesModalFunctions(
                     updateAdvancedSummary();
                 }, 300);
             }
-        }
+        });
     };
 
     window.duplicateAdvancedCharge = function (id) {
@@ -5335,18 +5497,18 @@ function setupAdvancedChargesModalFunctions(
     };
 
     window.resetAdvancedAllCharges = function () {
-        if (
-            confirm(
-                "Are you sure you want to reset all charges? This will remove all entered data."
-            )
-        ) {
+        showConfirm(
+            "Are you sure you want to reset all charges? This will remove all entered data.",
+            "Reset all charges"
+        ).then((ok) => {
+            if (!ok) return;
             const chargesList = document.getElementById("advancedChargesList");
             chargesList.innerHTML = "";
             chargeCounter = 0;
             addAdvancedNewCharge();
             updateAdvancedSummary();
             showAlert("All charges have been reset.", "success");
-        }
+        });
     };
 
     window.previewAdvancedAllCharges = function () {
@@ -6580,11 +6742,26 @@ window.copyPaymentId = function (id) {
 
 window.showFullPaymentId = function (id) {
     if (!id) return;
+    try {
+        if (typeof Modal !== "undefined" && Modal && typeof Modal.open === "function") {
+            Modal.open({
+                title: "Payment ID",
+                body: `<pre style="white-space:pre-wrap;">${escapeHtml(id)}</pre>`,
+                showFooter: true,
+                showCancel: false,
+                confirmText: "OK",
+            });
+            return;
+        }
+    } catch (e) {
+        console.warn("Modal not available for showFullPaymentId", e);
+    }
     alert(`Payment ID:\n${id}`);
 };
 
 async function approvePayment(paymentId) {
-    if (!confirm("Confirm this payment?")) return;
+    const okApprove = await showConfirm("Confirm this payment?", "Confirm payment");
+    if (!okApprove) return;
 
     try {
         const token = localStorage.getItem("token") || "";
@@ -6625,7 +6802,7 @@ async function approvePayment(paymentId) {
 }
 
 async function rejectPayment(paymentId) {
-    const reason = prompt("Please provide a reason for rejection (optional):");
+    const reason = await showPrompt("Please provide a reason for rejection (optional):", "Optional reason", "Reject payment");
     if (reason === null) return;
 
     try {

@@ -314,7 +314,11 @@
             const newPath = parentPath ? `${parentPath}/${newName}` : newName;
             
             if (newPath !== contextItem && fileSystem[newPath]) {
-                alert('An item with this name already exists');
+                if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
+                    window.showAlert('An item with this name already exists', 'warning');
+                } else {
+                    alert('An item with this name already exists');
+                }
                 return;
             }
             
@@ -483,7 +487,11 @@
             const folderPath = currentPath ? `${currentPath}/${folderName}` : folderName;
             
             if (fileSystem[folderPath]) {
-                alert('Folder already exists!');
+                if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
+                    window.showAlert('Folder already exists!', 'warning');
+                } else {
+                    alert('Folder already exists!');
+                }
                 return;
             }
 
@@ -638,18 +646,31 @@
             updateSelectedAttachmentsDisplay();
         }
 
-        function uploadFiles() {
+        async function uploadFiles() {
             if (selectedFiles.length === 0) return;
 
-            selectedFiles.forEach(file => {
+            for (const file of selectedFiles) {
                 const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-                
+
                 if (fileSystem[filePath]) {
-                    if (!confirm(`File "${file.name}" already exists. Replace it?`)) {
-                        return;
+                    let replace = false;
+                    try {
+                        if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
+                            replace = await window.showConfirm(`File "${file.name}" already exists. Replace it?`, 'Replace file?');
+                        } else {
+                            replace = confirm(`File "${file.name}" already exists. Replace it?`);
+                        }
+                    } catch (e) {
+                        // in case of unexpected error, fallback to native confirm
+                        replace = confirm(`File "${file.name}" already exists. Replace it?`);
+                    }
+
+                    if (!replace) {
+                        // skip this file
+                        continue;
                     }
                 }
-                
+
                 fileSystem[filePath] = {
                     type: 'file',
                     name: file.name,
@@ -660,7 +681,7 @@
                     parentPath: currentPath,
                     file: file
                 };
-            });
+            }
 
             closeModal('uploadModal');
             renderItems();
@@ -819,7 +840,11 @@
                 window.open(url, '_blank');
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
             } else {
-                alert('File cannot be opened');
+                if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
+                    window.showAlert('File cannot be opened', 'error');
+                } else {
+                    alert('File cannot be opened');
+                }
             }
         }
 
