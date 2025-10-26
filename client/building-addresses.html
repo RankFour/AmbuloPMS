@@ -2,15 +2,15 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="stylesheet" href="/css/fonts.css">
-    <link rel="stylesheet" href="/css/navigation.css">
-    <link rel="stylesheet" href="/css/building-addresses.css">
-    <link rel="icon" href="/assets/favicon/favicon-32x32.png" type="image/png">
+    <link rel="stylesheet" href="/css/fonts.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+    <link rel="stylesheet" href="/css/building-addresses.css" />
+    <link rel="icon" href="/assets/favicon/favicon-32x32.png" type="image/png" />
     <title>Website Content Management</title>
 </head>
 
@@ -55,7 +55,7 @@
                             </span>
                         </div>
 
-                        <div class="action-buttons" style="margin-bottom: 24px;">
+                        <div class="action-buttons" style="margin-bottom: 24px">
                             <button class="btn btn-primary" onclick="addNewBuildingCard()">
                                 <i class="fas fa-plus"></i>
                                 Add New Address
@@ -97,6 +97,23 @@
         crossorigin="anonymous"></script>
     <script type="module" src="/javascript/building-addresses.js"></script>
     <script src="/javascript/navigations.js"></script>
+    <!-- Global dialog modal (required for modal helpers) -->
+    <link rel="stylesheet" href="/css/dialog-modal.css" />
+    <div class="modal-overlay" id="globalModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Modal Title</h3>
+                <button class="modal-close" onclick="Modal.close()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">Modal content goes here</div>
+            <div class="modal-footer" id="modalFooter">
+                <button class="btn-cancel" onclick="Modal.close()">Cancel</button>
+                <button class="btn-confirm" onclick="Modal.close()">OK</button>
+            </div>
+        </div>
+    </div>
+    <script src="/javascript/dialog-modal.js"></script>
+    <script src="/javascript/utils/modalHelpers.js"></script>
 </body>
 
 </html>

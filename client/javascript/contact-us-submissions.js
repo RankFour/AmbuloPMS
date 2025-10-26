@@ -595,11 +595,12 @@ function setupComposeEditor() {
                 var val = btn.getAttribute("data-value") || null;
                 if (!cmd) return;
                 if (cmd === "createLink") {
-                    var url = prompt(
-                        "Enter URL (include http:// or https://):",
-                        "https://"
-                    );
-                    if (url) document.execCommand("createLink", false, url);
+                    const promptFn = (typeof window !== 'undefined' && typeof window.showPrompt === 'function')
+                        ? ((msg, placeholder, title) => window.showPrompt(msg, placeholder, title))
+                        : (msg => Promise.resolve(prompt(String(msg))));
+                    promptFn("Enter URL (include http:// or https://):", "https://", "Insert link").then(url => {
+                        if (url) document.execCommand("createLink", false, url);
+                    });
                 } else if (cmd === "formatBlock" && val) {
                     document.execCommand("formatBlock", false, val);
                 } else {
@@ -1735,6 +1736,37 @@ async function loadTemplate() {
                         ctx[kk] = String(vv);
                     } catch (e) {
                         ctx[kk] = "";
+                    }
+                }
+            }
+        } catch (e) {
+            /* noop */
+        }
+
+        // Force templates to prefer the DB property_name if it's attached to the
+        // current submission. This is a defensive override to prevent earlier
+        // parsed/truncated names from being used when rendering subjects/messages.
+        try {
+            if (
+                currentSubmission &&
+                currentSubmission.property &&
+                (currentSubmission.property.property_name || currentSubmission.property.name)
+            ) {
+                var dbPropName = (
+                    currentSubmission.property.property_name || currentSubmission.property.name || ""
+                )
+                    .toString()
+                    .trim();
+                if (dbPropName) {
+                    var parsedPN = (ctx.propertyName || "").toString().trim();
+                    if (!parsedPN || parsedPN.toLowerCase() !== dbPropName.toLowerCase()) {
+                        ctx.propertyName = dbPropName;
+                        ctx.propertyNamePrefix = ctx.propertyName
+                            ? " " + ctx.propertyName
+                            : " this property";
+                        ctx.propertyNameSuffix = ctx.propertyName
+                            ? " for " + ctx.propertyName
+                            : "";
                     }
                 }
             }
