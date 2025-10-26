@@ -8,6 +8,7 @@
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/css/fonts.css" />
+    <link rel="stylesheet" href="/css/dialog-modal.css" />
 </head>
 
 <body>
@@ -76,7 +77,7 @@
                             <i class="fa-solid fa-phone"></i>
                             <span>Contact Submissions</span>
                         </div>
-                        <div class="profile-menu-item" onclick="logout()">
+                        <div class="profile-menu-item" onclick="(function(){ try{ if (window.navigationManager && typeof window.navigationManager.logout === 'function') { window.navigationManager.logout(); } else if (typeof window.logout === 'function') { window.logout(); } else { console.warn('No logout handler available'); } } catch(e){ console.warn('logout handler error', e); } })()">
                             <i class="fas fa-sign-out-alt profile-menu-icon"></i>
                             <span>Sign Out</span>
                         </div>
@@ -89,3 +90,133 @@
 </body>
 
 </html>
+<script>
+    
+    (function() {
+        try {
+            if (!document.getElementById('globalModal')) {
+                
+                var l = document.createElement('link');
+                l.rel = 'stylesheet';
+                l.href = '/css/dialog-modal.css';
+                document.head.appendChild(l);
+
+                
+            var div = document.createElement('div');
+            div.innerHTML = '\n  <div class="modal-overlay" id="globalModal">\n    <div class="modal-container">\n      <div class="modal-header">\n        <h3 class="modal-title" id="modalTitle">Modal Title</h3>\n        <button class="modal-close" onclick="Modal.close()">&times;</button>\n      </div>\n      <div class="modal-body" id="modalBody">Modal content goes here</div>\n      <div class="modal-footer" id="modalFooter">\n        <button class="btn-cancel" onclick="Modal.close()">Cancel</button>\n        <button class="btn-confirm" onclick="Modal.close()">OK</button>\n      </div>\n    </div>\n  </div>\n';
+                document.body.insertBefore(div.firstChild, document.body.firstChild);
+
+                
+                                var s1 = document.createElement('script');
+                                s1.src = '/javascript/dialog-modal.js';
+                                s1.async = false;
+                                document.body.appendChild(s1);
+                                var s2 = document.createElement('script');
+                                s2.src = '/javascript/utils/modalHelpers.js';
+                                s2.async = false;
+                                document.body.appendChild(s2);
+
+                                function ensureModalFallbacks() {
+                                    
+                                    if (typeof window.showConfirm !== 'function') {
+                                        window.showConfirm = function (msg, title) {
+                                            return new Promise(function(resolve){
+                                                try {
+                                                    var overlay = document.createElement('div');
+                                                    overlay.style.position = 'fixed';
+                                                    overlay.style.inset = '0';
+                                                    overlay.style.display = 'flex';
+                                                    overlay.style.alignItems = 'center';
+                                                    overlay.style.justifyContent = 'center';
+                                                    overlay.style.background = 'rgba(0,0,0,0.45)';
+                                                    overlay.style.zIndex = 12000;
+
+                                                    var box = document.createElement('div');
+                                                    box.style.background = '#fff';
+                                                    box.style.padding = '18px';
+                                                    box.style.borderRadius = '10px';
+                                                    box.style.minWidth = '320px';
+                                                    box.style.maxWidth = '90%';
+                                                    box.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+                                                    box.style.display = 'flex';
+                                                    box.style.flexDirection = 'column';
+                                                    box.style.gap = '12px';
+
+                                                    var titleEl = document.createElement('div');
+                                                    titleEl.style.fontWeight = '700';
+                                                    titleEl.textContent = String(title || 'Confirm');
+                                                    var msgEl = document.createElement('div');
+                                                    msgEl.style.whiteSpace = 'pre-wrap';
+                                                    msgEl.textContent = String(msg || '');
+
+                                                    var actions = document.createElement('div');
+                                                    actions.style.display = 'flex';
+                                                    actions.style.justifyContent = 'flex-end';
+                                                    actions.style.gap = '8px';
+
+                                                    var cancelBtn = document.createElement('button');
+                                                    cancelBtn.className = 'btn-cancel';
+                                                    cancelBtn.textContent = 'Cancel';
+                                                    cancelBtn.onclick = function(){
+                                                        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                                                        resolve(false);
+                                                    };
+
+                                                    var okBtn = document.createElement('button');
+                                                    okBtn.className = 'btn-confirm';
+                                                    okBtn.textContent = 'OK';
+                                                    okBtn.onclick = function(){
+                                                        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                                                        resolve(true);
+                                                    };
+
+                                                    actions.appendChild(cancelBtn);
+                                                    actions.appendChild(okBtn);
+                                                    box.appendChild(titleEl);
+                                                    box.appendChild(msgEl);
+                                                    box.appendChild(actions);
+                                                    overlay.appendChild(box);
+                                                    document.body.appendChild(overlay);
+                                                    setTimeout(function(){ try { okBtn.focus(); } catch(e){} }, 20);
+                                                } catch (e) {
+                                                    
+                                                    try { resolve(confirm(String(msg))); } catch(_) { resolve(false); }
+                                                }
+                                            });
+                                        };
+                                    }
+                                    
+                                    if (typeof window.showAlert !== 'function') {
+                                        window.showAlert = function (msg, type) {
+                                            try {
+                                                var el = document.createElement('div');
+                                                el.className = 'alert-notification';
+                                                el.style.background = '#3b82f6';
+                                                el.style.color = '#fff';
+                                                el.style.padding = '10px 16px';
+                                                el.style.position = 'fixed';
+                                                el.style.right = '16px';
+                                                el.style.top = '16px';
+                                                el.style.borderRadius = '8px';
+                                                el.style.zIndex = 11000;
+                                                el.textContent = String(msg || '');
+                                                document.body.appendChild(el);
+                                                setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 3000);
+                                            } catch (e) {
+                                                try { alert(String(msg)); } catch(_) {}
+                                            }
+                                        };
+                                    }
+                                    
+                                    
+                                }
+
+                                
+                                
+                                setTimeout(ensureModalFallbacks, 300);
+                                s2.onerror = ensureModalFallbacks;
+                                s1.onerror = ensureModalFallbacks;
+            }
+        } catch (e) { console.warn('Failed to ensure global modal', e); }
+    })();
+</script>

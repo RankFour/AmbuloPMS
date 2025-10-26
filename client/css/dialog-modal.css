@@ -5,25 +5,31 @@
   background: rgba(4, 6, 11, 0.6);
   z-index: 11000;
   opacity: 0;
+  visibility: hidden;
   transition: opacity 200ms ease, backdrop-filter 200ms ease;
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-overlay.active {
   display: flex;
   opacity: 1;
+  visibility: visible;
 }
 
 .modal-container {
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 18px 48px rgba(2, 6, 23, 0.28);
-  max-width: 520px;
+  max-width: 560px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
   max-height: 80vh;
   overflow: hidden;
   transform: translateY(-1vh) scale(1);
@@ -43,11 +49,9 @@
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid rgba(15, 23, 42, 0.04);
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.98),
-    rgba(255, 255, 255, 0.98)
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(255, 255, 255, 0.98));
 }
 
 .modal-title {
@@ -82,7 +86,8 @@
 
 .modal-body {
   padding: 12px 22px 18px 22px;
-  max-height: calc(85vh - 120px);
+
+  flex: 1 1 auto;
   overflow-y: auto;
   color: #334155;
   line-height: 1.6;
@@ -95,11 +100,9 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.98),
-    rgba(255, 255, 255, 0.98)
-  );
+  background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(255, 255, 255, 0.98));
 }
 
 .modal-footer button {
@@ -145,9 +148,11 @@
 .modal-body h4 {
   margin-top: 0;
 }
+
 .modal-body p {
   margin: 0 0 12px 0;
 }
+
 .modal-body .muted {
   color: #6b7280;
   font-size: 13px;
@@ -158,6 +163,7 @@
     border-radius: 10px;
     max-width: 480px;
   }
+
   .modal-title {
     font-size: 18px;
   }
@@ -189,12 +195,15 @@
 .modal-container[data-variant="default"] .modal-progress {
   background: linear-gradient(90deg, #3b82f6, #2563eb);
 }
+
 .modal-container[data-variant="success"] .modal-progress {
   background: linear-gradient(90deg, #10b981, #059669);
 }
+
 .modal-container[data-variant="error"] .modal-progress {
   background: linear-gradient(90deg, #ef4444, #dc2626);
 }
+
 .modal-container[data-variant="warning"] .modal-progress {
   background: linear-gradient(90deg, #f59e0b, #d97706);
 }
@@ -221,12 +230,15 @@
 .modal-container[data-variant="default"] .modal-icon {
   background: linear-gradient(90deg, #3b82f6, #2563eb);
 }
+
 .modal-container[data-variant="success"] .modal-icon {
   background: linear-gradient(90deg, #10b981, #059669);
 }
+
 .modal-container[data-variant="error"] .modal-icon {
   background: linear-gradient(90deg, #ef4444, #dc2626);
 }
+
 .modal-container[data-variant="warning"] .modal-icon {
   background: linear-gradient(90deg, #f59e0b, #d97706);
 }
