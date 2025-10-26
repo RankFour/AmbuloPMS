@@ -1,5 +1,6 @@
 import { getJwtToken, getCookie } from "../utils/getCookie.js";
 import formatTimeFlexible from "../utils/formatTime.js";
+import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 
 const announcements = [];
 
@@ -58,6 +59,35 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   renderAnnouncements();
   setupEventListeners();
+
+  try {
+    const company = await fetchCompanyDetails();
+    if (company) {
+      try {
+        if (company.name) {
+          document.title = `Messages - ${company.name}`;
+        }
+        const pageIcon = document.getElementById("pageIcon");
+        if (pageIcon) {
+          if (company.logoHtml) pageIcon.innerHTML = company.logoHtml;
+          else if (company.altLogoHtml) pageIcon.innerHTML = company.altLogoHtml;
+        }
+        if (company.icon_logo_url) {
+          let link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.head.appendChild(link);
+          }
+          link.href = company.icon_logo_url;
+        }
+      } catch (e) {
+        console.warn("Failed to apply company details to page", e);
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load company details", err);
+  }
 
   
   try {
@@ -1805,16 +1835,25 @@ function updateChatBadge() {
 
 function showModal(modalId) {
   try {
-    
+    if (modalId === 'newMessageModal') {
+      const m = document.getElementById(modalId);
+      if (m) {
+        m.classList.add('show');
+        m.classList.add('active');
+        try { (m.querySelector('textarea') || m.querySelector('input'))?.focus(); } catch(e){}
+      }
+      return;
+    }
+
     if (typeof Modal !== 'undefined' && Modal && typeof Modal.open === 'function' && document.getElementById('globalModal')) {
       const src = document.getElementById(modalId);
       if (!src) return;
-      
+
       const titleEl = src.querySelector('.modal-title') || src.querySelector('h1, h2, h3, h4');
       const titleText = titleEl ? (titleEl.textContent || titleEl.innerText || '') : '';
-      
+
       const clone = src.cloneNode(true);
-      
+
       const rem = clone.querySelectorAll('.modal-header, h1, h2, h3, .modal-title');
       rem.forEach(n => n.parentNode && n.parentNode.removeChild(n));
       const bodyHtml = clone.innerHTML;
@@ -1830,6 +1869,16 @@ function showModal(modalId) {
 
 function closeModal(modalId) {
   try {
+    // If the modal is the page-local new message modal, close it directly.
+    if (modalId === 'newMessageModal') {
+      const m = document.getElementById(modalId);
+      if (m) {
+        m.classList.remove('show');
+        m.classList.remove('active');
+      }
+      return;
+    }
+
     if (typeof Modal !== 'undefined' && Modal && typeof Modal.close === 'function' && document.getElementById('globalModal')) {
       Modal.close();
       return;
@@ -1844,6 +1893,7 @@ function closeModal(modalId) {
 document.addEventListener("click", function (e) {
   if (e.target.classList.contains("modal-overlay")) {
     e.target.classList.remove("show");
+    e.target.classList.remove("active");
   }
 });
 
@@ -2101,31 +2151,9 @@ async function searchRecipients(query) {
         `;
       })
       .join("");
-    const filtered = (arr || []).filter((c) => {
-      if (!query) return true;
-      const ql = query.toLowerCase();
-      const name = (c.other_user_name || "").toLowerCase();
-      const last = (c.last_message || "").toLowerCase();
-      return name.includes(ql) || last.includes(ql);
-    });
-
-    chatContacts = (filtered || []).map((c) => ({
-      id: c.other_user_id,
-      name: c.other_user_name || "",
-      avatar: getInitialsFromName(c.other_user_name || ""),
-      avatarUrl: c.other_user_avatar || null,
-      online: false,
-      lastMessage: c.last_message || "",
-      lastTime: c.last_message_time ? formatTime(c.last_message_time) : "",
-      unreadCount: 0,
-    }));
-
-    if (!chatContacts.length) {
-      container.innerHTML = '<div style="padding:0.5rem; color: var(--text-muted);">No conversations found.</div>';
-      return;
-    }
-
-    renderChatContacts();
+    // We've populated the recipient results for the New Message modal.
+    // No need to mutate chatContacts here — stop after rendering the results.
+    return;
   } catch (err) {
     console.error("Chat contact search failed", err);
   }
