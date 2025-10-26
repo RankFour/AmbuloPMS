@@ -4,6 +4,8 @@ import { fetchFaqs, clearFaqsCache } from "../api/loadFaqs.js";
 let faqIdCounter = 0;
 let currentEditingId = null;
 let latestFaqs = [];
+
+let _modalIgnoreUntil = 0;
 const API_BASE_URL = "/api/v1/faqs";
 
 async function setDynamicInfo() {
@@ -144,13 +146,15 @@ function toggleFAQ(element) {
 }
 function addFAQ() {
   currentEditingId = null;
-  document.getElementById("modalTitle").textContent = "Add New FAQ";
+  const faqTitleEl = document.getElementById("faqModalTitle");
+  if (faqTitleEl) faqTitleEl.textContent = "Add New FAQ";
 
   document.getElementById("faqQuestion").value = "";
   document.getElementById("faqAnswer").value = "";
   document.getElementById("editingFAQId").value = "";
 
   document
+  
     .getElementById("faqQuestion")
     .parentElement.parentElement.classList.add("full-width");
   document
@@ -193,7 +197,8 @@ function editFAQ(id) {
   if (!faq) return;
 
   currentEditingId = id;
-  document.getElementById("modalTitle").textContent = "Edit FAQ";
+  const faqTitleEl = document.getElementById("faqModalTitle");
+  if (faqTitleEl) faqTitleEl.textContent = "Edit FAQ";
   document.getElementById("faqQuestion").value = faq.question || "";
   document.getElementById("faqAnswer").value = faq.answer || "";
   document.getElementById("editingFAQId").value = id;
@@ -306,34 +311,34 @@ async function createNewFAQ(question, answer, sortOrder, isActive) {
   }
 }
 
-function deleteFAQ(id, element) {
-  if (
-    confirm(
-      "Are you sure you want to delete this FAQ? This action cannot be undone."
-    )
-  ) {
-    fetch(`${API_BASE_URL}/${id}`, {
-      method: "DELETE",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to delete FAQ");
-        clearFaqsCache();
-        const faqItem = element.closest(".faq-item");
-        if (faqItem) {
-          faqItem.style.transform = "translateX(-100%)";
-          faqItem.style.opacity = "0";
-          setTimeout(() => {
-            faqItem.remove();
-            updateFAQCounter();
-            showNotification("FAQ deleted successfully!", "success");
+async function deleteFAQ(id, element) {
+  const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+    ? ((msg, title) => window.showConfirm(msg, title))
+    : (msg => Promise.resolve(confirm(String(msg))));
 
-            fetchAndRenderFAQs();
-          }, 300);
-        }
-      })
-      .catch((err) => {
-        showNotification("Error deleting FAQ: " + err.message, "error");
-      });
+  const ok = !!(await confirmFn(
+    "Are you sure you want to delete this FAQ? This action cannot be undone.",
+    "Delete FAQ"
+  ));
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete FAQ");
+    clearFaqsCache();
+    const faqItem = element.closest(".faq-item");
+    if (faqItem) {
+      faqItem.style.transform = "translateX(-100%)";
+      faqItem.style.opacity = "0";
+      setTimeout(() => {
+        faqItem.remove();
+        updateFAQCounter();
+        showNotification("FAQ deleted successfully!", "success");
+        fetchAndRenderFAQs();
+      }, 300);
+    }
+  } catch (err) {
+    showNotification("Error deleting FAQ: " + err.message, "error");
   }
 }
 
@@ -392,49 +397,49 @@ function filterFAQs() {
   updateFAQCounter();
 }
 
-function previewFAQ() {
-  generatePreview();
-  showModal("previewModal");
-}
 
-function generatePreview() {
-  const title =
-    document.getElementById("faq-title")?.value || "Frequently Asked Questions";
-  const description =
-    document.getElementById("faq-desc")?.value ||
-    "Find answers to common questions";
 
-  let previewHTML = `
-    <div style="text-align: center; margin-bottom: 40px;">
-      <h2 style="font-size: 32px; font-weight: 700; color: #1e293b; margin-bottom: 16px;">${escapeHtml(
-        title
-      )}</h2>
-      <p style="font-size: 16px; color: #64748b; line-height: 1.6;">${escapeHtml(
-        description
-      )}</p>
-    </div>
-    <div style="display: flex; flex-direction: column; gap: 20px;">
-  `;
 
-  latestFaqs
-    .filter((faq) => String(faq.is_active) === "1")
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .forEach((faq) => {
-      previewHTML += `
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
-          <h4 style="font-size: 18px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">${escapeHtml(
-            faq.question
-          )}</h4>
-          <p style="font-size: 15px; color: #64748b; line-height: 1.6; margin: 0;">${escapeHtml(
-            faq.answer
-          )}</p>
-        </div>
-      `;
-    });
 
-  previewHTML += "</div>";
-  document.getElementById("previewContent").innerHTML = previewHTML;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function exportFAQ() {
   const faqData = {
@@ -524,17 +529,22 @@ function showModal(modalId) {
     console.error(`[Modal Debug] Modal with id '${modalId}' not found.`);
     return;
   }
-  modal.classList.add("show");
-  document.body.style.overflow = "hidden";
+  
+  _modalIgnoreUntil = Date.now() + 150;
+  
+  setTimeout(() => {
+    modal.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }, 0);
 }
 
-function closeFAQModal() {
-  hideModal("faqModal");
-}
 
-function closePreviewModal() {
-  hideModal("previewModal");
-}
+
+
+
+
+
+
 
 function hideModal(modalId) {
   const modal = document.getElementById(modalId);
@@ -584,6 +594,8 @@ function escapeHtml(text) {
 
 
 document.addEventListener("click", function (e) {
+  
+  if (Date.now() < _modalIgnoreUntil) return;
   if (e.target.classList.contains("modal-overlay")) {
     const modalId = e.target.id;
     hideModal(modalId);
@@ -595,10 +607,10 @@ window.addFAQ = addFAQ;
 window.editFAQ = editFAQ;
 window.deleteFAQ = deleteFAQ;
 window.closeFAQModal = closeFAQModal;
-window.previewFAQ = previewFAQ;
+
 window.saveFAQ = saveFAQ;
 window.updateExistingFAQ = updateExistingFAQ;
 window.createNewFAQ = createNewFAQ;
 window.exportFAQ = exportFAQ;
 window.filterFAQs = filterFAQs;
-window.closePreviewModal = closePreviewModal;
+

@@ -3,6 +3,77 @@ import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 
 const API_BASE_URL = "/api/v1/leases";
 
+// Ensure modal helpers (showAlert/showConfirm/showPrompt) are available at runtime.
+// If the helpers script isn't already loaded on the page, dynamically load it and
+// provide a tiny fallback implementation so calls won't fail.
+function loadModalHelpersIfNeeded() {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+        return resolve(true);
+      }
+
+      // If already injected, wait for it
+      var existing = document.querySelector('script[data-modalhelpers]');
+      if (existing) {
+        existing.addEventListener("load", function () {
+          return resolve(true);
+        });
+        existing.addEventListener("error", function () {
+          defineFallback();
+          return resolve(false);
+        });
+        return;
+      }
+
+      var scriptSrc = "/javascript/utils/modalHelpers.js";
+      var s = document.createElement("script");
+      s.src = scriptSrc;
+      s.async = true;
+      s.setAttribute("data-modalhelpers", "1");
+      s.onload = function () {
+        // the helper attaches showAlert/showConfirm/showPrompt to window
+        return resolve(true);
+      };
+      s.onerror = function () {
+        defineFallback();
+        return resolve(false);
+      };
+      (document.head || document.documentElement).appendChild(s);
+    } catch (e) {
+      defineFallback();
+      return resolve(false);
+    }
+
+    function defineFallback() {
+      try {
+        if (typeof window.showAlert !== "function")
+          window.showAlert = function (msg, type) {
+            // basic fallback
+            console.warn("showAlert fallback:", type, msg);
+            alert(String(msg));
+          };
+        if (typeof window.showConfirm !== "function")
+          window.showConfirm = function (msg) {
+            return Promise.resolve(confirm(String(msg)));
+          };
+        if (typeof window.showPrompt !== "function")
+          window.showPrompt = function (msg, placeholder) {
+            return Promise.resolve(prompt(String(msg), String(placeholder || "")));
+          };
+      } catch (e) {
+        /* noop */
+      }
+    }
+  });
+}
+
+// Start loading early so it's ready when UI code needs it
+loadModalHelpersIfNeeded().then(function (ok) {
+  if (ok) console.debug("ModalHelpers available");
+  else console.debug("ModalHelpers fallback in use");
+});
+
 async function setDynamicInfo() {
   const company = await fetchCompanyDetails();
   if (!company) return;
@@ -872,29 +943,77 @@ async function saveLease() {
 function cancelForm() {
   const hasUnsavedChanges = checkForUnsavedChanges();
 
-  if (hasUnsavedChanges) {
-    showCancelModal();
-  } else {
+  if (!hasUnsavedChanges) {
     resetFormState();
     showListView();
+    return;
   }
+
+  const message = "You have unsaved changes. Do you want to discard them?";
+
+  // Prefer using the app's Modal component directly when available so the
+  // global-styled modal is always used even if modalHelpers hasn't finished
+  // loading. Fallback order: Modal.open -> window.showConfirm -> window.confirm
+  try {
+    if (typeof Modal !== "undefined" && Modal && typeof Modal.open === "function") {
+      Modal.open({
+        title: "Discard changes",
+        body: `<div style="white-space:pre-wrap;">${message}</div>`,
+        showFooter: true,
+        showCancel: true,
+        confirmText: "Discard",
+        cancelText: "Continue Editing",
+        onConfirm: function () {
+          resetFormState();
+          showListView();
+          showToast("Changes discarded successfully");
+        },
+        onCancel: function () {
+          // no-op, keep editing
+        },
+      });
+      return;
+    }
+  } catch (e) {
+    console.warn("Modal.open not available or failed:", e);
+  }
+
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? (msg, title) => window.showConfirm(msg, title)
+      : (msg) => Promise.resolve(confirm(String(msg)));
+
+  confirmFn(message, "Discard changes").then((ok) => {
+    if (ok) {
+      resetFormState();
+      showListView();
+      showToast("Changes discarded successfully");
+    }
+  });
 }
 
+// Backwards-compatible wrappers in case other modules call these functions.
 function showCancelModal() {
-  const modal = document.getElementById("cancelModal");
-  const message = document.getElementById("cancelModalMessage");
-
-  modal.classList.add("show");
+  // Delegate to cancelForm which will open the global confirm modal.
+  cancelForm();
 }
 
 function hideCancelModal() {
-  document.getElementById("cancelModal").classList.remove("show");
+  // Try to close a global Modal if one is open.
+  try {
+    if (typeof Modal !== "undefined" && Modal && typeof Modal.close === "function") {
+      Modal.close();
+      return;
+    }
+  } catch (e) {
+    /* noop */
+  }
 }
 
 function confirmCancel() {
+  // Immediately perform the cancel action (used by legacy bindings).
   resetFormState();
   showListView();
-  hideCancelModal();
   showToast("Changes discarded successfully");
 }
 
@@ -1205,15 +1324,39 @@ function showToast(message, type = "success") {
   const toast = document.getElementById("toast");
   const title = document.getElementById("toastTitle");
   const messageEl = document.getElementById("toastMessage");
+  const icon = document.getElementById("toastIcon");
 
-  title.textContent = type === "error" ? "Error!" : "Success!";
+  // Title depending on type
+  if (type === "error") title.textContent = "Error!";
+  else if (type === "info") title.textContent = "Notice";
+  else title.textContent = "Success!";
+
   messageEl.textContent = message;
 
-  toast.className = `toast ${type === "error" ? "error" : ""}`;
-  toast.classList.add("show");
+  // Reset classes and add notification + type + show
+  toast.classList.remove("show", "success", "info", "error");
+  toast.classList.add("notification", type === "error" ? "error" : type === "info" ? "info" : "success");
 
+  // set icon for each type (FontAwesome classes)
+  if (icon) {
+    icon.className = ""; // clear
+    if (type === "error") icon.classList.add("fa-solid", "fa-circle-xmark");
+    else if (type === "info") icon.classList.add("fa-solid", "fa-info-circle");
+    else icon.classList.add("fa-solid", "fa-circle-check");
+  }
+
+  // show
+  requestAnimationFrame(() => {
+    toast.classList.add("show");
+  });
+
+  // hide after delay
   setTimeout(() => {
     toast.classList.remove("show");
+    // remove type class shortly after hide to allow CSS transitions
+    setTimeout(() => {
+      toast.classList.remove("success", "info", "error");
+    }, 300);
   }, 4000);
 }
 
@@ -1225,10 +1368,14 @@ function sendReminder() {
   showToast("Payment reminder sent successfully!");
 }
 
-function terminateLease() {
-  if (confirm("Are you sure you want to terminate this lease?")) {
-    showToast("Lease termination process initiated");
-  }
+async function terminateLease() {
+  const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+    ? ((msg, title) => window.showConfirm(msg, title))
+    : (msg => Promise.resolve(confirm(String(msg))));
+
+  const ok = !!(await confirmFn("Are you sure you want to terminate this lease?", "Confirm termination"));
+  if (!ok) return;
+  showToast("Lease termination process initiated");
 }
 
 function viewPaymentHistory() {

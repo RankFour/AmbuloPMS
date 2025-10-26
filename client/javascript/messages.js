@@ -1,5 +1,5 @@
-import { getJwtToken } from "/utils/getCookie.js";
-import formatTimeFlexible from "/utils/formatTime.js";
+import { getJwtToken, getCookie } from "../utils/getCookie.js";
+import formatTimeFlexible from "../utils/formatTime.js";
 
 const announcements = [];
 
@@ -23,14 +23,48 @@ let pendingAttachments = [];
 let pendingTmpMap = new Map();
 
 document.addEventListener("DOMContentLoaded", async function () {
-  jwtToken = getJwtToken();
+  
+  try {
+    console.debug("messages: DOMContentLoaded - script running");
+  } catch (e) {}
+
+  
+  try {
+    if (typeof getCookie === "function") {
+      const t = getCookie("token");
+      if (t) jwtToken = t;
+    }
+  } catch (e) {}
+
+  if (!jwtToken) {
+    try {
+      
+      jwtToken = getJwtToken();
+    } catch (e) {
+      jwtToken = null;
+      console.debug("messages: getJwtToken threw or redirected; proceeding without token");
+    }
+  }
   try {
     const userStr = localStorage.getItem("user");
     if (userStr) currentUser = JSON.parse(userStr);
   } catch {}
 
+  
+  try {
+    console.debug("messages:init jwt present:", !!jwtToken);
+    console.debug("messages:init currentUser:", currentUser ? { id: currentUser.user_id, role: currentUser.role } : null);
+  } catch (e) {}
+
   renderAnnouncements();
   setupEventListeners();
+
+  
+  try {
+    await ensureModalHelpers();
+  } catch (e) {
+    console.debug('messages: ensureModalHelpers failed or timed out', e);
+  }
 
   tryInitSocket();
 
@@ -58,6 +92,73 @@ document.addEventListener("DOMContentLoaded", async function () {
       role === "ADMIN" || role === "MANAGER" ? "inline-flex" : "none";
   }
 });
+
+
+
+function ensureModalHelpers(timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.showConfirm === 'function' && typeof window.Modal !== 'undefined') {
+        return resolve(true);
+      }
+
+      let loaded = 0;
+      function checkDone() {
+        if (typeof window !== 'undefined' && typeof window.showConfirm === 'function' && typeof window.Modal !== 'undefined') {
+          resolve(true);
+          return true;
+        }
+        return false;
+      }
+
+      if (checkDone()) return;
+
+      
+      function inject(src) {
+        return new Promise((res, rej) => {
+          try {
+            const found = Array.from(document.getElementsByTagName('script')).find(s => s.src && s.src.indexOf(src) !== -1);
+            if (found) return res(found);
+            const s = document.createElement('script');
+            s.src = src;
+            s.async = false;
+            s.onload = () => res(s);
+            s.onerror = (e) => rej(e);
+            document.head.appendChild(s);
+          } catch (e) { rej(e); }
+        });
+      }
+
+      
+      inject('/javascript/dialog-modal.js')
+        .catch(() => null)
+        .then(() => inject('/javascript/utils/modalHelpers.js').catch(() => null))
+        .then(() => {
+          if (checkDone()) return;
+          
+          const start = Date.now();
+          const iv = setInterval(() => {
+            if (checkDone() || Date.now() - start > timeoutMs) {
+              clearInterval(iv);
+              resolve(checkDone());
+            }
+          }, 100);
+        })
+        .catch(() => {
+          
+          const start = Date.now();
+          const iv = setInterval(() => {
+            if (checkDone() || Date.now() - start > timeoutMs) {
+              clearInterval(iv);
+              resolve(checkDone());
+            }
+          }, 100);
+        });
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
 
 function switchTab(tabName, tabElement) {
   document
@@ -558,21 +659,41 @@ async function loadConversationsOnly() {
   try {
     chatContacts = [];
     if (currentUser && currentUser.user_id) {
-      const convRes = await fetch(
-        `${API_BASE}/messages/conversations/${currentUser.user_id}`,
-        { credentials: "include" }
-      );
-      const convs = await convRes.json();
-      chatContacts = (convs || []).map((c) => ({
-        id: c.other_user_id,
-        name: c.other_user_name,
-        avatar: getInitialsFromName(c.other_user_name),
-        avatarUrl: c.other_user_avatar || null,
-        online: false,
-        lastMessage: c.last_message || "",
-        lastTime: c.last_message_time ? formatTime(c.last_message_time) : "",
-        unreadCount: 0,
-      }));
+      try {
+        console.debug("messages: loadConversationsOnly - fetching conversations", {
+          jwtPresent: !!jwtToken,
+          currentUser: currentUser ? { id: currentUser.user_id, role: currentUser.role } : null,
+        });
+
+        const convRes = await fetch(
+          `${API_BASE}/messages/conversations/${currentUser.user_id}`,
+          { credentials: "include" }
+        );
+
+        let convs = null;
+        try {
+          convs = await convRes.json();
+        } catch (e) {
+          console.warn("messages: conversations response JSON parse failed", e);
+          convs = null;
+        }
+
+        console.debug("messages: conversations fetch result", { status: convRes.status, ok: convRes.ok, bodySample: Array.isArray(convs) ? convs.slice(0,3) : convs });
+
+        chatContacts = (convs || []).map((c) => ({
+          id: c.other_user_id,
+          name: c.other_user_name,
+          avatar: getInitialsFromName(c.other_user_name),
+          avatarUrl: c.other_user_avatar || null,
+          online: false,
+          lastMessage: c.last_message || "",
+          lastTime: c.last_message_time ? formatTime(c.last_message_time) : "",
+          unreadCount: 0,
+        }));
+      } catch (e) {
+        console.error("messages: failed to fetch conversations", e);
+        chatContacts = [];
+      }
     }
   } catch (e) {
     console.error("Failed to load contacts", e);
@@ -1683,13 +1804,41 @@ function updateChatBadge() {
 }
 
 function showModal(modalId) {
+  try {
+    
+    if (typeof Modal !== 'undefined' && Modal && typeof Modal.open === 'function' && document.getElementById('globalModal')) {
+      const src = document.getElementById(modalId);
+      if (!src) return;
+      
+      const titleEl = src.querySelector('.modal-title') || src.querySelector('h1, h2, h3, h4');
+      const titleText = titleEl ? (titleEl.textContent || titleEl.innerText || '') : '';
+      
+      const clone = src.cloneNode(true);
+      
+      const rem = clone.querySelectorAll('.modal-header, h1, h2, h3, .modal-title');
+      rem.forEach(n => n.parentNode && n.parentNode.removeChild(n));
+      const bodyHtml = clone.innerHTML;
+      Modal.open({ title: titleText || modalId, body: bodyHtml, showFooter: false });
+      return;
+    }
+  } catch (e) {
+    console.warn('showModal via Modal failed, falling back to DOM show', e);
+  }
   const modal = document.getElementById(modalId);
-  modal.classList.add("show");
+  if (modal) modal.classList.add('show');
 }
 
 function closeModal(modalId) {
+  try {
+    if (typeof Modal !== 'undefined' && Modal && typeof Modal.close === 'function' && document.getElementById('globalModal')) {
+      Modal.close();
+      return;
+    }
+  } catch (e) {
+    console.warn('closeModal via Modal failed, falling back', e);
+  }
   const modal = document.getElementById(modalId);
-  modal.classList.remove("show");
+  if (modal) modal.classList.remove('show');
 }
 
 document.addEventListener("click", function (e) {
@@ -1764,6 +1913,17 @@ function updateSendButtonState() {
 }
 
 function showNotification(message, type = "success") {
+  try {
+    if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
+      
+      window.showAlert(String(message || ''), type === 'error' ? 'error' : type === 'info' ? 'info' : 'success');
+      return;
+    }
+  } catch (e) {
+    console.warn('showNotification via showAlert failed', e);
+  }
+
+  
   const notification = document.createElement("div");
   notification.className = "notification";
   notification.textContent = message;
@@ -2045,6 +2205,96 @@ function closeChatSidebarMobile() {
   } catch {}
 }
 
+
+
+async function globalLogout() {
+  try {
+    
+    await ensureModalHelpers(1500);
+  } catch (e) {}
+
+  const confirmWithOverlay = () =>
+    new Promise((resolve) => {
+      try {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.classList.add('active');
+        overlay.style.zIndex = 12000;
+
+        const container = document.createElement('div');
+        container.className = 'modal-container';
+
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'modal-title';
+        const titleText = document.createElement('span');
+        titleText.className = 'modal-title-text';
+        titleText.textContent = 'Sign out';
+        titleEl.appendChild(titleText);
+        header.appendChild(titleEl);
+
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+        body.style.padding = '16px 22px';
+        body.textContent = 'Are you sure you want to sign out?';
+
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-cancel';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          resolve(false);
+        };
+
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn-confirm';
+        okBtn.textContent = 'OK';
+        okBtn.onclick = function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          resolve(true);
+        };
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(okBtn);
+        container.appendChild(header);
+        container.appendChild(body);
+        container.appendChild(footer);
+        overlay.appendChild(container);
+        (document.body || document.documentElement).appendChild(overlay);
+        setTimeout(function () {
+          try { okBtn.focus(); } catch (e) {}
+        }, 20);
+      } catch (e) {
+        try { resolve(confirm('Are you sure you want to sign out?')); } catch (_) { resolve(false); }
+      }
+    });
+
+  let ok = false;
+  try {
+    if (typeof window.showConfirm === 'function') {
+      ok = !!(await window.showConfirm('Are you sure you want to sign out?', 'Sign out'));
+    } else {
+      ok = !!(await confirmWithOverlay());
+    }
+  } catch (e) {
+    ok = !!window.confirm?.('Are you sure you want to sign out?');
+  }
+  if (!ok) return;
+
+  try { localStorage.clear(); } catch (e) {}
+  try { sessionStorage.clear(); } catch (e) {}
+  try {
+    fetch('/api/v1/users/logout', { method: 'POST', credentials: 'include' })
+      .finally(() => { window.location.href = '/login.html'; });
+  } catch (e) {
+    window.location.href = '/login.html';
+  }
+}
+
 window.openNewMessageModal = openNewMessageModal;
 window.searchRecipients = searchRecipients;
 window.selectRecipient = selectRecipient;
@@ -2080,3 +2330,5 @@ window.switchConvMediaTab = switchConvMediaTab;
 window.openChatSidebarMobile = openChatSidebarMobile;
 window.closeChatSidebarMobile = closeChatSidebarMobile;
 window.closeModal = closeModal;
+
+window.logout = globalLogout;

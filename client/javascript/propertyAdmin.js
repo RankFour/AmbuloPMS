@@ -501,18 +501,31 @@ function getPropertyImageSrc(property) {
 }
 
 function showLoadingState() {
-  const grid = document.getElementById("propertiesGrid");
-  grid.innerHTML = `
+  try {
+    const grid = document.getElementById("propertiesGrid");
+    if (!grid) {
+      console.warn("showLoadingState: #propertiesGrid not found in DOM");
+      return;
+    }
+    grid.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 50px;">
                     <div style="font-size: 18px; color: #666; margin-bottom: 10px;">Loading properties...</div>
                     <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #4a90e2; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
                 </div>
             `;
+  } catch (e) {
+    console.warn('showLoadingState error', e);
+  }
 }
 
 function showErrorState() {
-  const grid = document.getElementById("propertiesGrid");
-  grid.innerHTML = `
+  try {
+    const grid = document.getElementById("propertiesGrid");
+    if (!grid) {
+      console.warn("showErrorState: #propertiesGrid not found in DOM");
+      return;
+    }
+    grid.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 50px; color: #dc2626;">
                     <div style="font-size: 18px; margin-bottom: 15px;">Failed to load properties</div>
                     <button onclick="loadProperties()" style="background: #4a90e2; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
@@ -520,9 +533,28 @@ function showErrorState() {
                     </button>
                 </div>
             `;
+  } catch (e) {
+    console.warn('showErrorState error', e);
+  }
 }
 
-function hideLoadingState() { }
+function hideLoadingState() { hideLoadingStateSafe(); }
+
+
+function hideLoadingStateSafe() {
+  try {
+    const grid = document.getElementById("propertiesGrid");
+    if (!grid) return;
+    
+    
+    const loadingNode = grid.querySelector("[style*='Loading properties...']");
+    if (loadingNode) {
+      grid.innerHTML = "";
+    }
+  } catch (e) {
+    console.warn('hideLoadingStateSafe error', e);
+  }
+}
 
 function openAddModal() {
   hideEditPropertyForm();
@@ -640,21 +672,24 @@ function showAddPropertyForm() {
   if (addressFilterDropdown) addressFilterDropdown.style.display = "none";
 }
 
-function hideAddPropertyForm() {
-  if (
-    confirm("Are you sure you want to cancel? All entered data will be lost.")
-  ) {
-    isAddingProperty = false;
-    updateBreadcrumb();
-    showPropertiesGrid();
-    resetInlineForm();
+async function hideAddPropertyForm() {
+  const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+    ? ((msg, title) => window.showConfirm(msg, title))
+    : (msg => Promise.resolve(confirm(String(msg))));
 
-    const addPropertyBtn = document.querySelector(".new-ticket-btn");
-    const propertyControls = document.getElementById("propertyControls");
+  const ok = !!(await confirmFn("Are you sure you want to cancel? All entered data will be lost.", 'Cancel'));
+  if (!ok) return;
 
-    if (addPropertyBtn) addPropertyBtn.style.display = "flex";
-    if (propertyControls) propertyControls.style.display = "flex";
-  }
+  isAddingProperty = false;
+  updateBreadcrumb();
+  showPropertiesGrid();
+  resetInlineForm();
+
+  const addPropertyBtn = document.querySelector(".new-ticket-btn");
+  const propertyControls = document.getElementById("propertyControls");
+
+  if (addPropertyBtn) addPropertyBtn.style.display = "flex";
+  if (propertyControls) propertyControls.style.display = "flex";
 }
 
 function updateBreadcrumb(customBreadcrumbs = null) {
@@ -737,13 +772,14 @@ function showEditPropertyForm(propertyId) {
   if (addressFilterDropdown) addressFilterDropdown.style.display = "none";
 }
 
-function hideEditPropertyForm(skipConfirmation = false) {
+async function hideEditPropertyForm(skipConfirmation = false) {
   if (!skipConfirmation && isEditingProperty) {
-    if (
-      !confirm("Are you sure you want to cancel? All changes will be lost.")
-    ) {
-      return;
-    }
+    const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+      ? ((msg, title) => window.showConfirm(msg, title))
+      : (msg => Promise.resolve(confirm(String(msg))));
+
+    const ok = !!(await confirmFn("Are you sure you want to cancel? All changes will be lost.", 'Cancel'));
+    if (!ok) return;
   }
 
   isEditingProperty = false;
@@ -1371,11 +1407,16 @@ function validateEditInlineAddress(address) {
   const missingFields = requiredFields.filter((field) => !address[field]);
 
   if (missingFields.length > 0) {
-    alert(
-      `Please fill in the following required fields: ${missingFields.join(
-        ", "
-      )}`
-    );
+    const msg = `Please fill in the following required fields: ${missingFields.join(", ")}`;
+    try {
+      if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+        window.showAlert(msg, "warning");
+      } else {
+        alert(msg);
+      }
+    } catch (e) {
+      try { alert(msg); } catch (err) { /* noop */ }
+    }
     return false;
   }
 
@@ -1878,11 +1919,16 @@ function validateInlineAddress(address) {
   const missingFields = requiredFields.filter((field) => !address[field]);
 
   if (missingFields.length > 0) {
-    alert(
-      `Please fill in the following required fields: ${missingFields.join(
-        ", "
-      )}`
-    );
+    const msg = `Please fill in the following required fields: ${missingFields.join(", ")}`;
+    try {
+      if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+        window.showAlert(msg, "warning");
+      } else {
+        alert(msg);
+      }
+    } catch (e) {
+      try { alert(msg); } catch (err) { /* noop */ }
+    }
     return false;
   }
 

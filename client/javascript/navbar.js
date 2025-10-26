@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-  
   fetch("/components/navbar.html")
     .then((res) => res.text())
     .then((data) => {
@@ -15,34 +14,29 @@ function setupNavbarFeatures() {
   const navbar =
     document.querySelector("header") || document.getElementById("navbar");
 
-  // ADD THIS NEW CODE FOR HAMBURGER MENU
-  const hamburger = document.querySelector('.hamburger');
-  const navLinks = document.querySelector('.nav-links');
+  const hamburger = document.querySelector(".hamburger");
+  const navLinks = document.querySelector(".nav-links");
 
-  // Hamburger menu toggle
   if (hamburger && navLinks) {
-    hamburger.addEventListener('click', () => {
-      hamburger.classList.toggle('active');
-      navLinks.classList.toggle('active');
+    hamburger.addEventListener("click", () => {
+      hamburger.classList.toggle("active");
+      navLinks.classList.toggle("active");
     });
 
-    // Close menu when clicking on a link
-    navLinks.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => {
-        hamburger.classList.remove('active');
-        navLinks.classList.remove('active');
+    navLinks.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        hamburger.classList.remove("active");
+        navLinks.classList.remove("active");
       });
     });
 
-    // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
+    document.addEventListener("click", (e) => {
       if (!navbar.contains(e.target)) {
-        hamburger.classList.remove('active');
-        navLinks.classList.remove('active');
+        hamburger.classList.remove("active");
+        navLinks.classList.remove("active");
       }
     });
   }
-  // END OF NEW CODE FOR HAMBURGER MENU
 
   const revealElements = document.querySelectorAll(".reveal-element");
 
@@ -57,7 +51,6 @@ function setupNavbarFeatures() {
     });
   };
 
-  
   const handleScroll = () => {
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
@@ -70,7 +63,6 @@ function setupNavbarFeatures() {
     revealOnScroll();
   };
 
-  
   document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
     anchor.addEventListener("click", function (e) {
       e.preventDefault();
@@ -84,7 +76,6 @@ function setupNavbarFeatures() {
     });
   });
 
-  
   const observerOptions = {
     threshold: 0.1,
     rootMargin: "0px 0px -50px 0px",
@@ -98,7 +89,6 @@ function setupNavbarFeatures() {
     });
   }, observerOptions);
 
-  
   document.querySelectorAll(".reveal-element").forEach((el) => {
     observer.observe(el);
   });
@@ -114,45 +104,57 @@ function setupNavbarFeatures() {
     }
   });
 
+  const contactForm = navbar ? navbar.querySelector("form") : null;
+  if (contactForm) {
+    contactForm.addEventListener("submit", function (e) {
+      e.preventDefault();
 
-const contactForm = navbar ? navbar.querySelector("form") : null;
-if (contactForm) {
-  contactForm.addEventListener("submit", function (e) {
-    e.preventDefault();
+      const formData = new FormData(this);
+      const name = formData.get("name");
+      const email = formData.get("email");
+      const phone = formData.get("phone");
+      const message = formData.get("message");
 
-    
-    const formData = new FormData(this);
-    const name = formData.get("name");
-    const email = formData.get("email");
-    const phone = formData.get("phone");
-    const message = formData.get("message");
-
-    
-    if (!name || !email || !message) {
-      alert("Please fill in all required fields.");
-      return;
-    }
-
-    
-    const button = this.querySelector("button");
-    const originalText = button ? button.textContent : '';
-    if (button) {
-      button.textContent = "Sending...";
-      button.disabled = true;
-    }
-
-    setTimeout(() => {
-      alert("Thank you for your inquiry! We will contact you soon.");
-      this.reset();
-      if (button) {
-        button.textContent = originalText;
-        button.disabled = false;
+      if (!name || !email || !message) {
+        if (
+          typeof window !== "undefined" &&
+          typeof window.showAlert === "function"
+        ) {
+          window.showAlert("Please fill in all required fields.", "warning");
+        } else {
+          alert("Please fill in all required fields.");
+        }
+        return;
       }
-    }, 2000);
-  });
-}
 
-  
+      const button = this.querySelector("button");
+      const originalText = button ? button.textContent : "";
+      if (button) {
+        button.textContent = "Sending...";
+        button.disabled = true;
+      }
+
+      setTimeout(() => {
+        if (
+          typeof window !== "undefined" &&
+          typeof window.showAlert === "function"
+        ) {
+          window.showAlert(
+            "Thank you for your inquiry! We will contact you soon.",
+            "success"
+          );
+        } else {
+          alert("Thank you for your inquiry! We will contact you soon.");
+        }
+        this.reset();
+        if (button) {
+          button.textContent = originalText;
+          button.disabled = false;
+        }
+      }, 2000);
+    });
+  }
+
   document.querySelectorAll(".property-card").forEach((card) => {
     card.addEventListener("mouseenter", function () {
       this.style.transform = "translateY(-15px) scale(1.02)";
@@ -163,7 +165,6 @@ if (contactForm) {
     });
   });
 
-  
   window.addEventListener("scroll", () => {
     const scrolled = window.pageYOffset;
     const parallax = document.querySelector(".hero");

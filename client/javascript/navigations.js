@@ -5,6 +5,74 @@
     return match ? match[2] : null;
   }
 
+  
+  function confirmOverlay(message, title = "Confirm") {
+    return new Promise(function (resolve) {
+      try {
+        const overlay = document.createElement("div");
+        overlay.className = 'modal-overlay';
+        overlay.classList.add('active');
+        overlay.style.zIndex = 12000;
+
+        const container = document.createElement('div');
+        container.className = 'modal-container';
+
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'modal-title';
+        const titleText = document.createElement('span');
+        titleText.className = 'modal-title-text';
+        titleText.textContent = String(title || 'Confirm');
+        titleEl.appendChild(titleText);
+        header.appendChild(titleEl);
+
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+        body.style.padding = '16px 22px';
+        body.textContent = String(message || '');
+
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-cancel';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          resolve(false);
+        };
+
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn-confirm';
+        okBtn.textContent = 'OK';
+        okBtn.onclick = function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          resolve(true);
+        };
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(okBtn);
+        container.appendChild(header);
+        container.appendChild(body);
+        container.appendChild(footer);
+        overlay.appendChild(container);
+        (document.body || document.documentElement).appendChild(overlay);
+        setTimeout(function () {
+          try {
+            okBtn.focus();
+          } catch (e) {}
+        }, 20);
+      } catch (e) {
+        try {
+          resolve(confirm(String(message)));
+        } catch (_) {
+          resolve(false);
+        }
+      }
+    });
+  }
+
   function getJwtToken() {
     const token = getCookie("token");
     return token || null;
@@ -95,6 +163,15 @@
     } else {
       await maybeInjectFragment("/components/top-navbar.html", "navbar");
       await maybeInjectFragment("/components/sidebar.html", "sidebar");
+    }
+
+    
+    
+    try {
+      await ensureScript("/javascript/dialog-modal.js");
+      await ensureScript("/javascript/utils/modalHelpers.js");
+    } catch (e) {
+      console.warn("Modal scripts failed to load; falling back may use in-page confirm", e);
     }
 
     try {
@@ -1064,18 +1141,21 @@
     openHelp() {
       this.closeAllDropdowns();
     }
-    logout() {
+    async logout() {
       this.closeAllDropdowns();
-      if (confirm("Are you sure you want to sign out?")) {
-        localStorage.clear();
-        sessionStorage.clear();
-        fetch("/api/v1/users/logout", {
-          method: "POST",
-          credentials: "include",
-        }).finally(() => {
-          window.location.href = "/login.html";
-        });
-      }
+      const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+        ? ((msg, title) => window.showConfirm(msg, title))
+        : (msg => confirmOverlay(String(msg), 'Sign out'));
+      const ok = !!(await confirmFn("Are you sure you want to sign out?", 'Sign out'));
+      if (!ok) return;
+      localStorage.clear();
+      sessionStorage.clear();
+      fetch("/api/v1/users/logout", {
+        method: "POST",
+        credentials: "include",
+      }).finally(() => {
+        window.location.href = "/login.html";
+      });
     }
     bindEvents() {
       if (this.sidebarToggle) {
@@ -2050,18 +2130,21 @@
           dropdown.classList.remove("show", "active");
         });
     }
-    logout() {
+    async logout() {
       this.closeAllDropdowns();
-      if (confirm("Are you sure you want to sign out?")) {
-        localStorage.clear();
-        sessionStorage.clear();
-        fetch("/api/v1/users/logout", {
-          method: "POST",
-          credentials: "include",
-        }).finally(() => {
-          window.location.href = "/login.html";
-        });
-      }
+      const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+        ? ((msg, title) => window.showConfirm(msg, title))
+        : (msg => confirmOverlay(String(msg), 'Sign out'));
+      const ok = !!(await confirmFn("Are you sure you want to sign out?", 'Sign out'));
+      if (!ok) return;
+      localStorage.clear();
+      sessionStorage.clear();
+      fetch("/api/v1/users/logout", {
+        method: "POST",
+        credentials: "include",
+      }).finally(() => {
+        window.location.href = "/login.html";
+      });
     }
     bindEvents() {
       if (this.sidebarToggle) {

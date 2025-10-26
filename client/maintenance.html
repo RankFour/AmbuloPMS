@@ -619,6 +619,22 @@
     </div>
 
     <script src="/constants/constants.js"></script>
+            <link rel="stylesheet" href="/css/dialog-modal.css">
+
+            <!-- Global Modal Structure (used by dialog-modal.js and modalHelpers) -->
+            <div class="modal-overlay" id="globalModal" aria-hidden="true">
+                <div class="modal-container">
+                    <div class="modal-header">
+                        <h3 class="modal-title" id="modalTitle">Modal Title</h3>
+                        <button class="modal-close" onclick="Modal.close()" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="modal-body" id="modalBody"></div>
+                    <div class="modal-footer" id="modalFooter"></div>
+                </div>
+            </div>
+
+            <script src="/javascript/dialog-modal.js"></script>
+            <script src="/javascript/utils/modalHelpers.js"></script>
     <script type="module" src="/javascript/maintenance.js"></script>
     <script src="/javascript/navigations.js"></script>
 

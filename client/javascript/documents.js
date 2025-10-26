@@ -69,29 +69,29 @@ function addSampleData() {
         function switchTab(tabName) {
             currentTab = tabName;
             
-            // Update tab buttons
+            
             document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
             document.getElementById(tabName + 'Tab').classList.add('active');
             
-            // Update tab content
+            
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             document.getElementById(tabName + 'Content').classList.add('active');
             
-            // Reset current path when switching tabs
+            
             currentPath = '';
             renderBreadcrumb();
             renderItems();
         }
 
         function setupEventListeners() {
-            // File input changes
+            
             const fileInput = document.getElementById('fileInput');
             const attachmentInput = document.getElementById('attachmentInput');
             
             if (fileInput) fileInput.addEventListener('change', handleFileSelect);
             if (attachmentInput) attachmentInput.addEventListener('change', handleAttachmentSelect);
 
-            // Drag and drop
+            
             const dropZone = document.getElementById('dropZone');
             if (dropZone) {
                 dropZone.addEventListener('dragover', handleDragOver);
@@ -106,7 +106,7 @@ function addSampleData() {
                 attachmentDropZone.addEventListener('drop', handleAttachmentDrop);
             }
 
-            // Enter key handlers
+            
             const folderNameInput = document.getElementById('folderName');
             
             if (folderNameInput) {
@@ -115,7 +115,7 @@ function addSampleData() {
                 });
             }
 
-            // Click outside handlers
+            
             window.addEventListener('click', function(e) {
                 if (e.target.classList.contains('modal')) {
                     closeModal(e.target.id);
@@ -135,7 +135,7 @@ function toggleAddMenu() {
     
     const isVisible = menu.style.display === 'block';
     
-    // Close all dropdowns
+    
     document.querySelectorAll('.dropdown-content, .add-dropdown-content').forEach(d => {
         d.style.display = 'none';
     });
@@ -151,7 +151,7 @@ function toggleDropdown(dropdownId) {
     
     const isVisible = dropdown.style.display === 'block';
     
-    // Close all dropdowns
+    
     document.querySelectorAll('.dropdown-content, .add-dropdown-content').forEach(d => {
         d.style.display = 'none';
     });
@@ -235,12 +235,12 @@ function updateChildrenPaths(oldParentPath, newParentPath) {
             item.parentPath = newParentPath;
             item.path = newPath;
             
-            // Update the file system mapping
+            
             if (path !== newPath) {
                 fileSystem[newPath] = item;
                 delete fileSystem[path];
                 
-                // Recursively update children if this is also a folder
+                
                 if (item.type === 'folder') {
                     updateChildrenPaths(path, newPath);
                 }
@@ -249,7 +249,7 @@ function updateChildrenPaths(oldParentPath, newParentPath) {
     });
 }
 
-// Function to show delete confirmation modal
+
 function deleteItem() {
     if (!contextItem) return;
     
@@ -263,7 +263,7 @@ function deleteItem() {
     
     if (deleteItemName) deleteItemName.textContent = item.name;
     
-    // Check if it's a folder with contents and show appropriate warning
+    
     if (item.type === 'folder') {
         const childrenCount = Object.values(fileSystem).filter(i => i.parentPath === contextItem).length;
         if (deleteWarning) {
@@ -289,7 +289,7 @@ function deleteChildren(folderPath) {
     let deletedCount = 0;
     const childrenToDelete = [];
     
-    // First, collect all children to avoid modifying object while iterating
+    
     Object.keys(fileSystem).forEach(path => {
         const item = fileSystem[path];
         if (item.parentPath === folderPath) {
@@ -297,11 +297,11 @@ function deleteChildren(folderPath) {
         }
     });
     
-    // Delete each child
+    
     childrenToDelete.forEach(childPath => {
         const childItem = fileSystem[childPath];
         if (childItem) {
-            // If child is a folder, recursively delete its children
+            
             if (childItem.type === 'folder') {
                 deletedCount += deleteChildren(childPath);
             }
@@ -313,27 +313,27 @@ function deleteChildren(folderPath) {
     return deletedCount;
 }
 
-// Helper function to show input validation errors
+
 function showInputError(input, message) {
-    // Add error class to input
+    
     input.classList.add('error');
     
-    // Remove any existing error message
+    
     const existingError = input.parentNode.querySelector('.error-message');
     if (existingError) {
         existingError.remove();
     }
     
-    // Create and add new error message
+    
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
     errorDiv.textContent = message;
     input.parentNode.appendChild(errorDiv);
     
-    // Focus the input
+    
     input.focus();
     
-    // Add one-time event listener to clear error on input
+    
     const clearError = () => {
         clearInputError(input);
         input.removeEventListener('input', clearError);
@@ -341,7 +341,7 @@ function showInputError(input, message) {
     input.addEventListener('input', clearError);
 }
 
-// Helper function to clear input validation errors
+
 function clearInputError(input) {
     input.classList.remove('error');
     const errorMessage = input.parentNode.querySelector('.error-message');
@@ -350,7 +350,7 @@ function clearInputError(input) {
     }
 }
 
-// Enhanced context menu show function
+
 function showContextMenu(event, itemPath) {
     event.preventDefault();
     event.stopPropagation();
@@ -359,7 +359,7 @@ function showContextMenu(event, itemPath) {
     const contextMenu = document.getElementById('contextMenu');
     if (!contextMenu) return;
     
-    // Position the context menu
+    
     const x = event.pageX;
     const y = event.pageY;
     const menuWidth = 150;
@@ -367,7 +367,7 @@ function showContextMenu(event, itemPath) {
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
     
-    // Adjust position to keep menu within viewport
+    
     let left = x;
     let top = y;
     
@@ -383,13 +383,13 @@ function showContextMenu(event, itemPath) {
     contextMenu.style.left = left + 'px';
     contextMenu.style.top = top + 'px';
     
-    // Add fade-in effect
+    
     setTimeout(() => {
         contextMenu.style.opacity = '1';
     }, 10);
 }
 
-// Function to open/navigate items
+
 function openItem() {
     if (!contextItem) return;
     
@@ -407,9 +407,9 @@ function openItem() {
     contextItem = null;
 }
 
-// Enhanced keyboard event handlers
+
 document.addEventListener('keydown', function(e) {
-    // Handle rename modal
+    
     if (document.getElementById('renameModal').classList.contains('show')) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -417,7 +417,7 @@ document.addEventListener('keydown', function(e) {
         }
     }
     
-    // Handle delete modal
+    
     if (document.getElementById('deleteModal').classList.contains('show')) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -425,16 +425,16 @@ document.addEventListener('keydown', function(e) {
         }
     }
     
-    // Global shortcuts (when no modal is open)
+    
     const hasOpenModal = document.querySelector('.modal.show');
     if (!hasOpenModal) {
-        // Delete key to delete selected item (if any)
+        
         if (e.key === 'Delete' && contextItem) {
             e.preventDefault();
             deleteItem();
         }
         
-        // F2 to rename selected item (if any)
+        
         if (e.key === 'F2' && contextItem) {
             e.preventDefault();
             renameItem();
@@ -442,7 +442,7 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Hide context menu when clicking elsewhere
+
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.context-menu') && !e.target.closest('.more-icon')) {
         const contextMenu = document.getElementById('contextMenu');
@@ -454,7 +454,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Add CSS for error states (add this to your CSS file)
+
 const errorStyles = `
 .input-group input.error {
     border-color: #ef4444 !important;
@@ -605,7 +605,7 @@ function removeAttachment(index) {
     updateSelectedAttachmentsDisplay();
 }
 
-// Drag and drop handlers
+
 function handleDragOver(event) {
     event.preventDefault();
     const dropZone = document.getElementById('dropZone');
@@ -771,21 +771,24 @@ function openFile(filePath) {
         window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
-        alert('File cannot be opened');
+        const alertFn = (typeof window !== 'undefined' && typeof window.showAlert === 'function')
+            ? ((msg, t) => window.showAlert(msg, t))
+            : ((msg) => alert(String(msg)));
+        alertFn('File cannot be opened', 'error');
     }
 }
 
-// Initialize breadcrumb on page load
+
 document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('breadcrumb')) {
         renderBreadcrumb();
     }
 });
 
-// Add this to your existing inbox.js file
-// This ensures the profile dropdown functionality remains intact while adding document management
 
-// Existing profile dropdown functionality (keep this as is)
+
+
+
 document.addEventListener('DOMContentLoaded', function() {
     const profileBtn = document.getElementById('profileBtnIcon');
     const dropdownMenu = document.getElementById('dropdownMenu');
@@ -796,7 +799,7 @@ document.addEventListener('DOMContentLoaded', function() {
             dropdownMenu.classList.toggle('show');
         });
 
-        // Close dropdown when clicking outside
+        
         document.addEventListener('click', function(e) {
             if (!profileBtn.contains(e.target)) {
                 dropdownMenu.classList.remove('show');
@@ -804,30 +807,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize document management if elements exist
+    
     if (document.getElementById('itemsContainer')) {
         setupDocumentManagement();
     }
 });
 
-// Enhanced modal functions with better animations and UX
+
 
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
     
     modal.style.display = 'block';
-    // Force reflow to ensure display: block is applied
+    
     modal.offsetHeight;
     modal.classList.add('show');
     
-    // Focus management for accessibility
+    
     const firstInput = modal.querySelector('input, button');
     if (firstInput) {
         setTimeout(() => firstInput.focus(), 100);
     }
     
-    // Prevent body scrolling when modal is open
+    
     document.body.style.overflow = 'hidden';
 }
 
@@ -837,13 +840,13 @@ function closeModal(modalId) {
     
     modal.classList.remove('show');
     
-    // Wait for animation to complete before hiding
+    
     setTimeout(() => {
         modal.style.display = 'none';
         document.body.style.overflow = '';
     }, 300);
     
-    // Clear form data based on modal type
+    
     resetModalData(modalId);
 }
 
@@ -895,7 +898,7 @@ function resetDropZone(dropZoneId) {
     }
 }
 
-// Enhanced show functions with validation
+
 function showNewFolderModal() {
     const addMenu = document.getElementById('addMenu');
     if (addMenu) addMenu.style.display = 'none';
@@ -914,14 +917,14 @@ function showAttachmentModal() {
     showModal('attachmentModal');
 }
 
-// Enhanced folder creation with validation and loading state
+
 function createFolder() {
     const folderNameInput = document.getElementById('folderName');
     if (!folderNameInput) return;
     
     const folderName = folderNameInput.value.trim();
     
-    // Validation
+    
     if (!folderName) {
         showInputError(folderNameInput, 'Folder name is required');
         return;
@@ -932,7 +935,7 @@ function createFolder() {
         return;
     }
     
-    // Check for invalid characters
+    
     const invalidChars = /[<>:"/\\|?*]/g;
     if (invalidChars.test(folderName)) {
         showInputError(folderNameInput, 'Folder name contains invalid characters');
@@ -946,14 +949,14 @@ function createFolder() {
         return;
     }
 
-    // Show loading state
+    
     const createBtn = document.querySelector('#folderModal .btn-primary');
     if (createBtn) {
         createBtn.classList.add('loading');
         createBtn.disabled = true;
     }
 
-    // Simulate async operation
+    
     setTimeout(() => {
         fileSystem[folderPath] = {
             type: 'folder',
@@ -971,19 +974,19 @@ function createFolder() {
         closeModal('folderModal');
         renderItems();
         
-        // Show success notification
+        
         showNotification(`Folder "${folderName}" created successfully`, 'success');
     }, 500);
 }
 
-// Enhanced rename with validation
+
 function confirmRename() {
     const newNameInput = document.getElementById('newName');
     if (!newNameInput || !contextItem) return;
     
     const newName = newNameInput.value.trim();
     
-    // Validation
+    
     if (!newName) {
         showInputError(newNameInput, 'Name is required');
         return;
@@ -1011,7 +1014,7 @@ function confirmRename() {
         return;
     }
     
-    // Show loading state
+    
     const renameBtn = document.querySelector('#renameModal .btn-primary');
     if (renameBtn) {
         renameBtn.classList.add('loading');
@@ -1044,7 +1047,7 @@ function confirmRename() {
     }, 300);
 }
 
-// Enhanced delete with confirmation
+
 function confirmDelete() {
     if (!contextItem) return;
     
@@ -1078,7 +1081,7 @@ function confirmDelete() {
     }, 500);
 }
 
-// Enhanced file upload with progress
+
 function uploadFiles() {
     if (selectedFiles.length === 0) {
         showNotification('Please select files to upload', 'error');
@@ -1095,43 +1098,49 @@ function uploadFiles() {
     let uploadedCount = 0;
     const totalFiles = selectedFiles.length;
 
-    selectedFiles.forEach((file, index) => {
+            selectedFiles.forEach((file, index) => {
         setTimeout(() => {
-            const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-            
-            if (fileSystem[filePath]) {
-                if (!confirm(`File "${file.name}" already exists. Replace it?`)) {
-                    uploadedCount++;
-                    if (uploadedCount === totalFiles) {
-                        finishUpload(uploadBtn);
+            (async () => {
+                const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
+
+                if (fileSystem[filePath]) {
+                    const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
+                        ? ((msg, title) => window.showConfirm(msg, title))
+                        : (msg => Promise.resolve(confirm(String(msg))));
+                    const ok = !!(await confirmFn(`File "${file.name}" already exists. Replace it?`, 'Replace file?'));
+                    if (!ok) {
+                        uploadedCount++;
+                        if (uploadedCount === totalFiles) {
+                            finishUpload(uploadBtn);
+                        }
+                        return;
                     }
-                    return;
                 }
-            }
-            
-            fileSystem[filePath] = {
-                type: 'file',
-                name: file.name,
-                size: file.size,
-                lastModified: new Date(file.lastModified),
-                created: new Date(),
-                path: filePath,
-                parentPath: currentPath,
-                file: file
-            };
-            
-            uploadedCount++;
-            
-            // Update progress
-            if (uploadBtn) {
-                const progress = Math.round((uploadedCount / totalFiles) * 100);
-                uploadBtn.textContent = `Uploading... ${progress}%`;
-            }
-            
-            if (uploadedCount === totalFiles) {
-                finishUpload(uploadBtn);
-            }
-        }, index * 200); // Stagger uploads for visual effect
+
+                fileSystem[filePath] = {
+                    type: 'file',
+                    name: file.name,
+                    size: file.size,
+                    lastModified: new Date(file.lastModified),
+                    created: new Date(),
+                    path: filePath,
+                    parentPath: currentPath,
+                    file: file
+                };
+
+                uploadedCount++;
+
+                
+                if (uploadBtn) {
+                    const progress = Math.round((uploadedCount / totalFiles) * 100);
+                    uploadBtn.textContent = `Uploading... ${progress}%`;
+                }
+
+                if (uploadedCount === totalFiles) {
+                    finishUpload(uploadBtn);
+                }
+            })();
+        }, index * 200); 
     });
 }
 
@@ -1151,7 +1160,7 @@ function finishUpload(uploadBtn) {
     }, 300);
 }
 
-// Enhanced attach files
+
 function attachFiles() {
     if (selectedAttachments.length === 0) {
         showNotification('Please select files to attach', 'error');
@@ -1196,9 +1205,9 @@ function attachFiles() {
     }, 800);
 }
 
-// Notification system
+
 function showNotification(message, type = 'info') {
-    // Remove existing notifications
+    
     const existingNotifications = document.querySelectorAll('.notification');
     existingNotifications.forEach(n => n.remove());
     
@@ -1212,7 +1221,7 @@ function showNotification(message, type = 'info') {
         </div>
     `;
     
-    // Add notification styles
+    
     notification.style.cssText = `
         position: fixed;
         top: 20px;
@@ -1230,12 +1239,12 @@ function showNotification(message, type = 'info') {
     
     document.body.appendChild(notification);
     
-    // Slide in
+    
     setTimeout(() => {
         notification.style.transform = 'translateX(0)';
     }, 100);
     
-    // Auto remove after 4 seconds
+    
     setTimeout(() => {
         notification.style.transform = 'translateX(400px)';
         setTimeout(() => notification.remove(), 300);
@@ -1260,9 +1269,9 @@ function getNotificationColor(type) {
     }
 }
 
-// Keyboard shortcuts
+
 document.addEventListener('keydown', function(e) {
-    // Escape to close modals
+    
     if (e.key === 'Escape') {
         const visibleModal = document.querySelector('.modal.show');
         if (visibleModal) {
@@ -1270,20 +1279,20 @@ document.addEventListener('keydown', function(e) {
         }
     }
     
-    // Ctrl+N for new folder
+    
     if (e.ctrlKey && e.key === 'n') {
         e.preventDefault();
         showNewFolderModal();
     }
     
-    // Ctrl+U for upload
+    
     if (e.ctrlKey && e.key === 'u') {
         e.preventDefault();
         showUploadModal();
     }
 });
 
-// Enhanced drag and drop with visual feedback
+
 function enhanceDragDrop() {
     const dropZones = document.querySelectorAll('.file-drop-zone');
     
@@ -1319,7 +1328,7 @@ function enhanceDragDrop() {
                     updateSelectedAttachmentsDisplay();
                 }
                 
-                // Visual feedback
+                
                 this.style.borderColor = '#10b981';
                 this.style.background = '#dcfce7';
                 setTimeout(() => {
@@ -1331,7 +1340,7 @@ function enhanceDragDrop() {
     });
 }
 
-// Initialize enhanced features
+
 document.addEventListener('DOMContentLoaded', function() {
     enhanceDragDrop();
 });
