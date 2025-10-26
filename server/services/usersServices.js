@@ -238,8 +238,8 @@ const getUsers = async (queryObj = {}) => {
     const skip = (page - 1) * limit;
 
     let query =
-      'SELECT user_id, first_name, last_name, avatar, email, phone_number, role, created_at, status FROM users WHERE role = "TENANT"';
-    const params = [];
+      'SELECT user_id, first_name, last_name, avatar, email, phone_number, role, created_at, status FROM users WHERE role = ?';
+    const params = ["TENANT"];
 
     if (search && search.trim() !== "") {
       query += ` AND (
@@ -301,9 +301,8 @@ const getUsers = async (queryObj = {}) => {
     query += " LIMIT ? OFFSET ?";
     params.push(parseInt(limit), parseInt(skip));
 
-    let countQuery =
-      'SELECT COUNT(*) as total FROM users WHERE role = "TENANT"';
-    const countParams = [];
+    let countQuery = 'SELECT COUNT(*) as total FROM users WHERE role = ?';
+    const countParams = ["TENANT"];
 
     if (search && search.trim() !== "") {
       countQuery += ` AND (
