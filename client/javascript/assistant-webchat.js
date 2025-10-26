@@ -60,6 +60,22 @@
                 typeof window.botpressWebChat.init === "function"
             ) {
                 window.botpressWebChat.init(initConfig);
+                // Option A: After init, send JWT to the bot so captureJwt can store it
+                try {
+                    const jwt =
+                        window.JWT_TOKEN ||
+                        (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1];
+                    if (
+                        jwt &&
+                        window.botpressWebChat &&
+                        typeof window.botpressWebChat.sendEvent === "function"
+                    ) {
+                        window.botpressWebChat.sendEvent({
+                            type: "custom",
+                            payload: { jwt },
+                        });
+                    }
+                } catch {}
             } else {
                 createFallbackWebchat(claims);
             }
