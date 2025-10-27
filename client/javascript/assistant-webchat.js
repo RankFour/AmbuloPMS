@@ -36,40 +36,35 @@
         const sendNow = () => {
             try {
                 console.log("✅ Sending JWT to Botpress:", jwt);
-                window.botpress.sendEvent({
-                    type: "jwtToken",
-                    payload: { jwt },
-                });
+                const target = window.botpress?.webchat || window.botpressWebChat || window.botpress;
+                if (target && typeof target.sendEvent === "function") {
+                    target.sendEvent({
+                        type: "jwtToken",
+                        payload: { jwt },
+                    });
+                    console.log("✅ JWT sent successfully to Botpress instance");
+                } else {
+                    console.error("❌ Botpress sendEvent not available yet on webchat instance");
+                }
             } catch (err) {
                 console.error("❌ Failed to send JWT:", err);
             }
         };
 
-        if (window.botpress?.onEvent) {
-            console.log("⏳ Waiting for Botpress webchat to become ready...");
-            window.botpress.onEvent((event) => {
-                const t = event?.type || "";
-                if (["LIFECYCLE.READY", "LIFECYCLE.LOADED", "webchat:ready"].includes(t)) {
-                    console.log("✅ Botpress webchat fully ready — sending JWT");
-                    sendNow();
-                }
-            });
-        } else {
-            console.warn("⚠️ Botpress.onEvent not available; retrying send manually...");
-            let tries = 0;
-            const wait = setInterval(() => {
-                if (window.botpress?.sendEvent) {
-                    clearInterval(wait);
-                    console.log("✅ Botpress fallback ready — sending JWT");
-                    sendNow();
-                } else if (++tries > 20) {
-                    clearInterval(wait);
-                    console.warn("⚠️ Botpress still not ready after 10 seconds.");
-                }
-            }, 500);
-        }
-    }
+        const waitForReady = setInterval(() => {
+            const target = window.botpress?.webchat || window.botpressWebChat || window.botpress;
+            if (target && typeof target.sendEvent === "function") {
+                clearInterval(waitForReady);
+                console.log("✅ Botpress webchat ready — sending JWT");
+                sendNow();
+            }
+        }, 500);
 
+        setTimeout(() => {
+            clearInterval(waitForReady);
+            console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
+        }, 10000);
+    }
 
 
     async function initAssistantSession() {
