@@ -31,6 +31,7 @@ import paymentsRoutes from './routes/paymentsRoutes.js';
 import contactUsRoutes from './routes/contactUsRoutes.js';
 import messagesRoutes from './routes/messagesRoutes.js';
 import assistantRoutes from './routes/assistantRoutes.js';
+import reportsRoutes from './routes/reportsRoutes.js';
 
 
 import tables from './tables/tables.js';
@@ -92,6 +93,7 @@ app.use(`/api/${API_VERSION}/charges`, chargesRoutes);
 app.use(`/api/${API_VERSION}/payments`, paymentsRoutes);
 app.use(`/api/${API_VERSION}/contact-us`, contactUsRoutes);
 app.use(`/api/${API_VERSION}/messages`, messagesRoutes);
+app.use(`/api/${API_VERSION}/reports`, reportsRoutes);
 
 // Rate limiting specifically for assistant endpoints
 const assistantLimiter = rateLimit({

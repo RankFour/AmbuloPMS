@@ -45,21 +45,31 @@
             }
         };
 
-        const waitForInit = setInterval(() => {
-            if (window.botpress?.initialized) {
-                clearInterval(waitForInit);
-                console.log("✅ Botpress ready — sending JWT");
-                sendNow();
-            }
-        }, 500);
-
-        setTimeout(() => {
-            clearInterval(waitForInit);
-            if (!window.botpress?.initialized) {
-                console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
-            }
-        }, 10000);
+        if (window.botpress?.onEvent) {
+            console.log("⏳ Waiting for Botpress webchat to become ready...");
+            window.botpress.onEvent((event) => {
+                const t = event?.type || "";
+                if (["LIFECYCLE.READY", "LIFECYCLE.LOADED", "webchat:ready"].includes(t)) {
+                    console.log("✅ Botpress webchat fully ready — sending JWT");
+                    sendNow();
+                }
+            });
+        } else {
+            console.warn("⚠️ Botpress.onEvent not available; retrying send manually...");
+            let tries = 0;
+            const wait = setInterval(() => {
+                if (window.botpress?.sendEvent) {
+                    clearInterval(wait);
+                    console.log("✅ Botpress fallback ready — sending JWT");
+                    sendNow();
+                } else if (++tries > 20) {
+                    clearInterval(wait);
+                    console.warn("⚠️ Botpress still not ready after 10 seconds.");
+                }
+            }, 500);
+        }
     }
+
 
 
     async function initAssistantSession() {
