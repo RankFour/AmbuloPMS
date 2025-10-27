@@ -6887,6 +6887,37 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
     } catch { }
+
+    
+    try {
+        const raw = localStorage.getItem("paymentAdminDeepLink");
+        if (raw) {
+            localStorage.removeItem("paymentAdminDeepLink");
+            let dl = null;
+            try { dl = JSON.parse(raw); } catch (_) { dl = null; }
+            if (dl && typeof dl === "object") {
+                if (dl.tab === "payments" || dl.tab === "charges") {
+                    switchTab(dl.tab);
+                }
+                if (dl.view === "all" || dl.view === "pending") {
+                    switchPaymentView(dl.view);
+                }
+                if (dl.pendingStatus) {
+                    filterPendingByStatus(String(dl.pendingStatus));
+                }
+                if (dl.chargesStatus) {
+                    const sel = document.getElementById("charges-status");
+                    if (sel) {
+                        sel.value = String(dl.chargesStatus);
+                        window.chargesPage = 1;
+                        fetchCharges({ force: true });
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to apply deep link for paymentAdmin", e);
+    }
 });
 
 window.showSection = showSection;
