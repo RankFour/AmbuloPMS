@@ -212,7 +212,11 @@
 
     <script type="module" src="/javascript/adminDashboard.js"></script>
 
-    <script>window.API_VERSION = window.API_VERSION || 'v1';</script>
+    <!-- Assistant/Webchat globals: make sure these are defined BEFORE assistant-webchat.js -->
+    <script>
+        window.API_BASE = window.API_BASE || 'https://ambuloproperties-00d066e1316e.herokuapp.com/api';
+        window.API_VERSION = window.API_VERSION || 'v1';
+    </script>
     <script src="/javascript/assistant-webchat.js"></script>
 
     <script src="https://cdn.botpress.cloud/webchat/v3.3/inject.js"></script>

@@ -15,6 +15,36 @@
         });
     }
 
+    function getJwtToken() {
+        try {
+            return (
+                window.JWT_TOKEN ||
+                (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1] ||
+                null
+            );
+        } catch {
+            return null;
+        }
+    }
+
+    function sendJwtToBotpress(retries = 20, delayMs = 250) {
+        const jwt = getJwtToken();
+        if (!jwt) return;
+
+        function attempt(n) {
+            const api = window.botpressWebChat || window.botpress;
+            const canSend = api && typeof api.sendEvent === "function";
+            if (canSend) {
+                try {
+                    api.sendEvent({ type: "custom", payload: { jwt } });
+                } catch {}
+                return;
+            }
+            if (n > 0) setTimeout(() => attempt(n - 1), delayMs);
+        }
+        attempt(retries);
+    }
+
     async function initWebchat(claims) {
         try {
             const scriptUrl =
@@ -30,8 +60,10 @@
             );
 
             if (!scriptUrl && !initFn) {
-                if (hasEmbeddedBotpress) return;
-
+                if (hasEmbeddedBotpress) {
+                    sendJwtToBotpress();
+                    return;
+                }
                 createFallbackWebchat(claims);
                 return;
             }
@@ -60,19 +92,18 @@
                 typeof window.botpressWebChat.init === "function"
             ) {
                 window.botpressWebChat.init(initConfig);
-                // Option A: After init, send JWT to the bot so captureJwt can store it
                 try {
-                    const jwt =
-                        window.JWT_TOKEN ||
-                        (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1];
-                    if (
-                        jwt &&
-                        window.botpressWebChat &&
-                        typeof window.botpressWebChat.sendEvent === "function"
-                    ) {
-                        window.botpressWebChat.sendEvent({
-                            type: "custom",
-                            payload: { jwt },
+                    sendJwtToBotpress();
+                    if (typeof window.botpressWebChat.onEvent === "function") {
+                        window.botpressWebChat.onEvent((ev) => {
+                            const t = (ev && ev.type) || "";
+                            if (
+                                t === "webchat:ready" ||
+                                t === "LIFECYCLE.READY" ||
+                                t === "LIFECYCLE.LOADED"
+                            ) {
+                                sendJwtToBotpress();
+                            }
                         });
                     }
                 } catch {}
