@@ -33,8 +33,7 @@ export async function getFinancialSummary(filters = {}) {
   const wherePayments = ` WHERE (pay.status IN ('Completed','Confirmed'))`
     + dateClause("pay.created_at", from, to, params)
     + ` AND 1=1`;
-
-  // property/tenant filters via joins
+  
   const joinLT = ` FROM payments pay
     LEFT JOIN charges c ON pay.charge_id = c.charge_id
     LEFT JOIN leases l ON c.lease_id = l.lease_id`;
@@ -223,59 +222,98 @@ export async function getPropertyLeaseSummary(filters = {}) {
 
 export async function getMaintenanceSummary(filters = {}) {
   const { from, to, propertyId } = filters || {};
-  const params = [];
-  const whereDates = ` WHERE 1=1 ${dateClause("t.created_at", from, to, params)}`;
+  
+  const needLeaseJoin = !!propertyId;
 
-  const [byMonth] = await pool.execute(
-    `SELECT DATE_FORMAT(t.created_at,'%Y-%m') AS period, COUNT(*) AS total
-     FROM tickets t
-     ${whereDates}
-     GROUP BY period
-     ORDER BY MIN(t.created_at)`,
-    params
-  );
+  
+  function applyPropertyClause(paramsArr) {
+    let join = '';
+    let clause = '';
+    if (needLeaseJoin) {
+      join = ' LEFT JOIN leases l ON t.lease_id = l.lease_id ';
+      clause = ' AND l.property_id = ?';
+      paramsArr.push(propertyId);
+    }
+    return { join, clause };
+  }
 
-  const [byStatus] = await pool.execute(
-    `SELECT t.ticket_status AS status, COUNT(*) AS total
-     FROM tickets t
-     ${whereDates}
-     GROUP BY t.ticket_status`,
-    params
-  );
+  // Tickets by Month
+  const paramsMonth = [];
+  const { join: joinMonth, clause: clauseMonth } = applyPropertyClause(paramsMonth);
+  const dateWhereMonth = dateClause('t.created_at', from, to, paramsMonth);
+  const sqlByMonth = `
+    SELECT DATE_FORMAT(t.created_at,'%Y-%m') AS period, COUNT(*) AS total
+    FROM tickets t
+    ${joinMonth}
+    WHERE 1=1 ${dateWhereMonth} ${clauseMonth}
+    GROUP BY period
+    ORDER BY period`;
+  const [byMonth] = await pool.execute(sqlByMonth, paramsMonth);
 
-  const [avgRes] = await pool.execute(
-    `SELECT AVG(TIMESTAMPDIFF(HOUR, t.start_date, t.end_date)) AS avgHrs
-     FROM tickets t
-     ${whereDates}`,
-    params
-  );
+  // Tickets by Status
+  const paramsStatus = [];
+  const { join: joinStatus, clause: clauseStatus } = applyPropertyClause(paramsStatus);
+  const dateWhereStatus = dateClause('t.created_at', from, to, paramsStatus);
+  const sqlByStatus = `
+    SELECT t.ticket_status AS status, COUNT(*) AS total
+    FROM tickets t
+    ${joinStatus}
+    WHERE 1=1 ${dateWhereStatus} ${clauseStatus}
+    GROUP BY t.ticket_status`;
+  const [byStatus] = await pool.execute(sqlByStatus, paramsStatus);
+
+  // Average Resolution Hours using start_datetime and end_datetime
+  const paramsAvg = [];
+  const { join: joinAvg, clause: clauseAvg } = applyPropertyClause(paramsAvg);
+  const dateWhereAvg = dateClause('t.created_at', from, to, paramsAvg);
+  const sqlAvg = `
+    SELECT AVG(TIMESTAMPDIFF(HOUR, t.start_datetime, t.end_datetime)) AS avgHrs
+    FROM tickets t
+    ${joinAvg}
+    WHERE 1=1 ${dateWhereAvg}
+      AND t.start_datetime IS NOT NULL 
+      AND t.end_datetime IS NOT NULL ${clauseAvg}`;
+  const [avgRes] = await pool.execute(sqlAvg, paramsAvg);
   const avgResolutionHours = avgRes && avgRes.length ? Number(avgRes[0].avgHrs || 0) : 0;
 
-  const [issues] = await pool.execute(
-    `SELECT t.request_type, COUNT(*) AS total
-     FROM tickets t
-     ${whereDates}
-     GROUP BY t.request_type
-     ORDER BY total DESC
-     LIMIT 10`,
-    params
-  );
+  
+  const paramsIssues = [];
+  const { join: joinIssues, clause: clauseIssues } = applyPropertyClause(paramsIssues);
+  const dateWhereIssues = dateClause('t.created_at', from, to, paramsIssues);
+  const sqlIssues = `
+    SELECT t.request_type, COUNT(*) AS total
+    FROM tickets t
+    ${joinIssues}
+    WHERE 1=1 ${dateWhereIssues} ${clauseIssues}
+    GROUP BY t.request_type
+    ORDER BY total DESC
+    LIMIT 10`;
+  const [issues] = await pool.execute(sqlIssues, paramsIssues);
 
-  const [ratings] = await pool.execute(
-    `SELECT 
-        COUNT(*) AS count,
-        AVG(r.rating) AS avgRating
-     FROM ticket_ratings r
-     JOIN tickets t ON t.ticket_id = r.ticket_id
-     ${whereDates}`,
-    params
-  );
+  let ratings = [{ count: 0, avgRating: 0 }];
+  try {
+    const paramsRatings = [];
+    const { join: joinRatings, clause: clauseRatings } = applyPropertyClause(paramsRatings);
+    
+    const dateWhereRatings = dateClause('t.created_at', from, to, paramsRatings);
+    const sqlRatings = `
+      SELECT COUNT(*) AS count, AVG(r.rating) AS avgRating
+      FROM ticket_ratings r
+      JOIN tickets t ON t.ticket_id = r.ticket_id
+      ${joinRatings}
+      WHERE 1=1 ${dateWhereRatings} ${clauseRatings}`;
+    const [rows] = await pool.execute(sqlRatings, paramsRatings);
+    ratings = rows && rows.length ? rows : ratings;
+  } catch (e) {
+    
+    console.warn('Ratings query failed (table may not exist):', e.message);
+  }
 
   return {
-    ticketsByMonth: byMonth.map(r => ({ period: r.period, total: Number(r.total || 0) })),
-    ticketsByStatus: byStatus.map(r => ({ status: r.status, total: Number(r.total || 0) })),
+    ticketsByMonth: (byMonth || []).map(r => ({ period: r.period, total: Number(r.total || 0) })),
+    ticketsByStatus: (byStatus || []).map(r => ({ status: r.status, total: Number(r.total || 0) })),
     averageResolutionHours,
-    commonIssues: issues.map(r => ({ type: r.request_type, total: Number(r.total || 0) })),
+    commonIssues: (issues || []).map(r => ({ type: r.request_type, total: Number(r.total || 0) })),
     ratings: { count: Number(ratings?.[0]?.count || 0), average: Number(ratings?.[0]?.avgRating || 0) },
   };
 }
