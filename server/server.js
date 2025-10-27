@@ -50,7 +50,7 @@ const PORT = process.env.PORT || 5000;
 const PROJECT_NAME = process.env.PROJECT_NAME;
 
 const corsOptions = {
-    origin: '*',
+    origin: 'https://ambuloproperties-00d066e1316e.herokuapp.com',
     credentials: true, //access-control-allow-credentials:true
     optionSuccessStatus: 200,
 };
@@ -150,7 +150,8 @@ app.get(/^\/(?!api\/|assets\/|css\/|javascript\/|fonts\/|components\/|favicon\/)
 
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../client'), { index: false }));
-    app.get(/^\/(?!api\/).*/, (req, res) => {
+
+    app.get(/^\/(?!api\/|botpress\/).*/, (req, res) => {
         res.sendFile(path.join(__dirname, '../client', 'index.html'));
     });
 } else {
@@ -158,6 +159,7 @@ if (process.env.NODE_ENV === 'production') {
         res.send(`${PROJECT_NAME} API is running...`);
     });
 }
+
 
 /** Middleware */
 app.use(notFound);
