@@ -27,6 +27,7 @@
         }
     }
 
+
     function sendJwtToBotpress() {
         const jwt = getJwtToken();
         if (!jwt) {
@@ -46,100 +47,30 @@
             }
         };
 
+
         if (window.botpress && typeof window.botpress.onEvent === "function") {
             window.botpress.onEvent((event) => {
                 const t = event?.type || "";
                 if (["webchat:ready", "LIFECYCLE.READY", "LIFECYCLE.LOADED"].includes(t)) {
-                    console.log("✅ Botpress is ready, sending JWT now...");
+                    console.log("✅ Botpress webchat is ready — sending JWT now...");
                     sendNow();
                 }
             });
         } else {
+            console.log("⌛ Waiting for Botpress to initialize...");
             let tries = 0;
             const interval = setInterval(() => {
-                if (window.botpress && window.botpress.sendEvent) {
+                if (window.botpress && typeof window.botpress.sendEvent === "function") {
                     clearInterval(interval);
+                    console.log("✅ Botpress initialized — sending JWT now...");
                     sendNow();
-                } else if (tries++ > 20) {
+                } else if (tries++ > 25) {
                     clearInterval(interval);
-                    console.warn("⚠️ Botpress never became ready to receive JWT.");
+                    console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
                 }
             }, 500);
         }
     }
-
-
-    async function initWebchat(claims) {
-        try {
-            const scriptUrl =
-                window.BOTPRESS_WEBCHAT_SCRIPT_URL || window.BOTPRESS_WEBCHAT_URL;
-            const config = window.BOTPRESS_WEBCHAT_CONFIG || null;
-            const initFn = window.BOTPRESS_WEBCHAT_INIT || null;
-
-            const hasEmbeddedBotpress = !!(
-                window.botpress ||
-                document.querySelector(
-                    'script[src*="cdn.botpress.cloud/webchat"],script[src*="bpcontent.cloud"]'
-                )
-            );
-
-            if (!scriptUrl && !initFn) {
-                if (hasEmbeddedBotpress) {
-                    sendJwtToBotpress();
-                    return;
-                }
-                createFallbackWebchat(claims);
-                return;
-            }
-
-            const composerPlaceholder =
-                claims && claims.display_name
-                    ? `Message Ambulo Assistant as ${claims.display_name}…`
-                    : "Message Ambulo Assistant…";
-
-            if (typeof initFn === "function") {
-                try {
-                    initFn({ claims, baseUrl: base, composerPlaceholder });
-                } catch { }
-                return;
-            }
-
-            await loadScript(scriptUrl);
-
-            const initConfig = Object.assign({}, config || {}, {
-                composerPlaceholder:
-                    (config && config.composerPlaceholder) || composerPlaceholder,
-            });
-
-            if (
-                window.botpress &&
-                typeof window.botpress.init === "function"
-            ) {
-                window.botpress.init(initConfig);
-
-                if (typeof window.botpress.onEvent === "function") {
-                    window.botpress.onEvent((ev) => {
-                        const t = ev?.type || "";
-                        if (["LIFECYCLE.READY", "webchat:ready", "LIFECYCLE.LOADED"].includes(t)) {
-                            console.log("✅ Botpress webchat is ready, sending JWT now...");
-                            sendJwtToBotpress();
-                        }
-                    });
-                } else {
-                    setTimeout(() => sendJwtToBotpress(), 1500);
-                }
-
-            } else {
-                createFallbackWebchat(claims);
-            }
-        } catch (e) {
-            console.warn("webchat init failed:", e);
-            try {
-                createFallbackWebchat(claims);
-            } catch { }
-        }
-    }
-
 
     async function initAssistantSession() {
         try {
@@ -163,158 +94,45 @@
     }
 
     async function bootstrap() {
+
         const session = await initAssistantSession();
         window.ASSISTANT_CLAIMS = session && session.claims;
 
-        await initWebchat(window.ASSISTANT_CLAIMS);
+
+        const scriptUrl =
+            window.BOTPRESS_WEBCHAT_SCRIPT_URL ||
+            "https://files.bpcontent.cloud/2025/10/20/20/20251020204110-KI06VUC7.js";
+
+        await loadScript(scriptUrl);
+
+        console.log("✅ Botpress script loaded, initializing bot...");
+
+        if (window.botpress && typeof window.botpress.init === "function") {
+            window.botpress.init({
+                botId: "6c967958-d7da-42b1-aac0-6f3a8cb36cbf",
+                clientId: "f066f9b1-575b-48b8-8d22-d03caddf7906",
+                configuration: {
+                    version: "v2",
+                    composerPlaceholder: "Talk to Ambulo Assistant...",
+                    botName: "Ambulo Assistant",
+                    botAvatar:
+                        "https://files.bpcontent.cloud/2025/10/20/21/20251020212727-A4OBVVD4.png",
+                    color: "#6366f1",
+                    themeMode: "light",
+                    feedbackEnabled: true,
+                },
+            });
+
+
+            sendJwtToBotpress();
+        } else {
+            console.error("❌ Botpress.init() is not available.");
+        }
     }
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", bootstrap);
     } else {
         bootstrap();
-    }
-
-
-    function createEl(tag, attrs = {}, children = []) {
-        const el = document.createElement(tag);
-        Object.entries(attrs).forEach(([k, v]) => {
-            if (k === "class") el.className = v;
-            else if (k === "style") Object.assign(el.style, v);
-            else el.setAttribute(k, v);
-        });
-        (Array.isArray(children) ? children : [children]).forEach((c) => {
-            if (typeof c === "string") el.appendChild(document.createTextNode(c));
-            else if (c) el.appendChild(c);
-        });
-        return el;
-    }
-
-    function createFallbackWebchat(claims) {
-        const root = createEl("div", { id: "assistant-fallback-chat" });
-        const toggle = createEl(
-            "button",
-            { id: "assistant-fallback-toggle", title: "Open Assistant" },
-            ["💬"]
-        );
-        const panel = createEl("div", { id: "assistant-fallback-panel" });
-        const header = createEl("div", { class: "afc-header" }, [
-            createEl("span", { class: "afc-title" }, ["Ambulo Assistant"]),
-            createEl("button", { class: "afc-close", title: "Close" }, ["×"]),
-        ]);
-        const body = createEl("div", { class: "afc-body" });
-        const list = createEl("div", { class: "afc-messages" });
-        const form = createEl("form", { class: "afc-form" });
-        const input = createEl("input", {
-            class: "afc-input",
-            type: "text",
-            placeholder:
-                claims && claims.display_name
-                    ? `Message as ${claims.display_name}…`
-                    : "Type a message…",
-        });
-        const send = createEl("button", { class: "afc-send", type: "submit" }, [
-            "Send",
-        ]);
-        form.appendChild(input);
-        form.appendChild(send);
-        panel.appendChild(header);
-        panel.appendChild(body);
-        body.appendChild(list);
-        body.appendChild(form);
-        root.appendChild(toggle);
-        root.appendChild(panel);
-        document.body.appendChild(root);
-
-        const style = document.createElement("style");
-        style.textContent = `
-          #assistant-fallback-chat { position: fixed; right: 16px; bottom: 16px; z-index: 2147483000; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-          #assistant-fallback-toggle { width: 48px; height: 48px; border-radius: 50%; border: none; background: #1f2937; color: #fff; font-size: 22px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
-          #assistant-fallback-panel { display: none; width: 340px; height: 440px; background: #fff; border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.25); overflow: hidden; }
-          #assistant-fallback-panel.open { display: flex; flex-direction: column; }
-          .afc-header { background: #111827; color: #fff; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; }
-          .afc-title { font-weight: 600; }
-          .afc-close { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; }
-          .afc-body { display: flex; flex-direction: column; height: 100%; }
-          .afc-messages { flex: 1; overflow-y: auto; padding: 12px; background: #f9fafb; }
-          .afc-msg { max-width: 80%; margin: 6px 0; padding: 8px 10px; border-radius: 10px; line-height: 1.3; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
-          .me { background: #dbeafe; color: #111827; margin-left: auto; border-bottom-right-radius: 0; }
-          .other { background: #e5e7eb; color: #111827; margin-right: auto; border-bottom-left-radius: 0; }
-          .afc-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid #e5e7eb; }
-          .afc-input { flex: 1; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; }
-          .afc-send { background: #111827; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
-        `;
-        document.head.appendChild(style);
-
-        function addMessageBubble(text, mine) {
-            const bubble = createEl(
-                "div",
-                { class: `afc-msg ${mine ? "me" : "other"}` },
-                [String(text || "")]
-            );
-            list.appendChild(bubble);
-            list.scrollTop = list.scrollHeight;
-        }
-
-        toggle.addEventListener("click", () => {
-            panel.classList.add("open");
-        });
-        header.querySelector(".afc-close").addEventListener("click", () => {
-            panel.classList.remove("open");
-        });
-
-        let otherUserId = window.ASSISTANT_SUPPORT_USER_ID || null;
-        async function loadRecent() {
-            try {
-                if (!otherUserId) return;
-                const token =
-                    window.JWT_TOKEN ||
-                    (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1];
-                const url = new URL(`${base}/assistant/me/messages`, location.origin);
-                url.searchParams.set("other_user_id", otherUserId);
-                url.searchParams.set("limit", "20");
-                const res = await fetch(url, {
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    credentials: "include",
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-                (data.messages || []).forEach((m) =>
-                    addMessageBubble(
-                        m.message,
-                        String(m.sender_user_id) ===
-                        String((claims && claims.user_id) || "")
-                    )
-                );
-            } catch { }
-        }
-
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const text = (input.value || "").trim();
-            if (!text) return;
-            addMessageBubble(text, true);
-            input.value = "";
-            try {
-                if (!otherUserId) return;
-                const token =
-                    window.JWT_TOKEN ||
-                    (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1];
-                await fetch(`${base}/assistant/me/messages`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    credentials: "include",
-                    body: JSON.stringify({ other_user_id: otherUserId, message: text }),
-                });
-            } catch { }
-        });
-
-        loadRecent();
     }
 })();
