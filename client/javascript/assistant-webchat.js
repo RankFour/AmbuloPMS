@@ -27,30 +27,48 @@
         }
     }
 
-    function sendJwtToBotpress(retries = 20, delayMs = 250) {
+    function sendJwtToBotpress() {
         const jwt = getJwtToken();
-        if (!jwt) return;
-
-        function attempt(n) {
-            const api = window.botpressWebChat || window.botpress;
-            const canSend = api && typeof api.sendEvent === "function";
-            if (canSend) {
-                try {
-                    console.log("Sending JWT to Botpress:", jwt.slice(0, 10), "...");
-                    api.sendEvent({
-                        type: "webchat:ready",
-                        payload: { jwt }
-                    });
-
-                } catch (err) {
-                    console.error("Failed to send JWT:", err);
-                }
-                return;
-            }
-            if (n > 0) setTimeout(() => attempt(n - 1), delayMs);
+        if (!jwt) {
+            console.warn("No JWT found; skipping send.");
+            return;
         }
-        attempt(retries);
+        const sendNow = () => {
+            try {
+                console.log("Sending JWT to Botpress:", jwt);
+                window.botpressWebChat.sendEvent({
+                    type: "webchat:ready",
+                    payload: { jwt },
+                });
+            } catch (err) {
+                console.error("Failed to send JWT:", err);
+            }
+        };
+
+        if (
+            window.botpressWebChat &&
+            typeof window.botpressWebChat.onEvent === "function"
+        ) {
+            window.botpressWebChat.onEvent((event) => {
+                const t = event?.type || "";
+                if (["webchat:ready", "LIFECYCLE.READY", "LIFECYCLE.LOADED"].includes(t)) {
+                    sendNow();
+                }
+            });
+        } else {
+            let tries = 0;
+            const interval = setInterval(() => {
+                if (window.botpressWebChat && window.botpressWebChat.sendEvent) {
+                    clearInterval(interval);
+                    sendNow();
+                } else if (tries++ > 20) {
+                    clearInterval(interval);
+                    console.warn("Botpress webchat never became ready.");
+                }
+            }, 500);
+        }
     }
+
 
     async function initWebchat(claims) {
         try {
@@ -71,14 +89,6 @@
                     sendJwtToBotpress();
                     return;
                 }
-                window.botpressWebChat.onEvent((ev) => {
-                    const t = ev?.type || "";
-                    if (["webchat:ready", "LIFECYCLE.READY", "LIFECYCLE.LOADED"].includes(t)) {
-                        sendJwtToBotpress();
-                    }
-                });
-
-
                 createFallbackWebchat(claims);
                 return;
             }
@@ -107,21 +117,20 @@
                 typeof window.botpressWebChat.init === "function"
             ) {
                 window.botpressWebChat.init(initConfig);
-                try {
-                    sendJwtToBotpress();
-                    if (typeof window.botpressWebChat.onEvent === "function") {
-                        window.botpressWebChat.onEvent((ev) => {
-                            const t = (ev && ev.type) || "";
-                            if (
-                                t === "webchat:ready" ||
-                                t === "LIFECYCLE.READY" ||
-                                t === "LIFECYCLE.LOADED"
-                            ) {
-                                sendJwtToBotpress();
-                            }
-                        });
-                    }
-                } catch { }
+
+                if (typeof window.botpressWebChat.onEvent === "function") {
+                    window.botpressWebChat.onEvent((ev) => {
+                        const t = ev?.type || "";
+                        if (
+                            ["webchat:ready", "LIFECYCLE.READY", "LIFECYCLE.LOADED"].includes(t)
+                        ) {
+                            console.log("Botpress webchat ready, sending JWT...");
+                            sendJwtToBotpress();
+                        }
+                    });
+                } else {
+                    setTimeout(() => sendJwtToBotpress(), 1000);
+                }
             } else {
                 createFallbackWebchat(claims);
             }
@@ -132,6 +141,7 @@
             } catch { }
         }
     }
+
 
     async function initAssistantSession() {
         try {
@@ -167,7 +177,7 @@
         bootstrap();
     }
 
-    
+
     function createEl(tag, attrs = {}, children = []) {
         const el = document.createElement(tag);
         Object.entries(attrs).forEach(([k, v]) => {
