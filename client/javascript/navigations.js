@@ -15,6 +15,8 @@
         overlay.style.zIndex = 12000;
 
         const container = document.createElement('div');
+
+  
         container.className = 'modal-container';
 
         const header = document.createElement('div');
@@ -110,6 +112,42 @@
       s.async = false;
       s.onload = function () {
         resolve(s);
+      };
+      s.onerror = function (err) {
+        reject(err);
+      };
+      document.head.appendChild(s);
+    });
+  }
+
+  
+  function ensureModuleScript(src) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var existing = Array.from(document.getElementsByTagName("script")).find(
+          (s) => s.src && s.src.indexOf(src) !== -1
+        );
+        if (existing) {
+          if (
+            existing.getAttribute('type') === 'module' &&
+            (existing.readyState === 'complete' || existing.readyState === 'loaded' || existing.getAttribute('data-loaded') === '1')
+          )
+            return resolve();
+          existing.addEventListener('load', function () { resolve(); });
+          existing.addEventListener('error', function (err) { reject(err); });
+          return;
+        }
+      } catch (e) {
+        
+      }
+
+      var s = document.createElement("script");
+      s.src = src;
+      s.type = 'module';
+      s.async = false;
+      s.onload = function () {
+        try { s.setAttribute('data-loaded', '1'); } catch (e) {}
+        resolve();
       };
       s.onerror = function (err) {
         reject(err);
@@ -513,6 +551,9 @@
       })
       .join("");
   }
+
+  
+  
 
   class NavigationManager {
     constructor(config = {}) {
@@ -1592,7 +1633,7 @@
     if (role === "tenant") {
       links = [
         {
-          href: "/tenantDashboard.html",
+          href: "/adminDashboard.html",
           icon: "fas fa-chart-line",
           text: "Dashboard",
           page: "dashboard",
@@ -1722,6 +1763,8 @@
     }
     setupPageTitles() {
       this.pageTitles = {
+        "adminDashboard.html": "Dashboard",
+        adminDashboard: "Dashboard",
         "tenantDashboard.html": "Dashboard",
         tenantDashboard: "Dashboard",
         "leaseTenant.html": "Lease Information",
@@ -1745,6 +1788,8 @@
         accountProfile: "Account Settings",
       };
       this.pageIcons = {
+        "adminDashboard.html": "fas fa-chart-line",
+        adminDashboard: "fas fa-chart-line",
         "tenantDashboard.html": "fas fa-chart-line",
         tenantDashboard: "fas fa-chart-line",
         "leaseTenant.html": "fas fa-file-contract",
@@ -1768,6 +1813,10 @@
         accountProfile: "fas fa-user-cog",
       };
       this.pageDescriptions = {
+        "adminDashboard.html":
+          "Overview of your rental activity, important notifications, and quick access to key features",
+        adminDashboard:
+          "Overview of your rental activity, important notifications, and quick access to key features",
         "tenantDashboard.html":
           "Overview of your rental activity, important notifications, and quick access to key features",
         tenantDashboard:

@@ -54,7 +54,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (data.user.role === "ADMIN") {
           window.location.href = "adminDashboard.html";
         } else {
-          window.location.href = "tenantDashboard.html";
+          
+          window.location.href = "adminDashboard.html";
         }
       } else {
         if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {

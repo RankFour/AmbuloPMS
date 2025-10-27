@@ -3,6 +3,7 @@
   const API_VERSION = window.API_VERSION || "v1";
   const base = `${API_BASE}/${API_VERSION}`;
 
+  
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -14,6 +15,7 @@
     });
   }
 
+  
   function getJwtToken() {
     try {
       return (
@@ -26,7 +28,7 @@
     }
   }
 
-  // ✅ Sends JWT only once the webchat iframe and SDK are fully ready
+  
   async function sendJwtToBotpress() {
     const jwt = getJwtToken();
     if (!jwt) {
@@ -64,6 +66,7 @@
     await waitForWebchatReady();
   }
 
+  
   async function initAssistantSession() {
     try {
       const token =
@@ -85,6 +88,7 @@
     }
   }
 
+  
   async function bootstrap() {
     const session = await initAssistantSession();
     window.ASSISTANT_CLAIMS = session && session.claims;
@@ -96,12 +100,11 @@
     await loadScript(scriptUrl);
     console.log("✅ Botpress script loaded, initializing bot...");
 
-    // v3 SDK check: window.botpress.init exists directly
     const isV3 = typeof window.botpress?.init === "function";
 
     try {
       if (isV3) {
-        // 🆕 v3 initialization (direct call)
+        
         window.botpress.init({
           botId: "6c967958-d7da-42b1-aac0-6f3a8cb36cbf",
           clientId: "f066f9b1-575b-48b8-8d22-d03caddf7906",
@@ -116,8 +119,24 @@
           },
         });
         console.log("✅ Botpress webchat initialized (v3).");
+
+        
+        if (window.botpressWebChat && typeof window.botpressWebChat.init === "function") {
+          window.botpressWebChat.init({
+            botId: "6c967958-d7da-42b1-aac0-6f3a8cb36cbf",
+            clientId: "f066f9b1-575b-48b8-8d22-d03caddf7906",
+            composerPlaceholder: "Talk to Ambulo Assistant...",
+            botName: "Ambulo Assistant",
+            botAvatar:
+              "https://files.bpcontent.cloud/2025/10/20/21/20251020212727-A4OBVVD4.png",
+            theme: "light",
+          });
+          console.log("✅ window.botpressWebChat initialized manually!");
+        } else {
+          console.warn("⚠️ window.botpressWebChat not ready yet.");
+        }
       } else if (window.botpress?.webchat?.init) {
-        // 🧩 legacy fallback for older bots
+        
         window.botpress.webchat.init({
           botId: "6c967958-d7da-42b1-aac0-6f3a8cb36cbf",
           clientId: "f066f9b1-575b-48b8-8d22-d03caddf7906",
@@ -137,6 +156,8 @@
         console.error("❌ Botpress init method not found.");
       }
 
+      
+      await new Promise((r) => setTimeout(r, 2500));
       await sendJwtToBotpress();
     } catch (err) {
       console.error("❌ Error initializing Botpress webchat:", err);

@@ -17,9 +17,8 @@ const protect = (req, res, next) => {
         return res.status(403).json({ message: 'Forbidden: Insufficient role' });
       }
     } else {
-      if (decoded.role !== 'ADMIN') {
-        return res.redirect('/tenantDashboard.html');
-      }
+      
+      
     }
     req.user = decoded;
     next();
