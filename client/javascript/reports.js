@@ -30,13 +30,46 @@ function fmtInt(n) { return (Number(n) || 0).toLocaleString('en-US'); }
 
 function tableFrom(keyValues, headers) {
     if (!Array.isArray(keyValues) || keyValues.length === 0) { return `<div style="color:#64748b;">No data</div>`; }
-    const cols = headers || Object.keys(keyValues[0]);
-    const thead = `<thead><tr>${cols.map(c => `<th style="padding:8px 10px; font-size:12px; color:#64748b; text-transform:uppercase; text-align:left; border-bottom:1px solid #e5e7eb;">${c.replace(/_/g, ' ')}</th>`).join('')}</tr></thead>`;
+    let cols = headers || Object.keys(keyValues[0]);
+
+    
+    let mergeProperty = false;
+    if (cols.includes('property_id') && cols.includes('property_name')) {
+        mergeProperty = true;
+        
+        const newCols = [];
+        for (const c of cols) {
+            if (c === 'property_name') continue; 
+            if (c === 'property_id') { newCols.push('property'); continue; }
+            newCols.push(c);
+        }
+        cols = newCols;
+    }
+
+    const thead = `<thead><tr>${cols.map(c => `<th style="padding:8px 10px; font-size:12px; color:#64748b; text-transform:uppercase; text-align:left; border-bottom:1px solid #e5e7eb;">${(c==='property' ? 'Property' : c.replace(/_/g, ' '))}</th>`).join('')}</tr></thead>`;
+
     const rows = keyValues.map(r => `<tr>${cols.map(c => {
         const val = r[c];
-        const txt = typeof val === 'number' && /total|amount|rent|recurring|one|avg|count/i.test(c)
-            ? (c.match(/amount|total|rent|recurring|one/i) ? fmtCurrency(val) : fmtInt(val))
-            : (val ?? '');
+        
+        
+        
+        const currencyKeys = /amount|price|rent|paid|outstanding|balance|fee|total_amount|total_paid/i;
+        const intKeys = /count|total$|^total$|avg|number|tenants|renewals|terminations|active|inactive|hours|hrs/i;
+        let txt = val ?? '';
+        if (typeof val === 'number') {
+            if (currencyKeys.test(c)) txt = fmtCurrency(val);
+            else if (intKeys.test(c)) txt = fmtInt(val);
+            else txt = String(val);
+        }
+
+        
+        if (mergeProperty && c === 'property') {
+            const id = r['property_id'] ?? '';
+            const name = r['property_name'] ?? '';
+            const display = `<div style="display:flex; flex-direction:column;"><span style="font-weight:700;">${id}</span><span style="font-size:12px; color:#64748b;">${name}</span></div>`;
+            return `<td style="padding:8px 10px; border-bottom:1px solid #f1f5f9;">${display}</td>`;
+        }
+
         return `<td style="padding:8px 10px; border-bottom:1px solid #f1f5f9;">${txt}</td>`;
     }).join('')}</tr>`).join('');
     return `<div class="table-responsive"><table style="width:100%; border-collapse:separate; border-spacing:0;">${thead}<tbody>${rows}</tbody></table></div>`;
@@ -82,7 +115,7 @@ async function loadFinancial() {
         setText('financialOutstanding', fmtCurrency(data.outstandingBalances || 0));
         const dep = data.depositsSummary || { advance: 0, security: 0 };
         set('financialDeposits', tableFrom([{ advance: dep.advance, security: dep.security }], ['advance', 'security']));
-        set('financialRevPerProperty', tableFrom(data.revenuePerProperty || [], ['property_id', 'total']));
+    set('financialRevPerProperty', tableFrom(data.revenuePerProperty || [], ['property_id', 'property_name', 'total']));
         const r = data.recurringVsOneTime || { recurring: 0, oneTime: 0 };
         set('financialRecurring', tableFrom([{ recurring: r.recurring, one_time: r.oneTime }], ['recurring', 'one_time']));
     } catch (e) {
@@ -109,8 +142,8 @@ async function loadProperties() {
     try {
         const { from, to } = getFilters();
         const data = await API.properties({ from, to });
-        set('propOccupancy', tableFrom(data.occupancyPerProperty || [], ['property_id', 'activeLeases', 'totalLeases']));
-        set('propAvgRent', tableFrom(data.averageRentPerProperty || [], ['property_id', 'avgRent']));
+    set('propOccupancy', tableFrom(data.occupancyPerProperty || [], ['property_id', 'property_name', 'activeLeases', 'totalLeases']));
+    set('propAvgRent', tableFrom(data.averageRentPerProperty || [], ['property_id', 'property_name', 'avgRent']));
         const rt = data.renewalsVsTerminations || { renewals: 0, terminations: 0 };
         set('propRenewTerm', tableFrom([{ renewals: rt.renewals, terminations: rt.terminations }], ['renewals', 'terminations']));
         setText('propActiveLeases', fmtInt(data.totalActiveLeases || 0));
@@ -157,17 +190,136 @@ async function applyFilters() {
 }
 
 function exportCsv() {
-    const tab = getActiveTab();
-    const { from, to, propertyId, tenantId, groupBy } = getFilters();
-    const params = new URLSearchParams();
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
-    if (propertyId) params.set('propertyId', propertyId);
-    if (tenantId && tab === 'financial') params.set('tenantId', tenantId);
-    if (groupBy && tab === 'financial') params.set('groupBy', groupBy);
-    params.set('format', 'csv');
-    const url = `/api/v1/reports/${tab}?${params.toString()}`;
-    window.open(url, '_blank');
+    
+    return (async () => {
+        const filters = getFilters();
+
+        
+        const [financial, tenants, properties, maintenance] = await Promise.allSettled([
+            API.financial(filters),
+            API.tenants(filters),
+            API.properties(filters),
+            API.maintenance(filters),
+        ]);
+
+        const currencyKeys = /amount|price|rent|paid|outstanding|balance|fee|total_amount|total_paid|total/i;
+        const intKeys = /count|qty|number|tenants|renewals|terminations|active|inactive|hours|hrs|total_count|total/i;
+
+        const escapeCell = (v, key) => {
+            if (v === null || v === undefined) return '';
+            
+            if (typeof v === 'object') return `"${JSON.stringify(v).replace(/"/g,'""')}"`;
+            
+            const num = Number(v);
+            if (v !== '' && !isNaN(num) && !currencyKeys.test(key) && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(v))) {
+                
+                return String(num);
+            }
+            
+            if (currencyKeys.test(key) && !isNaN(num)) return String(Number(num).toFixed(2));
+            
+            return `"${String(v).replace(/"/g, '""')}"`;
+        };
+
+        function unionHeaders(rows) {
+            const seen = new Set();
+            const headers = [];
+            for (const r of rows) {
+                Object.keys(r || {}).forEach(k => { if (!seen.has(k)) { seen.add(k); headers.push(k); } });
+            }
+            return headers;
+        }
+
+        function arrayToCsv(rows) {
+            if (!Array.isArray(rows) || rows.length === 0) return '';
+            const headers = unionHeaders(rows);
+            const lines = [];
+            
+            lines.push(headers.map(h => `"${h}"`).join(','));
+            for (const r of rows) {
+                const line = headers.map(h => escapeCell(r && (h in r) ? r[h] : '', h)).join(',');
+                lines.push(line);
+            }
+            return lines.join('\n');
+        }
+
+        function objectToKeyValueCsv(obj) {
+            if (!obj || typeof obj !== 'object') return '';
+            const lines = [];
+            lines.push('Key,Value');
+            for (const k of Object.keys(obj)) {
+                const v = obj[k];
+                lines.push([`"${k}"`, escapeCell(v, k)].join(','));
+            }
+            return lines.join('\n');
+        }
+
+        const parts = [];
+        
+        const now = new Date();
+        parts.push(`"Report Export","${now.toISOString()}"`);
+        parts.push('');
+
+        
+        parts.push('"Filters"');
+        parts.push('Key,Value');
+        for (const [k, v] of Object.entries(filters)) {
+            parts.push([`"${k}"`, escapeCell(v, k)].join(','));
+        }
+        parts.push('');
+
+        const pushSection = (title, settledResult) => {
+            parts.push('');
+            parts.push(`"${title.toUpperCase()}"`);
+            parts.push('');
+            if (settledResult.status !== 'fulfilled') {
+                parts.push('Error');
+                parts.push([`"message"`, escapeCell(settledResult.reason?.message || String(settledResult.reason || 'failed'), 'message')].join(','));
+                parts.push('');
+                return;
+            }
+            const data = settledResult.value;
+            
+            if (Array.isArray(data)) {
+                const block = arrayToCsv(data) || '(No data)';
+                parts.push(block);
+                parts.push('');
+                return;
+            }
+            
+            for (const key of Object.keys(data)) {
+                const val = data[key];
+                parts.push(`"${key}"`);
+                if (Array.isArray(val)) {
+                    parts.push(arrayToCsv(val) || '(No data)');
+                } else if (val && typeof val === 'object') {
+                    parts.push(objectToKeyValueCsv(val));
+                } else {
+                    parts.push([`"value"`, escapeCell(val, key)].join(','));
+                }
+                parts.push('');
+            }
+        };
+
+        pushSection('Financial', financial);
+        pushSection('Tenants', tenants);
+        pushSection('Properties', properties);
+        pushSection('Maintenance', maintenance);
+
+        const csvBody = parts.join('\n');
+        
+        const csv = '\uFEFF' + csvBody;
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const fname = `reports_export_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.csv`;
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    })();
 }
 
 function bindEvents() {

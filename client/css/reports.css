@@ -19,7 +19,7 @@
 }
 
 html {
-    font-size: 14px;
+    font-size: 13px;
 }
 
 body {
@@ -107,7 +107,7 @@ body:has(.sidebar.collapsed) .main-content,
     gap: 12px;
     color: var(--text-muted);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 1rem;
 }
 
 .breadcrumb-nav a {
@@ -144,7 +144,7 @@ body:has(.sidebar.collapsed) .main-content,
 .breadcrumb-current {
     color: var(--text-primary);
     font-weight: 700;
-    font-size: 15px;
+    font-size: 1.1rem;
 }
 
 /* Filter Section */
@@ -217,7 +217,7 @@ body:has(.sidebar.collapsed) .main-content,
 .btn {
     padding: 10px 20px;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 1.1rem;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
@@ -280,7 +280,7 @@ body:has(.sidebar.collapsed) .main-content,
     padding: 12px 20px;
     border-radius: 12px;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 1rem;
     font-family: inherit;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -292,7 +292,7 @@ body:has(.sidebar.collapsed) .main-content,
 }
 
 .tab-btn i {
-    font-size: 13px;
+    font-size: 1rem;
 }
 
 .tab-btn:hover {
@@ -366,7 +366,7 @@ body:has(.sidebar.collapsed) .main-content,
 
 .card-title {
     margin: 0;
-    font-size: 15px;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
     display: flex;

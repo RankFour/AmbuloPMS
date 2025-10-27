@@ -40,7 +40,7 @@ export async function getFinancialSummary(filters = {}) {
 
   const ptClause = propertyTenantClauses({ propertyId, tenantId }, params);
 
-  // Total Collected by period
+  
   const collectedSql = `SELECT ${periodExpr} AS period, SUM(pay.amount) AS total
     ${joinLT}
     ${wherePayments}${ptClause}
@@ -48,7 +48,7 @@ export async function getFinancialSummary(filters = {}) {
     ORDER BY MIN(pay.created_at)`;
   const [collectedRows] = await pool.execute(collectedSql, params);
 
-  // Outstanding balances = charges - paid (within date range by due_date)
+  
   const params2 = [];
   const whereCharges = ` WHERE 1=1`
     + dateClause("c.due_date", from, to, params2);
@@ -62,7 +62,7 @@ export async function getFinancialSummary(filters = {}) {
   const [outRows] = await pool.execute(outstandingSql, params2);
   const outstanding = outRows && outRows.length ? Number(outRows[0].outstanding || 0) : 0;
 
-  // Deposits Summary (advance + security) based on lease settings
+  
   const params4 = [];
   const depositSql = `SELECT 
       COALESCE(SUM(l.monthly_rent * l.advance_payment_months),0) AS total_advance,
@@ -77,14 +77,15 @@ export async function getFinancialSummary(filters = {}) {
   const [depRows] = await pool.execute(depositSql, params4);
   const deposits = depRows && depRows.length ? depRows[0] : { total_advance: 0, total_security: 0 };
 
-  // Revenue per Property
+  
   const params5 = [];
-  const revPropSql = `SELECT l.property_id, COALESCE(SUM(pay.amount),0) AS total
+  const revPropSql = `SELECT l.property_id, p.property_name, COALESCE(SUM(pay.amount),0) AS total
     ${joinLT}
+    LEFT JOIN properties p ON l.property_id = p.property_id
     WHERE (pay.status IN ('Completed','Confirmed'))
       ${dateClause("pay.created_at", from, to, params5)}
       ${propertyTenantClauses({ propertyId, tenantId }, params5)}
-    GROUP BY l.property_id`;
+    GROUP BY l.property_id, p.property_name`;
   const [revPropRows] = await pool.execute(revPropSql, params5);
 
   const params6 = [];
@@ -106,7 +107,7 @@ export async function getFinancialSummary(filters = {}) {
       advance: Number(deposits.total_advance || 0),
       security: Number(deposits.total_security || 0),
     },
-    revenuePerProperty: revPropRows.map(r => ({ property_id: r.property_id, total: Number(r.total || 0) })),
+    revenuePerProperty: revPropRows.map(r => ({ property_id: r.property_id, property_name: r.property_name || '', total: Number(r.total || 0) })),
     recurringVsOneTime: {
       recurring: Number(recurringVsOneTime.recurring_sum || 0),
       oneTime: Number(recurringVsOneTime.onetime_sum || 0),
@@ -177,19 +178,22 @@ export async function getPropertyLeaseSummary(filters = {}) {
   const whereLeaseDates = ` WHERE 1=1 ${dateClause("l.lease_start_date", from, to, params)}`;
 
   const [occRows] = await pool.execute(
-    `SELECT l.property_id, 
+    `SELECT l.property_id, p.property_name,
             SUM(CASE WHEN l.lease_status IN ('ACTIVE','PENDING') THEN 1 ELSE 0 END) AS activeLeases,
             COUNT(*) AS totalLeases
      FROM leases l
+     LEFT JOIN properties p ON l.property_id = p.property_id
      ${whereLeaseDates}
-     GROUP BY l.property_id`,
+     GROUP BY l.property_id, p.property_name`,
     params
   );
 
   const [rentRows] = await pool.execute(
-    `SELECT l.property_id, AVG(l.monthly_rent) AS avgRent
-     FROM leases l ${whereLeaseDates}
-     GROUP BY l.property_id`,
+    `SELECT l.property_id, p.property_name, AVG(l.monthly_rent) AS avgRent
+     FROM leases l
+     LEFT JOIN properties p ON l.property_id = p.property_id
+     ${whereLeaseDates}
+     GROUP BY l.property_id, p.property_name`,
     params
   );
 
@@ -212,8 +216,8 @@ export async function getPropertyLeaseSummary(filters = {}) {
   const upcomingVacancies = vacRows && vacRows.length ? Number(vacRows[0].cnt || 0) : 0;
 
   return {
-    occupancyPerProperty: occRows.map(r => ({ property_id: r.property_id, activeLeases: Number(r.activeLeases||0), totalLeases: Number(r.totalLeases||0) })),
-    averageRentPerProperty: rentRows.map(r => ({ property_id: r.property_id, avgRent: Number(r.avgRent || 0) })),
+    occupancyPerProperty: occRows.map(r => ({ property_id: r.property_id, property_name: r.property_name || '', activeLeases: Number(r.activeLeases||0), totalLeases: Number(r.totalLeases||0) })),
+    averageRentPerProperty: rentRows.map(r => ({ property_id: r.property_id, property_name: r.property_name || '', avgRent: Number(r.avgRent || 0) })),
     renewalsVsTerminations: { renewals: Number(rtRows?.[0]?.renewals || 0), terminations: Number(rtRows?.[0]?.terminations || 0) },
     totalActiveLeases,
     upcomingVacancies,
@@ -237,7 +241,7 @@ export async function getMaintenanceSummary(filters = {}) {
     return { join, clause };
   }
 
-  // Tickets by Month
+  
   const paramsMonth = [];
   const { join: joinMonth, clause: clauseMonth } = applyPropertyClause(paramsMonth);
   const dateWhereMonth = dateClause('t.created_at', from, to, paramsMonth);
@@ -250,7 +254,7 @@ export async function getMaintenanceSummary(filters = {}) {
     ORDER BY period`;
   const [byMonth] = await pool.execute(sqlByMonth, paramsMonth);
 
-  // Tickets by Status
+  
   const paramsStatus = [];
   const { join: joinStatus, clause: clauseStatus } = applyPropertyClause(paramsStatus);
   const dateWhereStatus = dateClause('t.created_at', from, to, paramsStatus);
@@ -262,7 +266,7 @@ export async function getMaintenanceSummary(filters = {}) {
     GROUP BY t.ticket_status`;
   const [byStatus] = await pool.execute(sqlByStatus, paramsStatus);
 
-  // Average Resolution Hours using start_datetime and end_datetime
+  
   const paramsAvg = [];
   const { join: joinAvg, clause: clauseAvg } = applyPropertyClause(paramsAvg);
   const dateWhereAvg = dateClause('t.created_at', from, to, paramsAvg);
@@ -312,7 +316,7 @@ export async function getMaintenanceSummary(filters = {}) {
   return {
     ticketsByMonth: (byMonth || []).map(r => ({ period: r.period, total: Number(r.total || 0) })),
     ticketsByStatus: (byStatus || []).map(r => ({ status: r.status, total: Number(r.total || 0) })),
-    averageResolutionHours,
+    averageResolutionHours: avgResolutionHours,
     commonIssues: (issues || []).map(r => ({ type: r.request_type, total: Number(r.total || 0) })),
     ratings: { count: Number(ratings?.[0]?.count || 0), average: Number(ratings?.[0]?.avgRating || 0) },
   };
