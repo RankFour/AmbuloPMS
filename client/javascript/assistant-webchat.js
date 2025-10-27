@@ -36,8 +36,15 @@
             const canSend = api && typeof api.sendEvent === "function";
             if (canSend) {
                 try {
-                    api.sendEvent({ type: "custom", payload: { jwt } });
-                } catch {}
+                    console.log("Sending JWT to Botpress:", jwt.slice(0, 10), "...");
+                    api.sendEvent({
+                        type: "webchat:ready",
+                        payload: { jwt }
+                    });
+
+                } catch (err) {
+                    console.error("Failed to send JWT:", err);
+                }
                 return;
             }
             if (n > 0) setTimeout(() => attempt(n - 1), delayMs);
@@ -64,6 +71,14 @@
                     sendJwtToBotpress();
                     return;
                 }
+                window.botpressWebChat.onEvent((ev) => {
+                    const t = ev?.type || "";
+                    if (["webchat:ready", "LIFECYCLE.READY", "LIFECYCLE.LOADED"].includes(t)) {
+                        sendJwtToBotpress();
+                    }
+                });
+
+
                 createFallbackWebchat(claims);
                 return;
             }
@@ -106,7 +121,7 @@
                             }
                         });
                     }
-                } catch {}
+                } catch { }
             } else {
                 createFallbackWebchat(claims);
             }
@@ -152,7 +167,7 @@
         bootstrap();
     }
 
-    // -------- Webchat Fallback (lightweight) --------
+    
     function createEl(tag, attrs = {}, children = []) {
         const el = document.createElement(tag);
         Object.entries(attrs).forEach(([k, v]) => {
