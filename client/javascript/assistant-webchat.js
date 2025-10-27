@@ -28,43 +28,28 @@
 
     function sendJwtToBotpress() {
         const jwt = getJwtToken();
-        if (!jwt) {
-            console.warn("No JWT found; skipping send.");
-            return;
-        }
+        if (!jwt) return console.warn("⚠️ No JWT found");
 
         const sendNow = () => {
             try {
                 console.log("✅ Sending JWT to Botpress:", jwt);
-                const target = window.botpress?.webchat || window.botpressWebChat || window.botpress;
-                if (target && typeof target.sendEvent === "function") {
-                    target.sendEvent({
-                        type: "jwtToken",
-                        payload: { jwt },
-                    });
-                    console.log("✅ JWT sent successfully to Botpress instance");
-                } else {
-                    console.error("❌ Botpress sendEvent not available yet on webchat instance");
-                }
+                window.botpressWebChat.sendEvent({
+                    type: "jwtToken",
+                    payload: { jwt },
+                });
             } catch (err) {
                 console.error("❌ Failed to send JWT:", err);
             }
         };
 
-        const waitForReady = setInterval(() => {
-            const target = window.botpress?.webchat || window.botpressWebChat || window.botpress;
-            if (target && typeof target.sendEvent === "function") {
-                clearInterval(waitForReady);
-                console.log("✅ Botpress webchat ready — sending JWT");
+        const checkReady = setInterval(() => {
+            if (window.botpressWebChat && typeof window.botpressWebChat.sendEvent === "function") {
+                clearInterval(checkReady);
                 sendNow();
             }
         }, 500);
-
-        setTimeout(() => {
-            clearInterval(waitForReady);
-            console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
-        }, 10000);
     }
+
 
 
     async function initAssistantSession() {
@@ -114,6 +99,41 @@
                     feedbackEnabled: true,
                 },
             });
+
+            if (window.botpressWebChat && typeof window.botpressWebChat.init === "function") {
+                console.log("✅ Botpress Webchat (v3) detected — initializing...");
+                window.botpressWebChat.init({
+                    botId: "6c967958-d7da-42b1-aac0-6f3a8cb36cbf",
+                    clientId: "f066f9b1-575b-48b8-8d22-d03caddf7906",
+                    composerPlaceholder: "Talk to Ambulo Assistant...",
+                    theme: "light",
+                });
+
+                
+                const interval = setInterval(() => {
+                    if (document.querySelector('iframe[src*="botpress.cloud"]')) {
+                        clearInterval(interval);
+                        console.log("✅ Botpress iframe detected — sending JWT...");
+                        sendJwtToBotpress();
+                    }
+                }, 1000);
+            } else {
+                console.warn("⚠️ window.botpressWebChat.init not available yet, retrying...");
+                const retry = setInterval(() => {
+                    if (window.botpressWebChat && typeof window.botpressWebChat.init === "function") {
+                        clearInterval(retry);
+                        console.log("✅ Retrying Botpress webchat init...");
+                        window.botpressWebChat.init({
+                            botId: "6c967958-d7da-42b1-aac0-6f3a8cb36cbf",
+                            clientId: "f066f9b1-575b-48b8-8d22-d03caddf7906",
+                            composerPlaceholder: "Talk to Ambulo Assistant...",
+                            theme: "light",
+                        });
+                        sendJwtToBotpress();
+                    }
+                }, 1000);
+            }
+
 
             sendJwtToBotpress();
         } else {

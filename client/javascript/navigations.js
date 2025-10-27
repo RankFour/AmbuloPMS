@@ -478,7 +478,7 @@
           tooltip: "Payment Management",
         },
         {
-          href: "#",
+          href: "/reports.html",
           icon: "fas fa-chart-bar",
           text: "Reports",
           page: "reports",
@@ -590,7 +590,7 @@
 
         "contentManagement.html": "Manage Content",
         contentManagement: "Manage Content",
-        "company-information.html": "Manage Content",
+        "reports.html": "Reports",
         "company-information": "Manage Content",
         "building-addresses.html": "Manage Content",
         "building-addresses": "Manage Content",
@@ -636,6 +636,7 @@
         messagesAdmin: "fas fa-envelope",
         "documents.html": "fas fa-folder",
         documents: "fas fa-folder",
+  "reports.html": "fas fa-chart-bar",
         "contentManagement.html": "fas fa-gears",
         contentManagement: "fas fa-gears",
         "company-information.html": "fas fa-gears",
@@ -746,6 +747,8 @@
           "Communicate with tenants and manage property-related correspondence",
         documents:
           "Manage property documents, leases, and important administrative files",
+        "reports.html":
+          "Generate and analyze property performance and financial reports",
         reports:
           "Generate and analyze property performance and financial reports",
         content: "Configure system settings and manage website content",
