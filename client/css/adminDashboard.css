@@ -159,7 +159,12 @@ body {
 }
 
 /* ===== SECTION 4: Service Metrics - Full width row split ===== */
-.card[data-card-key="resolvedTicketsThisMonth"],
+.card[data-card-key="resolvedTicketsThisMonth"] {
+  grid-column: span 3;
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+  min-height: 140px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
 .card[data-card-key="avgResolutionTime"] {
   grid-column: span 6;
   background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
@@ -193,6 +198,7 @@ body {
 
 .card[data-card-key="maintenanceByCategory"] {
   background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+  grid-column: span 3;
 }
 
 /* ===== SECTION 6: Alerts - Full Width ===== */
@@ -611,7 +617,9 @@ body {
   }
   
   /* Service metrics stay 6 columns */
-  .card[data-card-key="resolvedTicketsThisMonth"],
+  .card[data-card-key="resolvedTicketsThisMonth"] {
+    grid-column: span 3;
+  }
   .card[data-card-key="avgResolutionTime"] {
     grid-column: span 6;
   }
@@ -623,6 +631,8 @@ body {
   .card[data-card-key="maintenanceByCategory"] {
     grid-column: span 6;
   }
+  /* Make Maintenance Categories smaller on laptop */
+  .card[data-card-key="maintenanceByCategory"] { grid-column: span 3; }
   
   .card[data-card-key="alerts"] {
     grid-column: span 12;
@@ -662,6 +672,8 @@ body {
   .card[data-card-key="avgResolutionTime"] {
     grid-column: span 6;
   }
+  /* Make Resolved Tickets smaller on tablet */
+  .card[data-card-key="resolvedTicketsThisMonth"] { grid-column: span 3; }
   
   /* Charts: Full width */
   .card[data-card-key="revenueTrend"],
@@ -671,6 +683,8 @@ body {
   .card[data-card-key="alerts"] {
     grid-column: span 6;
   }
+  /* Make Maintenance Categories smaller on tablet */
+  .card[data-card-key="maintenanceByCategory"] { grid-column: span 3; }
 }
 
 @media (max-width: 767px) {
