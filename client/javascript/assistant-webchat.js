@@ -1,7 +1,6 @@
 (function () {
     const API_BASE = window.API_BASE || `${location.origin}/api`;
-    const API_VERSION =
-        window.API_VERSION || (window.env && window.env.API_VERSION) || "v1";
+    const API_VERSION = window.API_VERSION || "v1";
     const base = `${API_BASE}/${API_VERSION}`;
 
     function loadScript(src) {
@@ -27,7 +26,6 @@
         }
     }
 
-
     function sendJwtToBotpress() {
         const jwt = getJwtToken();
         if (!jwt) {
@@ -38,38 +36,23 @@
         const sendNow = () => {
             try {
                 console.log("✅ Sending JWT to Botpress:", jwt);
-                window.botpress.sendEvent({
-                    type: "custom",
-                    payload: { jwt },
-                });
+                window.botpress.sendEvent({ type: "custom", payload: { jwt } });
             } catch (err) {
                 console.error("❌ Failed to send JWT:", err);
             }
         };
 
-
-        if (window.botpress && typeof window.botpress.onEvent === "function") {
-            window.botpress.onEvent((event) => {
-                const t = event?.type || "";
-                if (["webchat:ready", "LIFECYCLE.READY", "LIFECYCLE.LOADED"].includes(t)) {
-                    console.log("✅ Botpress webchat is ready — sending JWT now...");
-                    sendNow();
-                }
-            });
-        } else {
-            console.log("⌛ Waiting for Botpress to initialize...");
-            let tries = 0;
-            const interval = setInterval(() => {
-                if (window.botpress && typeof window.botpress.sendEvent === "function") {
-                    clearInterval(interval);
-                    console.log("✅ Botpress initialized — sending JWT now...");
-                    sendNow();
-                } else if (tries++ > 25) {
-                    clearInterval(interval);
-                    console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
-                }
-            }, 500);
-        }
+        let tries = 0;
+        const interval = setInterval(() => {
+            if (window.botpress && typeof window.botpress.sendEvent === "function") {
+                clearInterval(interval);
+                console.log("✅ Botpress ready — sending JWT");
+                sendNow();
+            } else if (tries++ > 25) {
+                clearInterval(interval);
+                console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
+            }
+        }, 500);
     }
 
     async function initAssistantSession() {
@@ -94,17 +77,14 @@
     }
 
     async function bootstrap() {
-
         const session = await initAssistantSession();
         window.ASSISTANT_CLAIMS = session && session.claims;
-
 
         const scriptUrl =
             window.BOTPRESS_WEBCHAT_SCRIPT_URL ||
             "https://files.bpcontent.cloud/2025/10/20/20/20251020204110-KI06VUC7.js";
 
         await loadScript(scriptUrl);
-
         console.log("✅ Botpress script loaded, initializing bot...");
 
         if (window.botpress && typeof window.botpress.init === "function") {
@@ -123,10 +103,9 @@
                 },
             });
 
-
             sendJwtToBotpress();
         } else {
-            console.error("❌ Botpress.init() is not available.");
+            console.error("❌ window.botpress.init() not found.");
         }
     }
 
