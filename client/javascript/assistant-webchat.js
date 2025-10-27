@@ -3,7 +3,7 @@
   const API_VERSION = window.API_VERSION || "v1";
   const base = `${API_BASE}/${API_VERSION}`;
 
-  // --- UTILITIES ---
+  
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -48,46 +48,57 @@
     }
   }
 
-  // --- SEND JWT TO BOTPRESS (v2 SDK) ---
+  
   function sendJwtToBotpress() {
     const jwt = getJwtToken();
     if (!jwt) {
       console.warn("⚠️ No JWT found; skipping send.");
       return;
     }
-
-    const sendNow = () => {
-      try {
-        console.log("✅ Sending JWT to Botpress:", jwt);
-        // Use the v2 SDK event system
-        window.botpress.sendEvent({
-          type: "custom",
-          payload: { jwt },
-        });
-      } catch (err) {
-        console.error("❌ Failed to send JWT:", err);
-      }
+    const sendNow = async () => {
+      console.log("✅ Sending JWT to Botpress:", jwt);
+      const res = window.botpress.sendEvent({ type: "custom", payload: { jwt } });
+      if (res && typeof res.then === 'function') await res;
+      console.log("✅ JWT delivered to Botpress.");
     };
 
-    // Wait until Botpress SDK is initialized
-    const waitForInit = setInterval(() => {
-      if (window.botpress?.initialized) {
-        clearInterval(waitForInit);
-        console.log("✅ Botpress v2 SDK ready — sending JWT...");
-        sendNow();
-      }
-    }, 500);
+    let attempts = 0;
+    const maxAttempts = 20; 
+    const intervalMs = 500;
 
-    // Stop waiting after 10 seconds
-    setTimeout(() => {
-      clearInterval(waitForInit);
-      if (!window.botpress?.initialized) {
-        console.warn("⚠️ Botpress SDK never became ready.");
+    const waitForInit = setInterval(async () => {
+      attempts += 1;
+      try {
+        const bp = window.botpress;
+        if (bp && bp.initialized && typeof bp.sendEvent === 'function') {
+          clearInterval(waitForInit);
+          let sent = false;
+          let retry = 0;
+          const maxRetry = 4;
+          while (!sent && retry <= maxRetry) {
+            try {
+              await sendNow();
+              sent = true;
+            } catch (err) {
+              console.error('❌ Failed to send JWT (attempt ' + (retry + 1) + '):', err);
+              retry += 1;
+              await new Promise(r => setTimeout(r, 250 * Math.pow(2, retry)));
+            }
+          }
+          if (!sent) console.error('❌ All attempts to send JWT failed.');
+        }
+      } catch (e) {
+        console.error('sendJwtToBotpress interval error:', e);
       }
-    }, 10000);
+
+      if (attempts >= maxAttempts) {
+        clearInterval(waitForInit);
+        console.warn("⚠️ Botpress SDK readiness check timed out.");
+      }
+    }, intervalMs);
   }
 
-  // --- BOOTSTRAP ---
+  
   async function bootstrap() {
     const session = await initAssistantSession();
     window.ASSISTANT_CLAIMS = session && session.claims;
@@ -96,11 +107,11 @@
       window.BOTPRESS_WEBCHAT_SCRIPT_URL ||
       "https://files.bpcontent.cloud/2025/10/20/20/20251020204110-KI06VUC7.js";
 
-    // Load the Botpress bot script
+    
     await loadScript(scriptUrl);
     console.log("✅ Botpress script loaded, initializing bot...");
 
-    // Initialize the v2 Botpress Web SDK
+    
     const initBotpress = () => {
       if (window.botpress && typeof window.botpress.init === "function") {
         window.botpress.init({
@@ -129,7 +140,7 @@
     initBotpress();
   }
 
-  // --- START SCRIPT ---
+  
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootstrap);
   } else {
