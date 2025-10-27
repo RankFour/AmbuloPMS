@@ -36,24 +36,31 @@
         const sendNow = () => {
             try {
                 console.log("✅ Sending JWT to Botpress:", jwt);
-                window.botpress.sendEvent({ type: "custom", payload: { jwt } });
+                window.botpress.sendEvent({
+                    type: "jwtToken",
+                    payload: { jwt },
+                });
             } catch (err) {
                 console.error("❌ Failed to send JWT:", err);
             }
         };
 
-        let tries = 0;
-        const interval = setInterval(() => {
-            if (window.botpress && typeof window.botpress.sendEvent === "function") {
-                clearInterval(interval);
+        const waitForInit = setInterval(() => {
+            if (window.botpress?.initialized) {
+                clearInterval(waitForInit);
                 console.log("✅ Botpress ready — sending JWT");
                 sendNow();
-            } else if (tries++ > 25) {
-                clearInterval(interval);
-                console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
             }
         }, 500);
+
+        setTimeout(() => {
+            clearInterval(waitForInit);
+            if (!window.botpress?.initialized) {
+                console.warn("⚠️ Botpress webchat never became ready to receive JWT.");
+            }
+        }, 10000);
     }
+
 
     async function initAssistantSession() {
         try {
