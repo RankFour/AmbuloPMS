@@ -120,6 +120,7 @@ const prettyRoutes = {
     '/faqs': 'FAQs.html',
     '/maintenance': 'maintenance.html',
     '/documents': 'documents.html',
+        '/reports': 'reports.html',
     '/messages': 'messages.html',
     '/tenants': 'tenants.html',
     '/tenant-dashboard': 'tenantDashboard.html',
