@@ -920,7 +920,8 @@
       return {
         id: m.message_id,
         sender: otherParty,
-        subject: otherParty,
+        
+        subject: (safe(m.subject) || safe(m.thread_title) || ''),
         preview,
         time: this.formatRelativeTime(m.created_at),
         unread: isIncoming, 
@@ -932,7 +933,8 @@
       return {
         id: `${safe(conv.other_user_id)}`,
         sender: safe(conv.other_user_name || 'Conversation'),
-        subject: safe(conv.other_user_name || 'Conversation'),
+        
+        subject: (safe(conv.thread_title) || safe(conv.last_message_subject) || ''),
         preview: safe(conv.last_message || ''),
         time: this.formatRelativeTime(conv.last_message_time),
         unread: false,
@@ -1217,12 +1219,14 @@
       } else {
         inboxContent.innerHTML = this.inboxMessages
           .map(
-            (message) => `
-                <div class="inbox-item ${
-                  message.unread ? "unread" : ""
-                }" onclick="window.navigationManager.openMessage(${
-              message.id
-            })">
+            (message) => {
+              const href = `/messages.html?user=${encodeURIComponent(
+                String(message.id || "")
+              )}`;
+              return `
+                <a href="${href}" class="inbox-item ${
+                message.unread ? "unread" : ""
+              }" data-id="${message.id}" style="color:inherit; text-decoration:none;">
                     <div class="inbox-item-header">
                         <div class="inbox-sender-section">
                             <span class="inbox-sender">${message.sender}</span>
@@ -1234,10 +1238,11 @@
                         </div>
                         <span class="inbox-time">${message.time}</span>
                     </div>
-                    <div class="inbox-subject">${message.subject}</div>
-                    <div class="inbox-preview">${message.preview}</div>
-                </div>
-            `
+              ${message.subject ? `<div class="inbox-subject">${message.subject}</div>` : ""}
+              <div class="inbox-preview">${message.preview}</div>
+                </a>
+            `;
+            }
           )
           .join("");
       }
@@ -1284,8 +1289,9 @@
               const inboxContent = document.getElementById('inboxContent');
               if (inboxContent && msg) {
                 const safe = (v) => (v == null ? '' : String(v));
+                const href = `/messages.html?user=${encodeURIComponent(String(msg.other_user_id || msg.sender_id || msg.sender || ''))}`;
                 const html = `
-                  <div class="inbox-item unread">
+                  <a href="${href}" class="inbox-item unread" style="color:inherit; text-decoration:none;">
                     <div class="inbox-item-header">
                       <div class="inbox-sender-section">
                         <span class="inbox-sender">${safe(msg.sender_name || msg.sender || 'Message')}</span>
@@ -1294,7 +1300,7 @@
                     </div>
                     <div class="inbox-subject">${safe(msg.subject || msg.thread_title || 'New message')}</div>
                     <div class="inbox-preview">${safe(msg.text || msg.body || msg.content || '')}</div>
-                  </div>`;
+                  </a>`;
                 const wrapper = document.createElement('div');
                 wrapper.innerHTML = html.trim();
                 const el = wrapper.firstChild;
@@ -2604,26 +2610,26 @@
         inboxContent.innerHTML = ` <div class="empty-inbox"><div class="empty-inbox-icon">📭</div><div class="empty-inbox-text">No messages yet</div><div class="empty-inbox-subtext">You're all caught up!</div></div> `;
       } else {
         inboxContent.innerHTML = this.inboxMessages
-          .map(
-            (message) =>
-              ` <div class="inbox-item ${
-                message.unread ? "unread" : ""
-              }" onclick="window.tenantNavigationManager.openMessage(${
-                message.id
-              })"> <div class="inbox-item-header"> <div class="inbox-sender-section"> <span class="inbox-sender">${
-                message.sender
-              }</span> ${
-                message.priority
-                  ? `<div class="inbox-priority ${message.priority}"></div>`
-                  : ""
-              } </div> <span class="inbox-time">${
-                message.time
-              }</span> </div> <div class="inbox-subject">${
-                message.subject
-              }</div> <div class="inbox-preview">${
-                message.preview
-              }</div> </div> `
-          )
+          .map((message) => {
+            const href = `/messages.html?user=${encodeURIComponent(
+              String(message.id || "")
+            )}`;
+            return ` <a href="${href}" class="inbox-item ${
+              message.unread ? "unread" : ""
+            }" data-id="${message.id}" style="color:inherit; text-decoration:none;"> <div class="inbox-item-header"> <div class="inbox-sender-section"> <span class="inbox-sender">${
+              message.sender
+            }</span> ${
+              message.priority
+                ? `<div class="inbox-priority ${message.priority}"></div>`
+                : ""
+            } </div> <span class="inbox-time">${
+              message.time
+            }</span> </div> <div class="inbox-subject">${
+              message.subject
+            }</div> <div class="inbox-preview">${
+              message.preview
+            }</div> </a> `;
+          })
           .join("");
       }
     }
@@ -2667,8 +2673,9 @@
               const inboxContent = document.getElementById('inboxContent');
               if (inboxContent && msg) {
                 const safe = (v) => (v == null ? '' : String(v));
+                const href = `/messages.html?user=${encodeURIComponent(String(msg.other_user_id || msg.sender_id || msg.sender || ''))}`;
                 const html = `
-                  <div class="inbox-item unread">
+                  <a href="${href}" class="inbox-item unread" style="color:inherit; text-decoration:none;">
                     <div class="inbox-item-header">
                       <div class="inbox-sender-section">
                         <span class="inbox-sender">${safe(msg.sender_name || msg.sender || 'Message')}</span>
@@ -2677,7 +2684,7 @@
                     </div>
                     <div class="inbox-subject">${safe(msg.subject || msg.thread_title || 'New message')}</div>
                     <div class="inbox-preview">${safe(msg.text || msg.body || msg.content || '')}</div>
-                  </div>`;
+                  </a>`;
                 const wrapper = document.createElement('div');
                 wrapper.innerHTML = html.trim();
                 const el = wrapper.firstChild;

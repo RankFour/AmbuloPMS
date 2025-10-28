@@ -549,6 +549,7 @@
   position: absolute;
   top: 120%;
   right: 0;
+  font-size: 1rem;
   background: white;
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-heavy), 0 4px 16px rgba(0, 0, 0, 0.08);
@@ -571,42 +572,17 @@
 
 .inbox-header {
   padding: 20px 24px 16px;
-  background: linear-gradient(
-    135deg,
-    var(--secondary-color) 0%,
-    var(--secondary-hover) 100%
-  );
+  /* use brand primary gradient for inbox header to match site brand */
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   border-radius: var(--border-radius) var(--border-radius) 0 0;
   color: white;
   position: relative;
   overflow: hidden;
 }
 
-.inbox-header::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
-
-.inbox-header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-  z-index: 1;
-}
 
 .inbox-title {
-  font-size: 18px;
+  font-size: 1rem;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -646,8 +622,9 @@
 }
 
 .inbox-item.unread {
-  background: linear-gradient(90deg, #f0f8ff 0%, #ffffff 100%);
-  border-left: 4px solid var(--secondary-color);
+  /* subtle primary-tinted background for unread items */
+  background: linear-gradient(90deg, rgba(59,130,246,0.06) 0%, #ffffff 100%);
+  border-left: 4px solid var(--primary-color);
   box-shadow: var(--shadow-light);
 }
 
@@ -756,7 +733,7 @@
 }
 
 .view-all-btn {
-  color: var(--secondary-color);
+  color: var(--primary-color);
   text-decoration: none;
   font-size: 14px;
   font-weight: 600;
@@ -764,11 +741,7 @@
   border-radius: var(--border-radius-small);
   transition: all var(--transition-fast);
   display: inline-block;
-  background: linear-gradient(
-    135deg,
-    rgba(44, 74, 107, 0.08) 0%,
-    rgba(61, 94, 134, 0.08) 100%
-  );
+  background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(59,130,246,0.04) 100%);
 }
 
 .view-all-btn:hover {
