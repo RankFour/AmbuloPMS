@@ -4,6 +4,35 @@ import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 const API_BASE_URL = "/api/v1/users";
 
 document.addEventListener("DOMContentLoaded", function () {
+  
+  try {
+    const token = (document.cookie.match('(^|;)\\s*token\\s*=\\s*([^;]+)')||[])[2];
+    if (token) {
+      
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        try {
+          const user = JSON.parse(stored);
+          if (user && user.role === 'ADMIN') {
+            window.location.href = 'dashboard.html';
+            return;
+          }
+          
+          window.location.href = 'dashboard.html';
+          return;
+        } catch (e) {
+          
+          window.location.href = 'dashboard.html';
+          return;
+        }
+      }
+      
+      window.location.href = 'dashboard.html';
+      return;
+    }
+  } catch (e) {
+    
+  }
   const loginForm = document.getElementById("loginForm");
   const passwordField = document.getElementById("passwordField");
   const toggleButton = document.getElementById("toggleButton");
@@ -52,10 +81,10 @@ document.addEventListener("DOMContentLoaded", function () {
         localStorage.setItem("user", JSON.stringify(data.user));
 
         if (data.user.role === "ADMIN") {
-          window.location.href = "adminDashboard.html";
+          window.location.href = "dashboard.html";
         } else {
           
-          window.location.href = "adminDashboard.html";
+          window.location.href = "dashboard.html";
         }
       } else {
         if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
