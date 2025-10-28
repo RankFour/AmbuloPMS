@@ -1,5 +1,6 @@
 import conn from "../config/db.js";
 import { v4 as uuidv4 } from "uuid";
+import notificationsServices from "./notificationsServices.js";
 
 const pool = await conn();
 
@@ -378,7 +379,7 @@ const getPaymentAllocations = async (paymentId) => {
     }
 };
 
-const updatePaymentById = async (id, payment = {}, performedBy = null) => {
+const updatePaymentById = async (id, payment = {}, performedBy = null, io = null) => {
     const {
         chargeId,
         paymentDate,
@@ -568,6 +569,7 @@ const updatePaymentById = async (id, payment = {}, performedBy = null) => {
                         pay.notes,
                         pay.created_at,
                         l.lease_id,
+                        l.user_id AS tenant_user_id,
                         CONCAT(u.first_name, ' ', u.last_name, IFNULL(CONCAT(' ', u.suffix), '')) AS tenant_name,
                         p.property_name
                     FROM payments pay
@@ -665,6 +667,23 @@ const updatePaymentById = async (id, payment = {}, performedBy = null) => {
                             }
                         }
                     }
+
+                    
+                    try {
+                        const targetUserId = (info && info.tenant_user_id) || null;
+                        if (targetUserId && callerIntendsConfirm && !alreadyConfirmed) {
+                            await notificationsServices.createNotification({
+                                user_id: targetUserId,
+                                type: 'PAYMENT',
+                                title: 'Payment Confirmed',
+                                body: `Your payment ${id} has been confirmed.`,
+                                link: '/paymentTenant.html',
+                                meta: { payment_id: id, status: 'Confirmed' }
+                            }, io);
+                        }
+                    } catch (notifyErr) {
+                        console.warn('Failed to create payment confirmation notification', notifyErr);
+                    }
                 }
             } catch (invErr) {
                 console.error('Failed to create consolidated invoice:', invErr);
@@ -727,6 +746,7 @@ const updatePaymentById = async (id, payment = {}, performedBy = null) => {
                         pay.notes,
                         pay.created_at,
                         l.lease_id,
+                        l.user_id AS tenant_user_id,
                         CONCAT(u.first_name, ' ', u.last_name, IFNULL(CONCAT(' ', u.suffix), '')) AS tenant_name,
                         p.property_name
                     FROM payments pay
@@ -881,6 +901,22 @@ const updatePaymentById = async (id, payment = {}, performedBy = null) => {
                         }
                     }
                 }
+                
+                try {
+                    const targetUserId = (info && info.tenant_user_id) || null;
+                    if (targetUserId && callerIntendsConfirm && !alreadyConfirmed) {
+                        await notificationsServices.createNotification({
+                            user_id: targetUserId,
+                            type: 'PAYMENT',
+                            title: 'Payment Confirmed',
+                            body: `Your payment ${id} has been confirmed.`,
+                            link: '/paymentTenant.html',
+                            meta: { payment_id: id, status: 'Confirmed' }
+                        }, io);
+                    }
+                } catch (notifyErr) {
+                    console.warn('Failed to create payment confirmation notification', notifyErr);
+                }
             } catch (invErr) {
                 console.error("Failed to insert invoice for payment:", id, invErr);
             }
@@ -895,6 +931,35 @@ const updatePaymentById = async (id, payment = {}, performedBy = null) => {
             );
         }
         await connHandle.commit();
+
+        
+        try {
+            if (callerIntendsReject && !alreadyRejected) {
+                
+                const [infoRows] = await pool.execute(
+                    `SELECT l.user_id AS tenant_user_id
+                     FROM payments pay
+                     LEFT JOIN charges c ON pay.charge_id = c.charge_id
+                     LEFT JOIN leases l ON c.lease_id = l.lease_id
+                     WHERE pay.payment_id = ?
+                     LIMIT 1`,
+                    [id]
+                );
+                const targetUserId = infoRows && infoRows.length ? infoRows[0].tenant_user_id : null;
+                if (targetUserId) {
+                    await notificationsServices.createNotification({
+                        user_id: targetUserId,
+                        type: 'PAYMENT',
+                        title: 'Payment Rejected',
+                        body: `Your payment ${id} was rejected. Please review and resubmit.`,
+                        link: '/paymentTenant.html',
+                        meta: { payment_id: id, status: 'Rejected' }
+                    }, io);
+                }
+            }
+        } catch (notifyErr) {
+            console.warn('Failed to create payment rejection notification', notifyErr);
+        }
         return { message: "Payment updated successfully" };
     } catch (error) {
         await connHandle.rollback();

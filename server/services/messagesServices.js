@@ -1,5 +1,6 @@
 import conn from "./../config/db.js";
 import { emitToUser, emitToConversation } from "../config/socket.js";
+import notificationsServices from "./notificationsServices.js";
 
 const pool = await conn();
 
@@ -93,6 +94,20 @@ const createMessage = async (messageData = {}, io = null) => {
         lastMessageTime: messageData_result.created_at,
         conversationId: conversation_id,
       });
+    }
+
+    
+    try {
+      await notificationsServices.createNotification({
+        user_id: recipient_user_id,
+        type: 'MESSAGE',
+        title: 'New message received',
+        body: message.length > 80 ? message.slice(0, 77) + '...' : message,
+        link: '/messages.html',
+        meta: { conversation_id }
+      }, (typeof io !== 'undefined') ? io : null);
+    } catch (e) {
+      console.warn('Failed to create message notification:', e?.message || e);
     }
 
     return {

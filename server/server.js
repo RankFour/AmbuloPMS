@@ -32,6 +32,7 @@ import contactUsRoutes from './routes/contactUsRoutes.js';
 import messagesRoutes from './routes/messagesRoutes.js';
 import assistantRoutes from './routes/assistantRoutes.js';
 import reportsRoutes from './routes/reportsRoutes.js';
+import notificationsRoutes from './routes/notificationsRoutes.js';
 
 
 import tables from './tables/tables.js';
@@ -50,7 +51,7 @@ const PORT = process.env.PORT || 5000;
 const PROJECT_NAME = process.env.PROJECT_NAME;
 
 const corsOptions = {
-    origin: 'https://ambuloproperties-00d066e1316e.herokuapp.com',
+    origin: '*',
     credentials: true, //access-control-allow-credentials:true
     optionSuccessStatus: 200,
 };
@@ -94,6 +95,7 @@ app.use(`/api/${API_VERSION}/payments`, paymentsRoutes);
 app.use(`/api/${API_VERSION}/contact-us`, contactUsRoutes);
 app.use(`/api/${API_VERSION}/messages`, messagesRoutes);
 app.use(`/api/${API_VERSION}/reports`, reportsRoutes);
+app.use(`/api/${API_VERSION}/notifications`, notificationsRoutes);
 
 // Rate limiting specifically for assistant endpoints
 const assistantLimiter = rateLimit({

@@ -1,9 +1,10 @@
 import { v4 as uuidv4 } from "uuid";
 import conn from "./../config/db.js";
+import notificationsServices from "./notificationsServices.js";
 
 const pool = await conn();
 
-const createTicket = async (ticketData = {}, currentUserId = null) => {
+const createTicket = async (ticketData = {}, currentUserId = null, io = null) => {
   const {
     ticket_title,
     description,
@@ -69,6 +70,22 @@ const createTicket = async (ticketData = {}, currentUserId = null) => {
       const attachQuery = `INSERT INTO ticket_attachments (ticket_id, url) VALUES ?`;
       const attachValues = attachments.map(url => [ticket_id, url]);
       await pool.query(attachQuery, [attachValues]);
+    }
+
+    
+    try {
+      if (assigned_to && String(assigned_to).trim() !== "") {
+        await notificationsServices.createNotification({
+          user_id: assigned_to,
+          type: 'TICKET',
+          title: 'New Ticket Assigned',
+          body: `Ticket: ${ticket_title || 'Maintenance Request'}`,
+          link: '/maintenance.html',
+          meta: { ticket_id }
+        }, io);
+      }
+    } catch (notifyErr) {
+      console.warn('Failed to create ticket assignment notification', notifyErr);
     }
 
     return {
@@ -376,7 +393,7 @@ const getTicketsByUserId = async (user_id = "", queryObj = {}) => {
   }
 };
 
-const updateTicketById = async (ticket_id = "", ticketData = {}) => {
+const updateTicketById = async (ticket_id = "", ticketData = {}, io = null) => {
   try {
     if (!ticket_id) {
       throw new Error("Ticket ID is required");
@@ -435,6 +452,16 @@ const updateTicketById = async (ticket_id = "", ticketData = {}) => {
       }
     }
 
+    
+    let prevTicket = null;
+    try {
+      const [prevRows] = await pool.query(
+        `SELECT ticket_id, ticket_title, ticket_status, user_id, assigned_to FROM tickets WHERE ticket_id = ? LIMIT 1`,
+        [ticket_id]
+      );
+      prevTicket = prevRows && prevRows.length ? prevRows[0] : null;
+    } catch {}
+
     const updatedData = {
       ...filteredData,
       updated_at: new Date(),
@@ -457,6 +484,45 @@ const updateTicketById = async (ticket_id = "", ticketData = {}) => {
     }
 
     const updatedTicket = await getSingleTicketById(ticket_id);
+
+    
+    try {
+      if (prevTicket) {
+        const newStatus = updatedTicket.ticket?.ticket_status || filteredData.ticket_status;
+        if (
+          newStatus &&
+          String(newStatus).toUpperCase() !== String(prevTicket.ticket_status || '').toUpperCase()
+        ) {
+          
+          if (prevTicket.user_id) {
+            await notificationsServices.createNotification({
+              user_id: prevTicket.user_id,
+              type: 'TICKET',
+              title: 'Ticket Status Updated',
+              body: `${prevTicket.ticket_title || 'Your ticket'} is now ${newStatus}.`,
+              link: '/maintenanceTenant.html',
+              meta: { ticket_id }
+            }, io);
+          }
+        }
+        const newAssignee = filteredData.assigned_to || updatedTicket.ticket?.assigned_to;
+        if (
+          newAssignee && String(newAssignee).trim() !== '' &&
+          String(newAssignee) !== String(prevTicket.assigned_to || '')
+        ) {
+          await notificationsServices.createNotification({
+            user_id: newAssignee,
+            type: 'TICKET',
+            title: 'New Ticket Assigned',
+            body: `${prevTicket.ticket_title || 'A ticket'} has been assigned to you.`,
+            link: '/maintenance.html',
+            meta: { ticket_id }
+          }, io);
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('Failed to create ticket update notification', notifyErr);
+    }
 
     return {
       message: "Ticket updated successfully",

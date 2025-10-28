@@ -120,6 +120,21 @@
     });
   }
 
+  function ensureStylesheet(href) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var existing = Array.from(document.getElementsByTagName('link')).find(l => l.rel === 'stylesheet' && l.href && l.href.indexOf(href) !== -1);
+        if (existing) return resolve(existing);
+        var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = href;
+        l.onload = function(){ resolve(l); };
+        l.onerror = function(err){ reject(err); };
+        document.head.appendChild(l);
+      } catch (e) { resolve(null); }
+    });
+  }
+
   
   function ensureModuleScript(src) {
     return new Promise(function (resolve, reject) {
@@ -571,7 +586,7 @@
 
       this.isCollapsed = false;
       this.isMobile = window.innerWidth <= 768;
-      this.inboxMessages = this.getDefaultInboxMessages();
+  this.inboxMessages = this.getDefaultInboxMessages();
 
       this.init();
     }
@@ -583,8 +598,16 @@
       this.bindEvents();
       this.updateLayout();
       this.setActiveNavItem();
-      this.populateInbox();
+  this.populateInbox();
+  
+  try { this.loadInboxFromServer && this.loadInboxFromServer(); } catch(e) {}
+      
+      try { this.refreshNotifications && this.refreshNotifications(); } catch(e) { /* noop */ }
       this.addKeyboardShortcuts();
+      
+      try { this.initRealtimeNotifications && this.initRealtimeNotifications(); } catch(e) {}
+      
+      try { ensureStylesheet && ensureStylesheet('/css/notifications.css'); } catch(e) {}
     }
 
     cacheDOMElements() {
@@ -602,8 +625,9 @@
         this.config.searchInputSelector
       );
 
-      this.notificationBtn = document.getElementById("notificationBtn");
-      this.notificationMenu = document.getElementById("notificationMenu");
+    this.notificationBtn = document.getElementById("notificationBtn");
+    this.notificationMenu = document.getElementById("notificationMenu");
+    this.notificationBadge = document.getElementById("notificationBadge");
       this.inboxBtn = document.getElementById("inboxBtn");
       this.inboxDropdown = document.getElementById("inboxDropdown");
       this.profileBtn = document.getElementById("profileBtn");
@@ -854,6 +878,78 @@
           priority: "medium",
         },
       ];
+    }
+
+    
+    formatRelativeTime(ts) {
+      try {
+        const d = ts instanceof Date ? ts : new Date(ts);
+        const now = new Date();
+        const diffMs = now - d;
+        const sec = Math.floor(diffMs / 1000);
+        const min = Math.floor(sec / 60);
+        const hr = Math.floor(min / 60);
+        const day = Math.floor(hr / 24);
+        if (sec < 60) return 'just now';
+        if (min < 60) return `${min} minute${min!==1?'s':''} ago`;
+        if (hr < 24) return `${hr} hour${hr!==1?'s':''} ago`;
+        if (day < 7) return `${day} day${day!==1?'s':''} ago`;
+        return d.toLocaleDateString();
+      } catch { return ''; }
+    }
+
+    
+    _getCurrentUserId() {
+      try {
+        const token = (document.cookie.match('(^|;)\\s*token\\s*=\\s*([^;]+)')||[])[2];
+        if (!token) return null;
+        const part = token.split('.')[1];
+        if (!part) return null;
+        const payload = JSON.parse(atob(part.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(part.length/4)*4,'=')));
+        return payload && (payload.user_id || payload.userId || payload.id) || null;
+      } catch { return null; }
+    }
+
+    _mapServerMessageToInboxItem(m, currentUserId) {
+      const safe = (s)=> (s==null? '' : String(s));
+      const senderName = `${safe(m.sender_first_name||'').trim()} ${safe(m.sender_last_name||'').trim()}`.trim() || 'Message';
+      const recipientName = `${safe(m.recipient_first_name||'').trim()} ${safe(m.recipient_last_name||'').trim()}`.trim();
+      const isIncoming = String(m.recipient_user_id) === String(currentUserId);
+      const otherParty = isIncoming ? senderName : (recipientName || 'Recipient');
+      const preview = safe(m.message || '').slice(0, 140);
+      return {
+        id: m.message_id,
+        sender: otherParty,
+        subject: otherParty,
+        preview,
+        time: this.formatRelativeTime(m.created_at),
+        unread: isIncoming, 
+      };
+    }
+
+    async loadInboxFromServer(limit = 8) {
+      try {
+        const uid = this._getCurrentUserId();
+        if (!uid) return;
+        const api = `/api/${(window.API_VERSION||'v1')}/messages`;
+        const q = (s)=> s.replace(/\s/g, '%20');
+        const [r1, r2] = await Promise.all([
+          fetch(`${api}?recipient_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
+          fetch(`${api}?sender_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
+        ]);
+        const j1 = r1.ok ? await r1.json() : { messages: [] };
+        const j2 = r2.ok ? await r2.json() : { messages: [] };
+        const merged = [...(j1.messages||[]), ...(j2.messages||[])]
+          .sort((a,b)=> new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, limit)
+          .map(m => this._mapServerMessageToInboxItem(m, uid));
+        if (merged && merged.length) {
+          this.inboxMessages = merged;
+          this.populateInbox();
+        }
+      } catch (e) {
+        console.warn('Failed to load inbox messages', e);
+      }
     }
 
     saveCollapsedState() {
@@ -1144,6 +1240,200 @@
           .join("");
       }
     }
+
+    async initRealtimeNotifications() {
+      try {
+        if (typeof io === 'undefined') {
+          await ensureScript('/socket.io/socket.io.js');
+        }
+        if (typeof io === 'undefined') return; 
+        const token = getJwtToken();
+        if (!token) return;
+        if (!window.__ambuloSocket) {
+          window.__ambuloSocket = io({ auth: { token } });
+        }
+        const s = window.__ambuloSocket;
+        if (!s.__notifListenerAttached) {
+          s.on('notification', () => {
+            
+            if (this.notificationBadge) {
+              const current = parseInt(this.notificationBadge.textContent || '0', 10) || 0;
+              this.notificationBadge.textContent = String(current + 1);
+            }
+            
+            try {
+              const isOpen = this.notificationMenu && this.notificationMenu.classList.contains('show');
+              if (isOpen) {
+                this.refreshNotifications();
+              }
+            } catch(_) {}
+          });
+          
+          s.on && s.on('new_message', (msg) => {
+            try {
+              const messagesBadge = document.getElementById('messagesBadge');
+              if (messagesBadge) {
+                const current = parseInt(messagesBadge.textContent || '0', 10) || 0;
+                messagesBadge.textContent = String(current + 1);
+                messagesBadge.style.display = 'flex';
+              }
+              const inboxContent = document.getElementById('inboxContent');
+              if (inboxContent && msg) {
+                const safe = (v) => (v == null ? '' : String(v));
+                const html = `
+                  <div class="inbox-item unread">
+                    <div class="inbox-item-header">
+                      <div class="inbox-sender-section">
+                        <span class="inbox-sender">${safe(msg.sender_name || msg.sender || 'Message')}</span>
+                      </div>
+                      <span class="inbox-time">just now</span>
+                    </div>
+                    <div class="inbox-subject">${safe(msg.subject || msg.thread_title || 'New message')}</div>
+                    <div class="inbox-preview">${safe(msg.text || msg.body || msg.content || '')}</div>
+                  </div>`;
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = html.trim();
+                const el = wrapper.firstChild;
+                inboxContent.prepend(el);
+              }
+            } catch (e) {}
+          });
+          s.__notifListenerAttached = true;
+        }
+      } catch (e) {
+        console.debug('realtime notifications setup failed', e);
+      }
+    }
+
+    _ensureNotifFilter() {
+      if (!this._notifFilter) this._notifFilter = { unreadOnly: false, types: [] };
+      return this._notifFilter;
+    }
+
+    _applyTypeFilter(list = []) {
+      const filter = this._ensureNotifFilter();
+      const types = Array.isArray(filter.types) ? filter.types : [];
+      if (!types.length) return list;
+      const set = new Set(types.map(t => String(t).toUpperCase()));
+      return (list || []).filter(n => set.has(String(n.type || 'INFO').toUpperCase()));
+    }
+
+    async fetchNotifications({ unreadOnly = false } = {}) {
+      try {
+        const res = await fetch(`/api/${(window.API_VERSION||'v1')}/notifications?unreadOnly=${unreadOnly}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load notifications');
+        const data = await res.json();
+        return data;
+      } catch (e) {
+        console.warn('notifications fetch error', e);
+        return { notifications: [], pagination: { total: 0 } };
+      }
+    }
+
+    renderNotifications(list = []) {
+      const menu = this.notificationMenu;
+      if (!menu) return;
+      const filter = this._ensureNotifFilter();
+      const chips = ['MESSAGE','PAYMENT','TICKET','LEASE','INFO'];
+      const headerHtml = `
+        <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+          <span>Notifications</span>
+          <div style="display:flex; gap:.5rem;">
+            <button type="button" id="notifFilterAll" class="btn btn-link" style="padding:.25rem .5rem; ${!filter.unreadOnly ? 'font-weight:600; text-decoration:underline;' : ''}">All</button>
+            <button type="button" id="notifFilterUnread" class="btn btn-link" style="padding:.25rem .5rem; ${filter.unreadOnly ? 'font-weight:600; text-decoration:underline;' : ''}">Unread</button>
+          </div>
+        </div>
+        <div class="notif-filters" style="display:flex; gap:.375rem; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--notif-border);">
+          ${chips.map(t => {
+            const selected = (filter.types||[]).map(x=>String(x).toUpperCase()).includes(t);
+            return `<button type="button" class="chip ${selected ? 'selected' : ''} chip-${t.toLowerCase()}" data-type="${t}">${t}</button>`;
+          }).join('')}
+        </div>`;
+      if (!Array.isArray(list) || list.length === 0) {
+        menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
+        if (this.notificationBadge) this.notificationBadge.textContent = '0';
+        return;
+      }
+  
+  const unreadCount = (this._notifCache || list).filter(n => !n.is_read).length;
+      if (this.notificationBadge) this.notificationBadge.textContent = String(unreadCount);
+      menu.innerHTML = `
+        ${headerHtml}
+        <div class="notification-list">
+          ${list.map(n => `
+            <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.notification_id}">
+              <div class="notification-title">${(n.title||'').toString()}</div>
+              ${n.body ? `<div class="notification-body">${(n.body||'').toString()}</div>` : ''}
+              <div class="notification-meta">
+                <span class="notification-type type-${(n.type||'INFO').toLowerCase()}">${(n.type||'INFO')}</span>
+                <span class="notification-time">${new Date(n.created_at).toLocaleString()}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="dropdown-footer"><button id="markAllNotificationsRead" class="btn btn-link">Mark all as read</button></div>
+      `;
+      const btnAll = menu.querySelector('#notifFilterAll');
+      const btnUnread = menu.querySelector('#notifFilterUnread');
+      if (btnAll) btnAll.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        this._notifFilter.unreadOnly = false;
+        const { notifications } = await this.fetchNotifications({ unreadOnly: false });
+        this._notifCache = notifications || [];
+        this.renderNotifications(this._applyTypeFilter(this._notifCache));
+      });
+      if (btnUnread) btnUnread.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        this._notifFilter.unreadOnly = true;
+        const { notifications } = await this.fetchNotifications({ unreadOnly: true });
+        this._notifCache = notifications || [];
+        this.renderNotifications(this._applyTypeFilter(this._notifCache));
+      });
+      
+      menu.querySelectorAll('.notif-filters .chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const t = String(chip.getAttribute('data-type') || '').toUpperCase();
+          if (!this._notifFilter.types) this._notifFilter.types = [];
+          const idx = this._notifFilter.types.findIndex(x => String(x).toUpperCase() === t);
+          if (idx >= 0) this._notifFilter.types.splice(idx, 1); else this._notifFilter.types.push(t);
+          
+          const list = this._applyTypeFilter(this._notifCache || []);
+          this.renderNotifications(list);
+        });
+      });
+      menu.querySelectorAll('.notification-item').forEach(el => {
+        el.addEventListener('click', async () => {
+          const id = el.getAttribute('data-id');
+          try {
+            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
+            el.classList.remove('unread');
+            if (this.notificationBadge) {
+              const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
+              this.notificationBadge.textContent = String(Math.max(0, current - 1));
+            }
+          } catch {}
+        });
+      });
+      const markAll = menu.querySelector('#markAllNotificationsRead');
+      if (markAll) {
+        markAll.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/read-all`, { method: 'PATCH', credentials: 'include' });
+            menu.querySelectorAll('.notification-item.unread').forEach(el => el.classList.remove('unread'));
+            if (this.notificationBadge) this.notificationBadge.textContent = '0';
+          } catch {}
+        });
+      }
+    }
+
+    async refreshNotifications() {
+      const filter = this._ensureNotifFilter();
+      const { notifications } = await this.fetchNotifications({ unreadOnly: !!filter.unreadOnly });
+      this._notifCache = notifications || [];
+      this.renderNotifications(this._applyTypeFilter(this._notifCache));
+    }
     openMessage(messageId) {
       const message = this.inboxMessages.find((msg) => msg.id === messageId);
       if (message && message.unread) {
@@ -1211,14 +1501,16 @@
         this.overlay.addEventListener("click", () => this.closeMobileSidebar());
       }
       if (this.notificationBtn && this.notificationMenu) {
-        this.notificationBtn.addEventListener("click", (e) => {
+          this.notificationBtn.addEventListener("click", (e) => {
           e.stopPropagation();
+            this.refreshNotifications();
           this.toggleDropdown(this.notificationMenu, this.notificationBtn);
         });
       }
       if (this.inboxBtn && this.inboxDropdown) {
-        this.inboxBtn.addEventListener("click", (e) => {
+        this.inboxBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
+          try { await (this.loadInboxFromServer && this.loadInboxFromServer()); } catch(_) {}
           this.toggleDropdown(this.inboxDropdown, this.inboxBtn);
         });
       }
@@ -1286,6 +1578,96 @@
             });
           });
       }, 100);
+    }
+    async fetchNotifications({ unreadOnly = false } = {}) {
+      try {
+        const res = await fetch(`/api/${(window.API_VERSION||'v1')}/notifications?unreadOnly=${unreadOnly}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load notifications');
+        const data = await res.json();
+        return data;
+      } catch (e) {
+        console.warn('tenant notifications fetch error', e);
+        return { notifications: [], pagination: { total: 0 } };
+      }
+    }
+    renderNotifications(list = []) {
+      const menu = this.notificationMenu;
+      if (!menu) return;
+      const filter = this._ensureNotifFilter ? this._ensureNotifFilter() : { unreadOnly: false };
+      const headerHtml = `
+        <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+          <span>Notifications</span>
+          <div style="display:flex; gap:.5rem;">
+            <button type="button" id="notifFilterAll" class="btn btn-link" style="padding:.25rem .5rem; ${!filter.unreadOnly ? 'font-weight:600; text-decoration:underline;' : ''}">All</button>
+            <button type="button" id="notifFilterUnread" class="btn btn-link" style="padding:.25rem .5rem; ${filter.unreadOnly ? 'font-weight:600; text-decoration:underline;' : ''}">Unread</button>
+          </div>
+        </div>`;
+      if (!Array.isArray(list) || list.length === 0) {
+        menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
+        if (this.notificationBadge) this.notificationBadge.textContent = '0';
+            return `<button type=\"button\" class=\"chip ${selected ? 'selected' : ''} chip-${t.toLowerCase()}\" data-type=\"${t}\">${t}</button>`;
+      }
+      const unreadCount = list.filter(n => !n.is_read).length;
+      if (this.notificationBadge) this.notificationBadge.textContent = String(unreadCount);
+      menu.innerHTML = `
+        ${headerHtml}
+        <div class="notification-list">
+          ${list.map(n => `
+            <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.notification_id}">
+              <div class="notification-title">${(n.title||'').toString()}</div>
+              ${n.body ? `<div class="notification-body">${(n.body||'').toString()}</div>` : ''}
+              <div class="notification-meta">
+                <span class="notification-type type-${(n.type||'INFO').toLowerCase()}">${(n.type||'INFO')}</span>
+                <span class="notification-time">${new Date(n.created_at).toLocaleString()}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="dropdown-footer"><button id="markAllNotificationsRead" class="btn btn-link">Mark all as read</button></div>
+      `;
+      const btnAll = menu.querySelector('#notifFilterAll');
+      const btnUnread = menu.querySelector('#notifFilterUnread');
+      if (btnAll) btnAll.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        this._notifFilter.unreadOnly = false;
+        const { notifications } = await this.fetchNotifications({ unreadOnly: false });
+        this.renderNotifications(notifications || []);
+      });
+      if (btnUnread) btnUnread.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        this._notifFilter.unreadOnly = true;
+        const { notifications } = await this.fetchNotifications({ unreadOnly: true });
+        this.renderNotifications(notifications || []);
+      });
+      menu.querySelectorAll('.notification-item').forEach(el => {
+        el.addEventListener('click', async () => {
+          const id = el.getAttribute('data-id');
+          try {
+            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
+            el.classList.remove('unread');
+            if (this.notificationBadge) {
+              const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
+              this.notificationBadge.textContent = String(Math.max(0, current - 1));
+            }
+          } catch {}
+        });
+      });
+      const markAll = menu.querySelector('#markAllNotificationsRead');
+      if (markAll) {
+        markAll.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/read-all`, { method: 'PATCH', credentials: 'include' });
+            menu.querySelectorAll('.notification-item.unread').forEach(el => el.classList.remove('unread'));
+            if (this.notificationBadge) this.notificationBadge.textContent = '0';
+          } catch {}
+        });
+      }
+    }
+    async refreshNotifications() {
+      const filter = this._ensureNotifFilter ? this._ensureNotifFilter() : { unreadOnly: false };
+      const { notifications } = await this.fetchNotifications({ unreadOnly: !!filter.unreadOnly });
+      this.renderNotifications(notifications || []);
     }
     addKeyboardShortcuts() {
       document.addEventListener("keydown", (e) => {
@@ -1730,8 +2112,16 @@
       this.bindEvents();
       this.updateLayout();
       this.setActiveNavItem();
-      this.populateInbox();
+  this.populateInbox();
+  
+  try { this.loadInboxFromServer && this.loadInboxFromServer(); } catch(e) {}
+      
+      try { this.refreshNotifications && this.refreshNotifications(); } catch(e) { /* noop */ }
       this.addKeyboardShortcuts();
+      
+      try { ensureStylesheet && ensureStylesheet('/css/notifications.css'); } catch(e) {}
+      
+      try { this.initRealtimeNotifications && this.initRealtimeNotifications(); } catch(e) {}
     }
     applyInitialCollapsedState() {
       if (!this.isMobile && this.isCollapsed && this.sidebar) {
@@ -1754,8 +2144,9 @@
       this.searchInput = document.querySelector(
         this.config.searchInputSelector
       );
-      this.notificationBtn = document.getElementById("notificationBtn");
-      this.notificationMenu = document.getElementById("notificationMenu");
+  this.notificationBtn = document.getElementById("notificationBtn");
+  this.notificationMenu = document.getElementById("notificationMenu");
+  this.notificationBadge = document.getElementById("notificationBadge");
       this.inboxBtn = document.getElementById("inboxBtn");
       this.inboxDropdown = document.getElementById("inboxDropdown");
       this.profileBtn = document.getElementById("profileBtn");
@@ -1913,6 +2304,78 @@
           priority: "medium",
         },
       ];
+    }
+
+    
+    formatRelativeTime(ts) {
+      try {
+        const d = ts instanceof Date ? ts : new Date(ts);
+        const now = new Date();
+        const diffMs = now - d;
+        const sec = Math.floor(diffMs / 1000);
+        const min = Math.floor(sec / 60);
+        const hr = Math.floor(min / 60);
+        const day = Math.floor(hr / 24);
+        if (sec < 60) return 'just now';
+        if (min < 60) return `${min} minute${min!==1?'s':''} ago`;
+        if (hr < 24) return `${hr} hour${hr!==1?'s':''} ago`;
+        if (day < 7) return `${day} day${day!==1?'s':''} ago`;
+        return d.toLocaleDateString();
+      } catch { return ''; }
+    }
+
+    
+    _getCurrentUserId() {
+      try {
+        const token = (document.cookie.match('(^|;)\\s*token\\s*=\\s*([^;]+)')||[])[2];
+        if (!token) return null;
+        const part = token.split('.')[1];
+        if (!part) return null;
+        const payload = JSON.parse(atob(part.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(part.length/4)*4,'=')));
+        return payload && (payload.user_id || payload.userId || payload.id) || null;
+      } catch { return null; }
+    }
+
+    _mapServerMessageToInboxItem(m, currentUserId) {
+      const safe = (s)=> (s==null? '' : String(s));
+      const senderName = `${safe(m.sender_first_name||'').trim()} ${safe(m.sender_last_name||'').trim()}`.trim() || 'Message';
+      const recipientName = `${safe(m.recipient_first_name||'').trim()} ${safe(m.recipient_last_name||'').trim()}`.trim();
+      const isIncoming = String(m.recipient_user_id) === String(currentUserId);
+      const otherParty = isIncoming ? senderName : (recipientName || 'Recipient');
+      const preview = safe(m.message || '').slice(0, 140);
+      return {
+        id: m.message_id,
+        sender: otherParty,
+        subject: otherParty,
+        preview,
+        time: this.formatRelativeTime(m.created_at),
+        unread: isIncoming, 
+      };
+    }
+
+    async loadInboxFromServer(limit = 8) {
+      try {
+        const uid = this._getCurrentUserId();
+        if (!uid) return;
+        const api = `/api/${(window.API_VERSION||'v1')}/messages`;
+        const q = (s)=> s.replace(/\s/g, '%20');
+        const [r1, r2] = await Promise.all([
+          fetch(`${api}?recipient_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
+          fetch(`${api}?sender_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
+        ]);
+        const j1 = r1.ok ? await r1.json() : { messages: [] };
+        const j2 = r2.ok ? await r2.json() : { messages: [] };
+        const merged = [...(j1.messages||[]), ...(j2.messages||[])]
+          .sort((a,b)=> new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, limit)
+          .map(m => this._mapServerMessageToInboxItem(m, uid));
+        if (merged && merged.length) {
+          this.inboxMessages = merged;
+          this.populateInbox();
+        }
+      } catch (e) {
+        console.warn('Failed to load inbox messages', e);
+      }
     }
     saveCollapsedState() {
       try {
@@ -2153,6 +2616,196 @@
           .join("");
       }
     }
+
+    async initRealtimeNotifications() {
+      try {
+        if (typeof io === 'undefined') {
+          await ensureScript('/socket.io/socket.io.js');
+        }
+        if (typeof io === 'undefined') return; 
+        const token = getJwtToken();
+        if (!token) return;
+        if (!window.__ambuloSocket) {
+          window.__ambuloSocket = io({ auth: { token } });
+        }
+        const s = window.__ambuloSocket;
+        if (!s.__notifListenerAttached) {
+          s.on('notification', () => {
+            if (this.notificationBadge) {
+              const current = parseInt(this.notificationBadge.textContent || '0', 10) || 0;
+              this.notificationBadge.textContent = String(current + 1);
+            }
+            try {
+              const isOpen = this.notificationMenu && this.notificationMenu.classList.contains('show');
+              if (isOpen) {
+                this.refreshNotifications();
+              }
+            } catch(_) {}
+          });
+          
+          s.on && s.on('new_message', (msg) => {
+            try {
+              const messagesBadge = document.getElementById('messagesBadge');
+              if (messagesBadge) {
+                const current = parseInt(messagesBadge.textContent || '0', 10) || 0;
+                messagesBadge.textContent = String(current + 1);
+                messagesBadge.style.display = 'flex';
+              }
+              const inboxContent = document.getElementById('inboxContent');
+              if (inboxContent && msg) {
+                const safe = (v) => (v == null ? '' : String(v));
+                const html = `
+                  <div class="inbox-item unread">
+                    <div class="inbox-item-header">
+                      <div class="inbox-sender-section">
+                        <span class="inbox-sender">${safe(msg.sender_name || msg.sender || 'Message')}</span>
+                      </div>
+                      <span class="inbox-time">just now</span>
+                    </div>
+                    <div class="inbox-subject">${safe(msg.subject || msg.thread_title || 'New message')}</div>
+                    <div class="inbox-preview">${safe(msg.text || msg.body || msg.content || '')}</div>
+                  </div>`;
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = html.trim();
+                const el = wrapper.firstChild;
+                inboxContent.prepend(el);
+              }
+            } catch (e) {}
+          });
+          s.__notifListenerAttached = true;
+        }
+      } catch (e) {
+        console.debug('realtime notifications setup failed', e);
+      }
+    }
+
+    _ensureNotifFilter() {
+      if (!this._notifFilter) this._notifFilter = { unreadOnly: false, types: [] };
+      return this._notifFilter;
+    }
+
+    _applyTypeFilter(list = []) {
+      const filter = this._ensureNotifFilter();
+      const types = Array.isArray(filter.types) ? filter.types : [];
+      if (!types.length) return list;
+      const set = new Set(types.map(t => String(t).toUpperCase()));
+      return (list || []).filter(n => set.has(String(n.type || 'INFO').toUpperCase()));
+    }
+
+    async fetchNotifications({ unreadOnly = false } = {}) {
+      try {
+        const res = await fetch(`/api/${(window.API_VERSION||'v1')}/notifications?unreadOnly=${unreadOnly}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load notifications');
+        const data = await res.json();
+        return data;
+      } catch (e) {
+        console.warn('notifications fetch error', e);
+        return { notifications: [], pagination: { total: 0 } };
+      }
+    }
+
+    renderNotifications(list = []) {
+      const menu = this.notificationMenu;
+      if (!menu) return;
+      const filter = this._ensureNotifFilter();
+      const chips = ['MESSAGE','PAYMENT','TICKET','LEASE','INFO'];
+      const headerHtml = `
+        <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+          <span>Notifications</span>
+          <div style="display:flex; gap:.5rem;">
+            <button id="notifFilterAll" class="btn btn-link" style="padding:.25rem .5rem; ${!filter.unreadOnly ? 'font-weight:600; text-decoration:underline;' : ''}">All</button>
+            <button id="notifFilterUnread" class="btn btn-link" style="padding:.25rem .5rem; ${filter.unreadOnly ? 'font-weight:600; text-decoration:underline;' : ''}">Unread</button>
+          </div>
+        </div>
+        <div class="notif-filters" style="display:flex; gap:.375rem; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--notif-border);">
+          ${chips.map(t => {
+            const selected = (filter.types||[]).map(x=>String(x).toUpperCase()).includes(t);
+            return `<button class="chip ${selected ? 'selected' : ''} chip-${t.toLowerCase()}" data-type="${t}">${t}</button>`;
+          }).join('')}
+        </div>`;
+      if (!Array.isArray(list) || list.length === 0) {
+        menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
+        if (this.notificationBadge) this.notificationBadge.textContent = '0';
+        return;
+      }
+      const unreadCount = (this._notifCache || list).filter(n => !n.is_read).length;
+      if (this.notificationBadge) this.notificationBadge.textContent = String(unreadCount);
+      menu.innerHTML = `
+        ${headerHtml}
+        <div class="notification-list">
+          ${list.map(n => `
+            <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.notification_id}">
+              <div class="notification-title">${(n.title||'').toString()}</div>
+              ${n.body ? `<div class="notification-body">${(n.body||'').toString()}</div>` : ''}
+              <div class="notification-meta">
+                <span class="notification-type type-${(n.type||'INFO').toLowerCase()}">${(n.type||'INFO')}</span>
+                <span class="notification-time">${new Date(n.created_at).toLocaleString()}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="dropdown-footer"><button id="markAllNotificationsRead" class="btn btn-link">Mark all as read</button></div>
+      `;
+      const btnAll = menu.querySelector('#notifFilterAll');
+      const btnUnread = menu.querySelector('#notifFilterUnread');
+      if (btnAll) btnAll.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        this._notifFilter.unreadOnly = false;
+        const { notifications } = await this.fetchNotifications({ unreadOnly: false });
+        this._notifCache = notifications || [];
+        this.renderNotifications(this._applyTypeFilter(this._notifCache));
+      });
+      if (btnUnread) btnUnread.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        this._notifFilter.unreadOnly = true;
+        const { notifications } = await this.fetchNotifications({ unreadOnly: true });
+        this._notifCache = notifications || [];
+        this.renderNotifications(this._applyTypeFilter(this._notifCache));
+      });
+      
+      menu.querySelectorAll('.notif-filters .chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const t = String(chip.getAttribute('data-type') || '').toUpperCase();
+          if (!this._notifFilter.types) this._notifFilter.types = [];
+          const idx = this._notifFilter.types.findIndex(x => String(x).toUpperCase() === t);
+          if (idx >= 0) this._notifFilter.types.splice(idx, 1); else this._notifFilter.types.push(t);
+          const list = this._applyTypeFilter(this._notifCache || []);
+          this.renderNotifications(list);
+        });
+      });
+      menu.querySelectorAll('.notification-item').forEach(el => {
+        el.addEventListener('click', async () => {
+          const id = el.getAttribute('data-id');
+          try {
+            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
+            el.classList.remove('unread');
+            if (this.notificationBadge) {
+              const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
+              this.notificationBadge.textContent = String(Math.max(0, current - 1));
+            }
+          } catch {}
+        });
+      });
+      const markAll = menu.querySelector('#markAllNotificationsRead');
+      if (markAll) {
+        markAll.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/read-all`, { method: 'PATCH', credentials: 'include' });
+            menu.querySelectorAll('.notification-item.unread').forEach(el => el.classList.remove('unread'));
+            if (this.notificationBadge) this.notificationBadge.textContent = '0';
+          } catch {}
+        });
+      }
+    }
+
+    async refreshNotifications() {
+      const filter = this._ensureNotifFilter();
+      const { notifications } = await this.fetchNotifications({ unreadOnly: !!filter.unreadOnly });
+      this._notifCache = notifications || [];
+      this.renderNotifications(this._applyTypeFilter(this._notifCache));
+    }
     openMessage(messageId) {
       const message = this.inboxMessages.find((msg) => msg.id === messageId);
       if (message && message.unread) {
@@ -2208,14 +2861,16 @@
         this.overlay.addEventListener("click", () => this.closeMobileSidebar());
       }
       if (this.notificationBtn && this.notificationMenu) {
-        this.notificationBtn.addEventListener("click", (e) => {
+        this.notificationBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
+          try { await this.refreshNotifications(); } catch(_) {}
           this.toggleDropdown(this.notificationMenu, this.notificationBtn);
         });
       }
       if (this.inboxBtn && this.inboxDropdown) {
-        this.inboxBtn.addEventListener("click", (e) => {
+        this.inboxBtn.addEventListener("click", async (e) => {
           e.stopPropagation();
+          try { await (this.loadInboxFromServer && this.loadInboxFromServer()); } catch(_) {}
           this.toggleDropdown(this.inboxDropdown, this.inboxBtn);
         });
       }

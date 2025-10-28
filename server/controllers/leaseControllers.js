@@ -9,7 +9,8 @@ const createLease = expressAsync(async (req, res) => {
         : null;
 
     const leaseData = req.body;
-    const result = await leaseServices.createLease(leaseData, contractFile);
+    const io = req.app && req.app.get ? req.app.get('io') : null;
+    const result = await leaseServices.createLease(leaseData, contractFile, io);
     res.status(201).json(result);
   } catch (error) {
     console.error("Error creating lease:", error);
@@ -58,7 +59,8 @@ const updateLeaseById = expressAsync(async (req, res) => {
         ? req.files["contract"][0]
         : null;
 
-    const result = await leaseServices.updateLeaseById(leaseId, leaseData, contractFile);
+    const io = req.app && req.app.get ? req.app.get('io') : null;
+    const result = await leaseServices.updateLeaseById(leaseId, leaseData, contractFile, io);
     res.status(200).json(result);
   } catch (error) {
     console.error("Error updating lease:", error);

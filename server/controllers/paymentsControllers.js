@@ -151,10 +151,12 @@ const updatePaymentById = expressAsync(async (req, res) => {
         req.user.email ||
         req.user.user_id
         : null;
+    const io = req.app && req.app.get ? req.app.get('io') : null;
     const result = await paymentsServices.updatePaymentById(
         id,
         payment,
-        performedBy
+        performedBy,
+        io
     );
     res.status(200).json(result);
 });

@@ -1,22 +1,39 @@
 :root {
-  --primary-color: #0ea5e9;
-  --primary-dark: #0284c7;
+  --primary-color: #6366f1;
+  --primary-light: #8b5cf6;
+  --primary-dark: #4f46e5;
   --secondary-color: #06b6d4;
-  --accent-color: #0ea5e9;
+  --accent-color: #f59e0b;
   --success-color: #10b981;
+  --success-light: #34d399;
   --warning-color: #f59e0b;
   --error-color: #ef4444;
-  --text-primary: #1e293b;
+  --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
-  --border-color: rgba(226, 232, 240, 0.6);
-  --border-light: rgba(226, 232, 240, 0.3);
-  --background-white: rgba(255, 255, 255, 0.95);
-  --background-gray: #f7f7f7;
-  --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 16px 32px rgba(14, 165, 233, 0.15);
+  --text-light: #94a3b8;
+  --border-color: rgba(226, 232, 240, 0.8);
+  --border-light: rgba(226, 232, 240, 0.4);
+  --background-white: #ffffff;
+  --background-gray: #f8fafc;
+  --background-light: #f1f5f9;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--primary-color),
+    var(--primary-dark)
+  );
+  --gradient-success: linear-gradient(
+    135deg,
+    var(--success-color),
+    var(--success-light)
+  );
 }
+
 
 html {
   font-size: 14px; /* 1rem = 15px */
@@ -3315,7 +3332,7 @@ h3 i.fas {
 
 /* Fix header controls alignment */
 .header-controls .new-ticket-btn {
-  background: var(--primary-color) !important;
+  background: linear-gradient(var(--primary-color) 10%, var(--primary-dark) 100%) !important;
   border: none !important;
   padding: 0.75rem 1.5rem !important;
   border-radius: 6px !important;

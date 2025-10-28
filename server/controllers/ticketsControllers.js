@@ -12,7 +12,8 @@ const createTicket = expressAsync(async (req, res) => {
       attachments
     };
 
-    const response = await ticketsServices.createTicket(payload);
+    const io = req.app && req.app.get ? req.app.get('io') : null;
+    const response = await ticketsServices.createTicket(payload, null, io);
     res.json(response);
   } catch (error) {
     console.error("Error creating ticket:", error);
@@ -85,7 +86,8 @@ const updateTicketById = expressAsync(async (req, res) => {
       payload.ticket_status = 'ASSIGNED';
     }
 
-    const response = await ticketsServices.updateTicketById(req.params.ticket_id, payload);
+    const io = req.app && req.app.get ? req.app.get('io') : null;
+    const response = await ticketsServices.updateTicketById(req.params.ticket_id, payload, io);
     res.json(response);
   } catch (error) {
     console.error("Error updating ticket:", error);

@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import conn from "../config/db.js";
 import propertiesServices from "./propertiesServices.js";
+import notificationsServices from "./notificationsServices.js";
 
 const pool = await conn();
 
@@ -15,7 +16,7 @@ const getLeaseDefaults = async () => {
   return defaults;
 };
 
-const createLease = async (leaseData = {}, contractFile = null) => {
+const createLease = async (leaseData = {}, contractFile = null, io = null) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -102,6 +103,21 @@ const createLease = async (leaseData = {}, contractFile = null) => {
       await propertiesServices.editPropertyById(leaseData.property_id, {
         property_status: newPropertyStatus,
       });
+    }
+    
+    try {
+      if (leaseData.user_id) {
+        await notificationsServices.createNotification({
+          user_id: leaseData.user_id,
+          type: 'LEASE',
+          title: 'Lease Created',
+          body: `Your lease has been created with status ${leaseData.lease_status}.`,
+          link: '/leaseTenant.html',
+          meta: { lease_id }
+        }, io);
+      }
+    } catch (notifyErr) {
+      console.warn('Failed to create lease creation notification', notifyErr);
     }
 
     return { message: "Lease created successfully", lease_id };
@@ -297,7 +313,8 @@ const getLeaseByUserId = async (userId) => {
 const updateLeaseById = async (
   leaseId,
   leaseData = {},
-  contractFile = null
+  contractFile = null,
+  io = null
 ) => {
   if (!leaseId) throw new Error("Lease ID is required");
 
@@ -305,7 +322,7 @@ const updateLeaseById = async (
   try {
     await conn.beginTransaction();
 
-    const lease = await getSingleLeaseById(leaseId);
+  const lease = await getSingleLeaseById(leaseId);
 
     let lease_contract_id = lease.lease_contract_id;
 
@@ -393,6 +410,25 @@ const updateLeaseById = async (
       await propertiesServices.editPropertyById(lease.property_id, {
         property_status: newPropertyStatus,
       });
+    }
+    
+    try {
+      if (
+        lease && lease.user_id &&
+        leaseData.lease_status &&
+        String(leaseData.lease_status).toUpperCase() !== String(lease.lease_status || '').toUpperCase()
+      ) {
+        await notificationsServices.createNotification({
+          user_id: lease.user_id,
+          type: 'LEASE',
+          title: 'Lease Status Updated',
+          body: `Your lease status changed to ${leaseData.lease_status}.`,
+          link: '/leaseTenant.html',
+          meta: { lease_id: leaseId }
+        }, io);
+      }
+    } catch (notifyErr) {
+      console.warn('Failed to create lease update notification', notifyErr);
     }
 
     return { message: "Lease updated successfully" };
