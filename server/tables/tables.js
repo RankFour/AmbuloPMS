@@ -41,6 +41,7 @@ import paymentAllocationsTable from "./paymentAllocationsTable.js";
 //messages
 import messagesTable from "./messagesTable.js";
 import messageAttachmentsTable from "./messageAttachmentsTable.js";
+import notificationsTable from "./notificationsTable.js";
 
 //assistant
 import assistantLogsTable from "./assistantLogsTable.js";
@@ -90,6 +91,7 @@ const tables = async (dbConnection) => {
     //messages
     messagesTable,
     messageAttachmentsTable,
+  notificationsTable,
 
     // assistant analytics
     assistantLogsTable
