@@ -33,6 +33,7 @@ import messagesRoutes from './routes/messagesRoutes.js';
 import assistantRoutes from './routes/assistantRoutes.js';
 import reportsRoutes from './routes/reportsRoutes.js';
 import notificationsRoutes from './routes/notificationsRoutes.js';
+import remindersService from './services/remindersService.js';
 
 
 import tables from './tables/tables.js';
@@ -122,15 +123,13 @@ const prettyRoutes = {
     '/faqs': 'FAQs.html',
     '/maintenance': 'maintenance.html',
     '/documents': 'documents.html',
-        '/reports': 'reports.html',
+    '/reports': 'reports.html',
     '/messages': 'messages.html',
     '/tenants': 'tenants.html',
-    '/tenant-dashboard': 'adminDashboard.html',
-    '/tenantDashboard': 'adminDashboard.html',
+    '/dashboard': 'dashboard.html',
     '/profile': 'account-profile.html',
     '/payments': 'paymentTenant.html',
-    '/leases': 'leaseTenant.html',
-    '/admin/dashboard': 'adminDashboard.html'
+    '/leases': 'leaseTenant.html'
 };
 
 for (const [routePath, htmlFile] of Object.entries(prettyRoutes)) {
@@ -172,6 +171,8 @@ const startServer = async () => {
     app.set('io', io);
     try {
         server.listen(PORT, () => console.log(colours.fg.yellow, `${PROJECT_NAME}`, `API is running in ${process.env.NODE_ENV} mode on port ${PORT}`, colours.reset));
+        // Start scheduled background jobs after server is up
+        try { remindersService.startChargeReminderJob(app); } catch (e) { console.error('Failed to start reminders job', e); }
     } catch (error) {
         console.log(error);
     }
