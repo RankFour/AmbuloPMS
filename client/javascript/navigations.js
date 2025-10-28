@@ -473,7 +473,7 @@
     if (role === "admin") {
       links = [
         {
-          href: "/adminDashboard.html",
+          href: "/dashboard.html",
           icon: "fas fa-chart-line",
           text: "Dashboard",
           page: "dashboard",
@@ -636,7 +636,7 @@
 
     setupPageTitles() {
       this.pageTitles = {
-        "adminDashboard.html": "Dashboard",
+        "dashboard.html": "Dashboard",
         adminDashboard: "Dashboard",
         "propertyAdmin.html": "Properties",
         propertyAdmin: "Properties",
@@ -685,7 +685,7 @@
       };
 
       this.pageIcons = {
-        "adminDashboard.html": "fas fa-chart-line",
+        "dashboard.html": "fas fa-chart-line",
         adminDashboard: "fas fa-chart-line",
         "propertyAdmin.html": "fas fa-building",
         propertyAdmin: "fas fa-building",
@@ -735,7 +735,7 @@
       };
 
       this.pageDescriptions = {
-        "adminDashboard.html":
+        "dashboard.html":
           "Monitor property performance, track key metrics, and oversee daily operations",
         adminDashboard:
           "Monitor property performance, track key metrics, and oversee daily operations",
@@ -927,28 +927,30 @@
       };
     }
 
+    _mapConversationToInboxItem(conv) {
+      const safe = (s)=> (s==null? '' : String(s));
+      return {
+        id: `${safe(conv.other_user_id)}`,
+        sender: safe(conv.other_user_name || 'Conversation'),
+        subject: safe(conv.other_user_name || 'Conversation'),
+        preview: safe(conv.last_message || ''),
+        time: this.formatRelativeTime(conv.last_message_time),
+        unread: false,
+      };
+    }
+
     async loadInboxFromServer(limit = 8) {
       try {
         const uid = this._getCurrentUserId();
         if (!uid) return;
-        const api = `/api/${(window.API_VERSION||'v1')}/messages`;
-        const q = (s)=> s.replace(/\s/g, '%20');
-        const [r1, r2] = await Promise.all([
-          fetch(`${api}?recipient_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
-          fetch(`${api}?sender_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
-        ]);
-        const j1 = r1.ok ? await r1.json() : { messages: [] };
-        const j2 = r2.ok ? await r2.json() : { messages: [] };
-        const merged = [...(j1.messages||[]), ...(j2.messages||[])]
-          .sort((a,b)=> new Date(b.created_at) - new Date(a.created_at))
-          .slice(0, limit)
-          .map(m => this._mapServerMessageToInboxItem(m, uid));
-        if (merged && merged.length) {
-          this.inboxMessages = merged;
-          this.populateInbox();
-        }
+        const res = await fetch(`/api/${(window.API_VERSION||'v1')}/messages/conversations/${encodeURIComponent(uid)}?limit=${limit}`, { credentials: 'include' });
+        const data = res.ok ? await res.json() : [];
+        const list = Array.isArray(data) ? data : (data.conversations || data || []);
+        const mapped = (list || []).slice(0, limit).map((c) => this._mapConversationToInboxItem(c));
+        this.inboxMessages = mapped;
+        this.populateInbox();
       } catch (e) {
-        console.warn('Failed to load inbox messages', e);
+        console.warn('Failed to load inbox conversations', e);
       }
     }
 
@@ -1178,11 +1180,11 @@
         if (
           linkPage === currentPage ||
           linkFileName === currentPage ||
-          (currentPage === "adminDashboard" && linkPage === "dashboard") ||
+          (currentPage === "dashboard" && linkPage === "dashboard") ||
           (currentPage === "propertyAdmin" && linkPage === "propertyAdmin") ||
           (currentPage === "index" && linkPage === "dashboard") ||
           (currentPage === "dashboard" &&
-            (linkPage === "dashboard" || linkFileName === "adminDashboard"))
+            (linkPage === "dashboard" || linkFileName === "dashboard"))
         ) {
           link.classList.add("active");
           const pageKey = linkPage || linkFileName || currentPage;
@@ -1258,7 +1260,9 @@
             
             if (this.notificationBadge) {
               const current = parseInt(this.notificationBadge.textContent || '0', 10) || 0;
-              this.notificationBadge.textContent = String(current + 1);
+              const next = current + 1;
+              this.notificationBadge.textContent = String(next);
+              this.notificationBadge.style.display = 'flex';
             }
             
             try {
@@ -1604,11 +1608,17 @@
         </div>`;
       if (!Array.isArray(list) || list.length === 0) {
         menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
-        if (this.notificationBadge) this.notificationBadge.textContent = '0';
+        if (this.notificationBadge) {
+          this.notificationBadge.textContent = '0';
+          this.notificationBadge.style.display = 'none';
+        }
             return `<button type=\"button\" class=\"chip ${selected ? 'selected' : ''} chip-${t.toLowerCase()}\" data-type=\"${t}\">${t}</button>`;
       }
       const unreadCount = list.filter(n => !n.is_read).length;
-      if (this.notificationBadge) this.notificationBadge.textContent = String(unreadCount);
+      if (this.notificationBadge) {
+        this.notificationBadge.textContent = String(unreadCount);
+        this.notificationBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
+      }
       menu.innerHTML = `
         ${headerHtml}
         <div class="notification-list">
@@ -1647,7 +1657,9 @@
             el.classList.remove('unread');
             if (this.notificationBadge) {
               const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
-              this.notificationBadge.textContent = String(Math.max(0, current - 1));
+              const next = Math.max(0, current - 1);
+              this.notificationBadge.textContent = String(next);
+              this.notificationBadge.style.display = next > 0 ? 'flex' : 'none';
             }
           } catch {}
         });
@@ -1659,7 +1671,10 @@
           try {
             await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/read-all`, { method: 'PATCH', credentials: 'include' });
             menu.querySelectorAll('.notification-item.unread').forEach(el => el.classList.remove('unread'));
-            if (this.notificationBadge) this.notificationBadge.textContent = '0';
+            if (this.notificationBadge) {
+              this.notificationBadge.textContent = '0';
+              this.notificationBadge.style.display = 'none';
+            }
           } catch {}
         });
       }
@@ -2015,7 +2030,7 @@
     if (role === "tenant") {
       links = [
         {
-          href: "/adminDashboard.html",
+          href: "/dashboard.html",
           icon: "fas fa-chart-line",
           text: "Dashboard",
           page: "dashboard",
@@ -2154,7 +2169,7 @@
     }
     setupPageTitles() {
       this.pageTitles = {
-        "adminDashboard.html": "Dashboard",
+        "dashboard.html": "Dashboard",
         adminDashboard: "Dashboard",
         "tenantDashboard.html": "Dashboard",
         tenantDashboard: "Dashboard",
@@ -2179,10 +2194,8 @@
         accountProfile: "Account Settings",
       };
       this.pageIcons = {
-        "adminDashboard.html": "fas fa-chart-line",
+        "dashboard.html": "fas fa-chart-line",
         adminDashboard: "fas fa-chart-line",
-        "tenantDashboard.html": "fas fa-chart-line",
-        tenantDashboard: "fas fa-chart-line",
         "leaseTenant.html": "fas fa-file-contract",
         leaseTenant: "fas fa-file-contract",
         "paymentTenant.html": "fas fa-credit-card",
@@ -2204,13 +2217,9 @@
         accountProfile: "fas fa-user-cog",
       };
       this.pageDescriptions = {
-        "adminDashboard.html":
+        "dashboard.html":
           "Overview of your rental activity, important notifications, and quick access to key features",
-        adminDashboard:
-          "Overview of your rental activity, important notifications, and quick access to key features",
-        "tenantDashboard.html":
-          "Overview of your rental activity, important notifications, and quick access to key features",
-        tenantDashboard:
+        dashboard:
           "Overview of your rental activity, important notifications, and quick access to key features",
         "leaseTenant.html":
           "View your lease agreement details, terms, and important rental information",
@@ -2353,28 +2362,30 @@
       };
     }
 
+    _mapConversationToInboxItem(conv) {
+      const safe = (s)=> (s==null? '' : String(s));
+      return {
+        id: `${safe(conv.other_user_id)}`,
+        sender: safe(conv.other_user_name || 'Conversation'),
+        subject: safe(conv.other_user_name || 'Conversation'),
+        preview: safe(conv.last_message || ''),
+        time: this.formatRelativeTime(conv.last_message_time),
+        unread: false,
+      };
+    }
+
     async loadInboxFromServer(limit = 8) {
       try {
         const uid = this._getCurrentUserId();
         if (!uid) return;
-        const api = `/api/${(window.API_VERSION||'v1')}/messages`;
-        const q = (s)=> s.replace(/\s/g, '%20');
-        const [r1, r2] = await Promise.all([
-          fetch(`${api}?recipient_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
-          fetch(`${api}?sender_user_id=${encodeURIComponent(uid)}&limit=${limit}&sort=${q('created_at DESC')}`, { credentials: 'include' }),
-        ]);
-        const j1 = r1.ok ? await r1.json() : { messages: [] };
-        const j2 = r2.ok ? await r2.json() : { messages: [] };
-        const merged = [...(j1.messages||[]), ...(j2.messages||[])]
-          .sort((a,b)=> new Date(b.created_at) - new Date(a.created_at))
-          .slice(0, limit)
-          .map(m => this._mapServerMessageToInboxItem(m, uid));
-        if (merged && merged.length) {
-          this.inboxMessages = merged;
-          this.populateInbox();
-        }
+        const res = await fetch(`/api/${(window.API_VERSION||'v1')}/messages/conversations/${encodeURIComponent(uid)}?limit=${limit}`, { credentials: 'include' });
+        const data = res.ok ? await res.json() : [];
+        const list = Array.isArray(data) ? data : (data.conversations || data || []);
+        const mapped = (list || []).slice(0, limit).map((c) => this._mapConversationToInboxItem(c));
+        this.inboxMessages = mapped;
+        this.populateInbox();
       } catch (e) {
-        console.warn('Failed to load inbox messages', e);
+        console.warn('Failed to load inbox conversations', e);
       }
     }
     saveCollapsedState() {
@@ -2633,7 +2644,9 @@
           s.on('notification', () => {
             if (this.notificationBadge) {
               const current = parseInt(this.notificationBadge.textContent || '0', 10) || 0;
-              this.notificationBadge.textContent = String(current + 1);
+              const next = current + 1;
+              this.notificationBadge.textContent = String(next);
+              this.notificationBadge.style.display = 'flex';
             }
             try {
               const isOpen = this.notificationMenu && this.notificationMenu.classList.contains('show');
@@ -2725,11 +2738,11 @@
         </div>`;
       if (!Array.isArray(list) || list.length === 0) {
         menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
-        if (this.notificationBadge) this.notificationBadge.textContent = '0';
+        if (this.notificationBadge) { this.notificationBadge.textContent = '0'; this.notificationBadge.style.display = 'none'; }
         return;
       }
       const unreadCount = (this._notifCache || list).filter(n => !n.is_read).length;
-      if (this.notificationBadge) this.notificationBadge.textContent = String(unreadCount);
+      if (this.notificationBadge) { this.notificationBadge.textContent = String(unreadCount); this.notificationBadge.style.display = unreadCount > 0 ? 'flex' : 'none'; }
       menu.innerHTML = `
         ${headerHtml}
         <div class="notification-list">
@@ -2782,7 +2795,9 @@
             el.classList.remove('unread');
             if (this.notificationBadge) {
               const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
-              this.notificationBadge.textContent = String(Math.max(0, current - 1));
+              const next = Math.max(0, current - 1);
+              this.notificationBadge.textContent = String(next);
+              this.notificationBadge.style.display = next > 0 ? 'flex' : 'none';
             }
           } catch {}
         });
@@ -2794,7 +2809,7 @@
           try {
             await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/read-all`, { method: 'PATCH', credentials: 'include' });
             menu.querySelectorAll('.notification-item.unread').forEach(el => el.classList.remove('unread'));
-            if (this.notificationBadge) this.notificationBadge.textContent = '0';
+            if (this.notificationBadge) { this.notificationBadge.textContent = '0'; this.notificationBadge.style.display = 'none'; }
           } catch {}
         });
       }
