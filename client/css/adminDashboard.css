@@ -210,6 +210,30 @@ body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
+/* ===== Tenant-focused Cards: layout sizes ===== */
+.card[data-card-key="leaseOverview"] {
+  grid-column: span 6;
+  min-height: 240px;
+}
+.card[data-card-key="outstandingDues"] {
+  grid-column: span 3;
+  min-height: 200px;
+}
+.card[data-card-key="maintenanceActions"] {
+  grid-column: span 3;
+  min-height: 200px;
+}
+.card[data-card-key="announcements"] {
+  grid-column: span 6;
+  min-height: 200px;
+}
+.card[data-card-key="activitySummary"] {
+  grid-column: span 6;
+  min-height: 240px;
+}
+
+/* The standalone Payment History card is outside the grid; generic .card styles apply. */
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -361,11 +385,52 @@ body {
 .chart-slot {
   min-height: 280px;
   display: flex;
-  align-items: center;
+  /* align-items: center; */
   justify-content: center;
   flex-direction: column;
   padding: 16px 0;
   flex: 1;
+}
+
+/* Make Payment History occupy more space and allow its internal table to stretch */
+.card[data-card-key="paymentHistory"] {
+  min-height: 340px;
+}
+.card[data-card-key="paymentHistory"] .chart-slot {
+  /* Allow the chart-slot to stretch vertically and let inner container control layout */
+  align-items: stretch;
+  justify-content: flex-start;
+  /* padding: 18px; */
+}
+.payment-history-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+.payment-history-table-container {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding-right: 6px; /* avoid clipping on small screens */
+}
+.payment-history-table {
+  width: 95%;
+  margin: 0 auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 0; /* allow table to shrink on small screens */
+}
+.payment-history-table th,
+.payment-history-table td {
+  padding: 10px 8px;
+  color: var(--text-primary);
+}
+.payment-history-table .amount { text-align: right; }
+.payment-history-table tbody tr:nth-child(odd) {
+  background: #fafafa;
+}
+.payment-history-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .chart-slot svg {
@@ -645,6 +710,12 @@ body {
     grid-template-columns: repeat(6, 1fr);
     gap: 16px;
   }
+  /* Tenant cards on tablet */
+  .card[data-card-key="leaseOverview"] { grid-column: span 6; }
+  .card[data-card-key="outstandingDues"] { grid-column: span 3; }
+  .card[data-card-key="maintenanceActions"] { grid-column: span 3; }
+  .card[data-card-key="announcements"] { grid-column: span 6; }
+  .card[data-card-key="activitySummary"] { grid-column: span 6; }
   
   /* KPI cards: 3 per row (2 cols each) */
   .card[data-card-key^="kpi"] {
@@ -693,6 +764,16 @@ body {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     padding: 12px;
+  }
+  /* Tenant cards on mobile: most full-width */
+  .card[data-card-key="leaseOverview"],
+  .card[data-card-key="announcements"],
+  .card[data-card-key="activitySummary"] {
+    grid-column: span 2;
+  }
+  .card[data-card-key="outstandingDues"],
+  .card[data-card-key="maintenanceActions"] {
+    grid-column: span 1;
   }
   
   .dashboard-header {
@@ -770,13 +851,49 @@ body {
   border-radius: var(--radius-sm);
   transition: all 0.2s ease;
   color: #2563eb;
+  text-decoration: none; /* remove underline */
+  display: inline-flex;
+  align-items: center;
 }
 
 .btn-link:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(59, 130, 246, 0.06);
   color: var(--primary-hover);
   transform: translateX(2px);
 }
+
+/* Primary button variants to match system palette */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.btn-primary { background: var(--primary-color); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-success { background: var(--success-color); }
+.btn-success:hover { background: #059669; }
+.btn-info { background: var(--info-color); }
+.btn-info:hover { background: #0891b2; }
+.btn-neutral { background: #6366f1; }
+
+/* Status badges for payment history */
+.status-badge { display:inline-block; padding:4px 8px; border-radius:9999px; font-size:11px; font-weight:700; text-transform:capitalize; }
+.status-paid { background:#dcfce7; color:#065f46; }
+.status-pending { background:#fef3c7; color:#92400e; }
+.status-failed { background:#fee2e2; color:#991b1b; }
+.status-other { background:#f1f5f9; color:#475569; }
+
+/* Outstanding dues larger content */
+.card[data-card-key="outstandingDues"] { min-height: 260px; }
+.outstanding-content {font-size: 0.9rem;color: #334155;}
+.outstanding-content strong { font-size:18px; }
 
 /* Alert items styling */
 .card[data-card-key="alerts"] > div > div {
@@ -814,5 +931,5 @@ body {
 /* Override legacy alert separators when using the new alerts grid */
 .card[data-card-key="alerts"] .alerts-grid > div {
   border-bottom: none !important;
-  padding: 0 !important;
+  padding: 20px 12px !important;
 }

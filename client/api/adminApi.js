@@ -191,6 +191,44 @@ export async function getDashboardMetrics() {
   };
 }
 
+// ===== Tenant-specific helpers =====
+export async function getPaymentsForTenant(tenantId, limit = 1000) {
+  const qs = new URLSearchParams();
+  if (tenantId != null) qs.set('user_id', String(tenantId));
+  if (limit) qs.set('limit', String(limit));
+  const data = await fetchJson(`/api/v1/payments?${qs.toString()}`);
+  const list = Array.isArray(data?.payments) ? data.payments : Array.isArray(data) ? data : [];
+  return list;
+}
+
+export async function getChargesForTenant(tenantId, status = '', limit = 1000) {
+  const qs = new URLSearchParams();
+  if (tenantId != null) qs.set('user_id', String(tenantId));
+  if (status) qs.set('status', String(status));
+  if (limit) qs.set('limit', String(limit));
+  const data = await fetchJson(`/api/v1/charges?${qs.toString()}`);
+  const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  return list;
+}
+
+export async function getTicketsForTenant(tenantId, limit = 1000) {
+  const qs = new URLSearchParams();
+  if (tenantId != null) qs.set('user_id', String(tenantId));
+  if (limit) qs.set('limit', String(limit));
+  const data = await fetchJson(`/api/v1/tickets?${qs.toString()}`);
+  const list = Array.isArray(data?.tickets) ? data.tickets : Array.isArray(data) ? data : [];
+  return list;
+}
+
+export async function getLeasesForTenant(tenantId, limit = 100) {
+  const qs = new URLSearchParams();
+  if (tenantId != null) qs.set('user_id', String(tenantId));
+  if (limit) qs.set('limit', String(limit));
+  const data = await fetchJson(`/api/v1/leases?${qs.toString()}`);
+  const list = Array.isArray(data?.leases) ? data.leases : Array.isArray(data) ? data : [];
+  return list;
+}
+
 export default {
   getProperties,
   getTenants,
@@ -205,4 +243,8 @@ export default {
   getPaymentsDistribution,
   getMonthlyExpectedIncome,
   getDashboardMetrics,
+  getPaymentsForTenant,
+  getChargesForTenant,
+  getTicketsForTenant,
+  getLeasesForTenant,
 };

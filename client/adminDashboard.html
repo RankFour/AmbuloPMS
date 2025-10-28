@@ -33,13 +33,13 @@
         <!-- Summary KPIs and Dynamic Metrics will be injected here by JS -->
         <div class="dashboard-grid"></div>
 
-        <!-- Last Transactions Section -->
-        <div class="card" style="margin-top: 24px;">
+        <!-- Payment History Section (moved here, replaces Last Transaction) -->
+        <div class="card" data-card-key="paymentHistory" style="margin-top: 24px;">
             <div class="card-header">
-                <h3 class="card-title">Last Transaction</h3>
+                <h3 class="card-title"><i class="fas fa-credit-card"></i>Payment History</h3>
                 <a href="#" class="see-all">See All</a>
             </div>
-            <!-- Transactions will be populated dynamically -->
+            <div class="chart-slot"></div>
         </div>
     </div>
 

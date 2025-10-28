@@ -6,7 +6,41 @@ import {
   getTickets as apiGetTickets,
   getLeases as apiGetLeases,
   getContactSubmissions,
+  getPaymentsForTenant,
+  getChargesForTenant,
+  getTicketsForTenant,
+  getLeasesForTenant,
 } from "../api/adminApi.js";
+
+
+const DashboardSWR = (() => {
+  const cache = new Map();
+  const eq = (a, b) => {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  };
+  async function swr(key, fetcher, ttlMs, onUpdate) {
+    const now = Date.now();
+    const entry = cache.get(key);
+    const fresh = entry && (now - entry.ts) < (ttlMs || 30000);
+    const initial = fresh ? entry.data : undefined;
+    
+    (async () => {
+      try {
+        const data = await fetcher();
+        const prev = cache.get(key)?.data;
+        cache.set(key, { data, ts: Date.now() });
+        if (onUpdate && !eq(data, prev ?? initial)) onUpdate(data);
+      } catch (e) {
+        console.warn('SWR revalidate failed', key, e);
+      }
+    })();
+    if (initial !== undefined) return initial;
+    const data = await fetcher();
+    cache.set(key, { data, ts: Date.now() });
+    return data;
+  }
+  return { swr };
+})();
 
 fetch("/components/sidebar.html")
   .then((res) => res.text())
@@ -182,11 +216,31 @@ document.addEventListener("DOMContentLoaded", () => {
   setDynamicInfo();
 
   try {
-    const cfg = window.ADMIN_DASHBOARD_CONFIG || DEFAULT_DASHBOARD_CONFIG;
+    
+    let role = null;
+    let isAdmin = false;
+    try {
+      const token = (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1] || null;
+      if (token) {
+        const parts = token.split(".");
+        if (parts.length >= 2) {
+          let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+          while (payload.length % 4) payload += "=";
+          const json = decodeURIComponent(atob(payload).split("").map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join(""));
+          const data = JSON.parse(json);
+          role = (data.role || data.user_role || data.userRole || "").toString().toUpperCase() || null;
+          isAdmin = ["ADMIN", "MANAGER", "STAFF"].includes(role || "");
+        }
+      }
+    } catch {}
+
+    const providedCfg = window.ADMIN_DASHBOARD_CONFIG;
+    const cfg = providedCfg || (!isAdmin ? TENANT_DASHBOARD_CONFIG : DEFAULT_DASHBOARD_CONFIG);
     renderDashboard(cfg);
 
     try {
-      renderSummaryKpis();
+      
+      renderSummaryKpis(isAdmin);
     } catch { }
   } catch (e) {
     console.warn("Dashboard render failed", e);
@@ -249,8 +303,10 @@ function findCardByKey(key) {
     window.CSS && CSS.escape
       ? CSS.escape
       : (s) => String(s).replace(/"/g, '\\"').replace(/\]/g, "\\]");
-  return document.querySelector(
-    `.dashboard-grid .card[data-card-key="${esc(key)}"]`
+  
+  return (
+    document.querySelector(`.dashboard-grid .card[data-card-key="${esc(key)}"]`) ||
+    document.querySelector(`.card[data-card-key="${esc(key)}"]`)
   );
 }
 
@@ -335,7 +391,9 @@ function ensureSummaryRow() {
   return row;
 }
 
-function renderSummaryKpis() {
+function renderSummaryKpis(isAdmin = true) {
+  
+  if (!isAdmin) return;
   const row = ensureSummaryRow();
   if (!row) return;
 
@@ -505,6 +563,365 @@ const DEFAULT_DASHBOARD_CONFIG = {
   ],
 };
 
+
+const TENANT_DASHBOARD_CONFIG = {
+  metrics: [
+    {
+      key: "leaseOverview",
+      title: "Current Lease Summary",
+      icon: "fas fa-file-contract",
+      type: "chart",
+      visible: true,
+    },
+    {
+      key: "outstandingDues",
+      title: "Outstanding Balance / Next Due",
+      icon: "fas fa-receipt",
+      type: "chart",
+      visible: true,
+    },
+    
+    {
+      key: "maintenanceActions",
+      title: "Maintenance Requests",
+      icon: "fas fa-tools",
+      type: "chart",
+      visible: true,
+    },
+    {
+      key: "announcements",
+      title: "Announcements",
+      icon: "fas fa-bullhorn",
+      type: "chart",
+      visible: true,
+    },
+    {
+      key: "activitySummary",
+      title: "Activity Summary",
+      icon: "fas fa-chart-line",
+      type: "chart",
+      visible: true,
+    },
+  ],
+};
+
+function getCurrentUserPayload() {
+  try {
+    const token = (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1] || null;
+    if (!token) return null;
+    const parts = token.split('.')
+    if (parts.length < 2) return null;
+    let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payload.length % 4) payload += '=';
+    const json = decodeURIComponent(atob(payload).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    return JSON.parse(json);
+  } catch { return null; }
+}
+
+function isAdminRole(role) {
+  return ["ADMIN", "MANAGER", "STAFF"].includes((role || '').toUpperCase());
+}
+
+function renderTenantCards(bundle) {
+  const { dashboard, expectedIncome, payDist, ticketsResp, leasesResp, myPayments, myCharges, myTickets, myLeases: myLeasesData } = bundle || {};
+  const payload = getCurrentUserPayload();
+  const userId = payload && (payload.user_id || payload.userId || payload.id);
+
+  const leasesRaw = Array.isArray(leasesResp?.list) ? leasesResp.list : Array.isArray(leasesResp?.leases) ? leasesResp.leases : [];
+  const leases = Array.isArray(myLeasesData) && myLeasesData.length ? myLeasesData : leasesRaw;
+  const myLeases = leases.filter(l => String(l.user_id || l.tenant_id || '') === String(userId || ''));
+  const isActiveLease = (s) => /ACTIVE|PENDING/i.test(String(s || ''));
+  const currentLease = myLeases.find(l => isActiveLease(l.lease_status || l.status)) || myLeases[0] || null;
+  const leaseIdOf = (l) => l?.id ?? l?.lease_id ?? l?._id ?? null;
+  const savedLeaseId = (() => { try { return localStorage.getItem('tenantSelectedLeaseId'); } catch { return null; } })();
+  const selectedLease = (myLeases.find(l => String(leaseIdOf(l)) === String(savedLeaseId)) || currentLease);
+
+  const ticketsRaw = Array.isArray(ticketsResp?.list) ? ticketsResp.list : Array.isArray(ticketsResp?.tickets) ? ticketsResp.tickets : [];
+  const tenantTickets = Array.isArray(myTickets) && myTickets.length ? myTickets : ticketsRaw;
+  const myTicketsFinal = tenantTickets.filter(t => String(t.user_id || t.tenant_id || '') === String(userId || ''));
+  const activeTickets = myTicketsFinal.filter(t => /PENDING|ASSIGNED|IN_PROGRESS/i.test(String(t.ticket_status || '')));
+
+  const recentPayments = Array.isArray(dashboard?.recentPayments) ? dashboard.recentPayments : [];
+  const payments = Array.isArray(myPayments) && myPayments.length ? myPayments : recentPayments;
+  const myPaymentsFinal = payments.filter(p => !p.tenant_id && !p.user_id ? true : String(p.user_id || p.tenant_id) === String(userId || ''));
+  
+  let pendingAmt = 0;
+  if (Array.isArray(myCharges) && myCharges.length) {
+    pendingAmt = myCharges.reduce((acc, c) => {
+      const st = String(c.status || c.canonical_status || '').toLowerCase();
+      if (st === 'pending' || st === 'due' || st === 'unpaid') {
+        const orig = Number(c.original_amount ?? c.amount ?? 0) || 0;
+        return acc + orig;
+      }
+      return acc;
+    }, 0);
+  } else {
+    const sums = payDist?.sums || {};
+    pendingAmt = Number(sums?.Pending || 0);
+  }
+
+  
+  try {
+    const leasesToShow = (myLeases && myLeases.length ? myLeases : (currentLease ? [currentLease] : [])).slice(0, 5);
+    const dropdown = myLeases.length > 1 ? `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <label for="leaseSelect" style="font-size:12px; color:#64748b;">Select lease</label>
+        <select id="leaseSelect" style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px;">
+          ${myLeases.map(l => {
+            const id = leaseIdOf(l);
+            const unit = l.property_name || l.unit || l.unit_number || l.unit_name || `Lease ${id}`;
+            const startRaw = l.lease_start_date || l.start_date || null;
+            const endRaw = l.lease_end_date || l.end_date || null;
+            const label = `${unit} — ${(startRaw? new Date(startRaw).toLocaleDateString() : '—')} to ${(endRaw? new Date(endRaw).toLocaleDateString() : '—')}`;
+            const sel = String(leaseIdOf(selectedLease)) === String(id) ? 'selected' : '';
+            return `<option value="${id}" ${sel}>${label}</option>`;
+          }).join('')}
+        </select>
+      </div>` : '';
+    const rows = leasesToShow.map(lease => {
+      const startRaw = lease.lease_start_date || lease.start_date || lease.leaseStartDate || null;
+      const endRaw = lease.lease_end_date || lease.end_date || lease.leaseEndDate || null;
+      const start = startRaw ? new Date(startRaw) : null;
+      const end = endRaw ? new Date(endRaw) : null;
+      const rent = lease.monthly_rent ?? lease.rent_amount ?? lease.rent ?? lease.monthly_amount ?? null;
+      const unit = lease.property_name || lease.unit || lease.unit_number || lease.unit_name || '—';
+      const status = (lease.lease_status || lease.status || '').toString().toUpperCase();
+      const statusBadge = status ? `<span style="display:inline-block; padding:4px 8px; border-radius:9999px; font-size:11px; font-weight:700; background:${/ACTIVE|PENDING/.test(status)?'#e0e7ff':'#f1f5f9'}; color:${/ACTIVE|PENDING/.test(status)?'#1e40af':'#475569'};">${status.replace(/_/g,' ')}</span>` : '';
+      const isSelected = String(leaseIdOf(lease)) === String(leaseIdOf(selectedLease));
+      return `
+        <tr style="border-bottom:1px solid #eef2f7; ${isSelected ? 'background:#f0f9ff;' : ''}">
+          <td style="padding:10px 8px; font-weight:700; color:#0f172a;">${unit}</td>
+          <td style="padding:10px 8px; color:#334155;">${start ? start.toLocaleDateString() : '—'} — ${end ? end.toLocaleDateString() : '—'}</td>
+          <td style="padding:10px 8px; color:#111827; font-weight:700; text-align:right;">${rent != null ? fmtCurrency(rent) : '—'}</td>
+          <td style="padding:10px 8px;">${statusBadge}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `
+      <div style="display:grid; gap:12px;">
+        ${dropdown}
+        <div style="overflow:auto;">
+          <table style="width:100%; border-collapse:separate; border-spacing:0; min-width:560px;">
+            <thead>
+              <tr style="text-align:left; font-size:12px; color:#0f172a; background:#f8fafc;">
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb;">Unit</th>
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb;">Lease dates</th>
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb; text-align:right;">Monthly rent</th>
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="4" style="padding:12px; color:#64748b;">No leases found</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <a href="/leaseTenant.html" class="btn btn-neutral">View Lease</a>
+        </div>
+      </div>`;
+    setCardContentByKey('leaseOverview', html);
+    try {
+      if (myLeases.length > 1) {
+        const card = findCardByKey('leaseOverview');
+        const sel = card && card.querySelector('#leaseSelect');
+        if (sel) {
+          sel.addEventListener('change', (e) => {
+            try { localStorage.setItem('tenantSelectedLeaseId', String(e.target.value)); } catch {}
+            
+            renderTenantCards(bundle);
+          });
+        }
+      }
+    } catch {}
+  } catch (e) { console.warn('Lease overview render failed', e); }
+
+  
+  try {
+    
+    
+    
+    
+    const deriveNextDue = (lease) => {
+      if (!lease) return null;
+      
+      const explicit = lease.next_due_date || lease.nextDueDate || lease.due_date || lease.dueDate || lease.next_payment_due || lease.nextPaymentDue || null;
+      const explicitDate = explicit ? new Date(explicit) : null;
+      if (explicitDate && !isNaN(explicitDate)) return explicitDate;
+      
+      const start = lease?.lease_start_date ? new Date(lease.lease_start_date) : null;
+      const end = lease?.lease_end_date ? new Date(lease.lease_end_date) : null;
+      if (!start || isNaN(start)) return null;
+      const dueDay = Number(lease?.due_day ?? lease?.dueDay ?? start.getDate());
+      const now = new Date();
+      
+      const curr = new Date(now.getFullYear(), now.getMonth(), dueDay);
+      let next = curr;
+      if (now.getTime() > curr.getTime()) {
+        next = new Date(now.getFullYear(), now.getMonth() + 1, dueDay);
+      }
+      
+      if (end && !isNaN(end) && next > end) return null;
+      if (start && !isNaN(start) && next < start) return start;
+      return next;
+    };
+
+  const nextDueDate = deriveNextDue(selectedLease);
+    const items = [
+      { label: 'Pending amount', value: pendingAmt },
+      { label: 'Next due', value: nextDueDate ? new Date(nextDueDate).toLocaleDateString() : '—' },
+    ];
+    const html = `
+      <div class="outstanding-content" style="display:grid; gap:12px;">
+        ${items.map(i => `<div style=\"display:flex; justify-content:space-between; font-size:16px; color:#334155;\"><span>${i.label}</span><strong>${typeof i.value === 'number' ? (i.label.includes('amount') ? fmtCurrency(i.value) : fmtInt(i.value)) : i.value}</strong></div>`).join('')}
+        <div style="margin-top:8px; display:flex; gap:8px; justify-self:center; ">
+          <a href="/paymentTenant.html" class="btn btn-success">Pay Now</a>
+          <a href="/paymentTenant.html" class="btn btn-info">Go to Billing</a>
+        </div>
+      </div>`;
+    setCardContentByKey('outstandingDues', html);
+  } catch (e) { console.warn('Outstanding dues render failed', e); }
+
+  
+  try {
+    const rows = (myPaymentsFinal || []).slice(0, 5).map(p => {
+      const when = p.created_at || p.paymentDate || p.createdAt;
+      const amt = Number(p.amount_paid ?? p.amount ?? p.total_amount ?? 0);
+      const statusRaw = String(p.status || p.payment_status || '').toLowerCase();
+      let badge = 'other';
+      if (/paid|success|approved|completed/.test(statusRaw)) badge = 'paid';
+      else if (/pending|await|processing/.test(statusRaw)) badge = 'pending';
+      else if (/failed|declined|rejected|error/.test(statusRaw)) badge = 'failed';
+      const method = p.method || p.payment_method || '';
+      return { when, amt, status: statusRaw || '—', method, badge };
+    });
+    const table = rows.length ? `
+      <div class="payment-history-wrapper" style="display:flex; flex-direction:column; gap:10px; height:100%;">
+        <div class="payment-history-table-container" style="flex:1; overflow:auto;">
+          <table class="payment-history-table" style="width:95%; margin:0 auto; border-collapse:separate; border-spacing:0;">
+            <thead>
+              <tr style="text-align:left; font-size:12px; color:#0f172a; background:#f8fafc;">
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb;">Date</th>
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb; text-align:right;">Amount</th>
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb;">Status</th>
+                <th style="padding:10px 8px; font-weight:700; border-bottom:1px solid #e5e7eb;">Method</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((r,i) => `
+                <tr style="${i%2? 'background:#fafafa;' : ''} border-bottom:1px solid #f1f5f9;">
+                  <td style="padding:10px 8px; color:#334155;">${r.when ? new Date(r.when).toLocaleString() : '—'}</td>
+                  <td class="amount" style="padding:10px 8px; color:#111827; text-align:right; font-weight:700;">${fmtCurrency(r.amt)}</td>
+                  <td style="padding:10px 8px;"> <span class="status-badge status-${r.badge}">${r.status || '—'}</span> </td>
+                  <td style="padding:10px 8px; color:#334155;">${r.method || '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:0; text-align:center;">
+          <a href="/paymentTenant.html" class="btn btn-primary">See all payments</a>
+        </div>
+      </div>
+    ` : `<div style="color:#64748b; font-size:12px; padding: 8px 0;">No payment history</div>`;
+    setCardContentByKey('paymentHistory', table);
+
+    
+    try {
+      const ph = findCardByKey('paymentHistory');
+      const link = ph ? ph.querySelector('.see-all') : null;
+      if (link) {
+        link.href = '/paymentTenant.html';
+        link.addEventListener('click', (e) => { e.preventDefault(); window.location.href = '/paymentTenant.html'; });
+      }
+    } catch {}
+  } catch (e) { console.warn('Payment history render failed', e); }
+
+  
+  try {
+    const sorted = [...myTicketsFinal].sort((a,b) => {
+      const ad = a.created_at || a.createdAt || a.start_datetime || 0;
+      const bd = b.created_at || b.createdAt || b.start_datetime || 0;
+      return new Date(bd) - new Date(ad);
+    });
+    const last = sorted[0];
+    const lastHtml = last ? `
+      <div style="margin-bottom:8px; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px;">
+        <div style="font-size:12px; color:#64748b; margin-bottom:4px;">Last submitted</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:13px; color:#334155; font-weight:700;">${last.request_type || 'Request'}</div>
+          <div style="font-size:12px; font-weight:700; color:#0ea5e9;">${String(last.ticket_status || '').toUpperCase().replace(/_/g,' ')}</div>
+        </div>
+        <div style="font-size:12px; color:#64748b;">${last.created_at ? new Date(last.created_at).toLocaleString() : ''}</div>
+      </div>` : '';
+
+    const list = sorted.slice(0, 3).map(t => {
+      const s = String(t.ticket_status || '').toUpperCase().replace(/_/g,' ');
+      const cat = t.request_type || 'Request';
+      return `<div style=\"display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid #e5e7eb;\"><div style=\"font-size:13px; color:#334155;\">${cat}</div><div style=\"font-size:12px; font-weight:700; color:#0ea5e9;\">${s}</div></div>`;
+    }).join('');
+    const html = `
+      <div>
+        <div style="display:flex; gap:8px; margin-bottom:8px; justify-self:center;">
+          <a href="/maintenanceTenant.html" class="btn btn-success">Submit request</a>
+          <a href="/maintenanceTenant.html" class="btn btn-info">View requests</a>
+        </div>
+        ${lastHtml}
+        ${list || `<div style=\"color:#64748b; font-size:12px; padding: 8px 0;\">No recent requests</div>`}
+      </div>`;
+    setCardContentByKey('maintenanceActions', html);
+  } catch (e) { console.warn('Maintenance actions render failed', e); }
+
+  
+  try {
+    const html = `<div style="color:#64748b; font-size:12px; padding: 8px 0;">No announcements yet</div>`;
+    setCardContentByKey('announcements', html);
+  } catch (e) { console.warn('Announcements render failed', e); }
+
+    
+  try {
+    
+    const statusCounts = (myPaymentsFinal || []).reduce((m, p) => {
+      const raw = String(p.status || p.payment_status || '').toLowerCase();
+      const key = /paid|success|approved|completed/.test(raw) ? 'onTime' : /late|overdue|failed|rejected/.test(raw) ? 'late' : 'other';
+      m[key] = (m[key] || 0) + 1; return m;
+    }, { onTime: 0, late: 0, other: 0 });
+    const reqCount = myTicketsFinal.length;
+    const resolvedCount = myTicketsFinal.filter(t => /COMPLETED/i.test(String(t.ticket_status || ''))).length;
+
+    
+    const onTimeRows = (myPaymentsFinal || [])
+      .filter(p => /paid|success|approved|completed/i.test(String(p.status || p.payment_status || '')))
+      .slice(0, 3)
+      .map(p => {
+        const when = p.created_at || p.paymentDate || p.createdAt;
+        const amt = Number(p.amount_paid ?? p.amount ?? p.total_amount ?? 0);
+        return `<div style=\"display:flex; justify-content:space-between; padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#f0fdf4;\"><span style=\"color:#065f46; font-size:12px;\">${when ? new Date(when).toLocaleString() : ''}</span><strong style=\"color:#065f46;\">${fmtCurrency(amt)}</strong></div>`;
+      }).join('');
+
+    const html = `
+      <div style="display:grid; gap:14px;">
+        <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:12px;">
+          <div style="background:#f8fafc; border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:12px; color:#64748b;">On-time payments</div>
+            <div style="font-weight:800; color:#059669; font-size:18px;">${fmtInt(statusCounts.onTime)}</div>
+          </div>
+          <div style="background:#fef2f2; border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:12px; color:#64748b;">Late/Other</div>
+            <div style="font-weight:800; color:#b91c1c; font-size:18px;">${fmtInt(statusCounts.late + statusCounts.other)}</div>
+          </div>
+          <div style="background:#ecfeff; border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:12px; color:#64748b;">Requests resolved</div>
+            <div style="font-weight:800; color:#0284c7; font-size:18px;">${fmtInt(resolvedCount)} / ${fmtInt(reqCount)}</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px; color:#64748b; margin:8px 0;">Recent on-time payments</div>
+          <div style="display:grid; gap:8px;">${onTimeRows || '<div style="color:#94a3b8; font-size:12px;">—</div>'}</div>
+        </div>
+      </div>`;
+    setCardContentByKey('activitySummary', html);
+  } catch (e) { console.warn('Activity summary render failed', e); }
+}
+
 function ensureMetricsRow() {
   const grid = document.querySelector(".dashboard-grid");
   if (!grid) return null;
@@ -573,29 +990,568 @@ export function renderDashboard(config) {
 }
 
 export async function loadDashboardMetrics() {
-  setCardValueByKey("totalProperty", "Loading…");
-  setCardValueByKey("totalIncome", "Loading…");
-  setCardValueByKey("expectedIncomeThisMonth", "Loading…");
-  setCardValueByKey("totalTransactions", "Loading…");
+  
+  const applyBundle = (bundle) => {
+    
+    try {
+      const payload = getCurrentUserPayload();
+      const role = (payload && (payload.role || payload.user_role || payload.userRole)) || '';
+      if (!isAdminRole(role)) {
+        renderTenantCards(bundle);
+        return; 
+      }
+    } catch {}
+    const { dashboard, expectedIncome, payDist, ticketsResp, leasesResp, contactsResp } = bundle || {};
+    const propertiesCount = Number(dashboard?.propertiesCount || 0);
+    const tenantsCount = Number(dashboard?.tenantsCount || 0);
+    const paymentsStats = dashboard?.paymentsStats || {};
+    const chargesStats = dashboard?.chargesStats || {};
+    const ticketsList = Array.isArray(dashboard?.ticketsList) ? dashboard.ticketsList : [];
+    const recentPayments = Array.isArray(dashboard?.recentPayments) ? dashboard.recentPayments : [];
 
-  setCardValueByKey("kpiTotalProperties", "Loading…");
-  setCardValueByKey("kpiOccupancyRate", "Loading…");
-  setCardValueByKey("kpiActiveLeases", "Loading…");
-  setCardValueByKey("kpiExpectedIncomeMonth", "Loading…");
-  setCardValueByKey("kpiPendingPayments", "Loading…");
+  const paymentsTotal = Number(paymentsStats?.totalPayments || paymentsStats?.total || 0);
+    const collectedThisMonth = Number(paymentsStats?.collectedThisMonth || 0);
+    const collectedTotal = Number(paymentsStats?.totalCollected || paymentsStats?.total || 0);
+    const pendingPaymentsCount = Number(paymentsStats?.pendingCount || 0);
 
-  setCardValueByTitle(/^total\s*(property|properties)/i, "Loading…");
-  setCardValueByTitle(/^total\s*(income|collected\s*payments)/i, "Loading…");
-  setCardValueByTitle(/total\s+number\s+of\s+transactions?/i, "Loading…");
+    const overdueCharges = Number(chargesStats?.overdue || 0);
+    const dueSoonCharges = Number(chargesStats?.dueSoon || 0);
+    const totalCharges = Number(chargesStats?.total || 0);
 
-  const {
-    propertiesCount,
-    tenantsCount,
-    paymentsStats,
-    chargesStats,
-    ticketsList,
-    recentPayments,
-  } = await getDashboardMetrics();
+    const openTickets = (Array.isArray(ticketsList) ? ticketsList : []).filter(
+      (t) => String(t.ticket_status || t.status || "").toLowerCase() !== "completed"
+    ).length;
+
+    setCardValueByKey("totalProperty", fmtInt(propertiesCount));
+    setCardValueByKey("totalTransactions", fmtInt(paymentsTotal));
+    setCardValueByKey("totalIncome", fmtCurrency(collectedTotal));
+    setCardValueByKey("kpiTotalCollected", fmtCurrency(collectedTotal));
+    setCardValueByKey("tenants", fmtInt(tenantsCount));
+    setCardValueByKey(
+      "pendingPayments",
+      fmtInt(pendingPaymentsCount),
+      dueSoonCharges > 0 ? `${fmtInt(dueSoonCharges)} due soon` : ""
+    );
+    setCardValueByKey(
+      "overdueCharges",
+      fmtInt(overdueCharges),
+      totalCharges ? `${Math.round((overdueCharges / totalCharges) * 100)}% of charges` : ""
+    );
+    setCardValueByKey("openTickets", fmtInt(openTickets));
+
+    setCardValueByKey("kpiTotalProperties", fmtInt(propertiesCount));
+
+    setCardValueByKey("kpiPendingPayments", fmtInt(pendingPaymentsCount));
+
+    setCardValueByTitle(
+      /^total\s*(property|properties)/i,
+      fmtInt(propertiesCount)
+    );
+    setCardValueByTitle(
+      /total\s+number\s+of\s+transactions?/i,
+      fmtInt(paymentsTotal)
+    );
+    setCardValueByTitle(
+      /^total\s*(income|collected\s*payments)/i,
+      fmtCurrency(collectedTotal)
+    );
+
+    try {
+      
+      try {
+        const rows = (recentPayments || []).slice(0, 5).map(p => {
+          const when = p.created_at || p.paymentDate || p.createdAt;
+          const amt = Number(p.amount_paid ?? p.amount ?? p.total_amount ?? 0);
+          const statusRaw = String(p.status || p.payment_status || '').toLowerCase();
+          let badge = 'other';
+          if (/paid|success|approved|completed/.test(statusRaw)) badge = 'paid';
+          else if (/pending|await|processing/.test(statusRaw)) badge = 'pending';
+          else if (/failed|declined|rejected|error/.test(statusRaw)) badge = 'failed';
+          const method = p.method || p.payment_method || '';
+          return { when, amt, status: statusRaw || '—', method, badge };
+        });
+        const table = rows.length ? `
+          <div class="payment-history-wrapper" style="display:flex; flex-direction:column; gap:10px; height:100%;">
+            <div class="payment-history-table-container" style="flex:1; overflow:auto;">
+              <table class="payment-history-table" style="width:95%; margin:0 auto; border-collapse:separate; border-spacing:0;">
+                <thead>
+                  <tr style="text-align:left; font-size:12px; color:#64748b;">
+                    <th style="padding:10px 8px;">Date</th>
+                    <th style="padding:10px 8px; text-align:right;">Amount</th>
+                    <th style="padding:10px 8px;">Status</th>
+                    <th style="padding:10px 8px;">Method</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map(r => `<tr style=\"border-top:1px solid #e5e7eb;\"><td style=\"padding:10px 8px;\">${r.when ? new Date(r.when).toLocaleString() : '—'}</td><td style=\"padding:10px 8px; text-align:right; font-weight:700;\">${fmtCurrency(r.amt)}</td><td style=\"padding:10px 8px;\">${r.status || '—'}</td><td style=\"padding:10px 8px;\">${r.method || '—'}</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+            <div style="margin-top:0; text-align:center;">
+              <a href="/paymentAdmin.html" class="btn btn-primary">See all payments</a>
+            </div>
+          </div>
+        ` : `<div style=\"color:#64748b; font-size:12px; padding: 8px 0;\">No payment history</div>`;
+        setCardContentByKey('paymentHistory', table);
+        const ph = findCardByKey('paymentHistory');
+        const link = ph ? ph.querySelector('.see-all') : null;
+        if (link) {
+          link.href = '/paymentAdmin.html';
+          link.addEventListener('click', (e) => { e.preventDefault(); window.location.href = '/paymentAdmin.html'; });
+        }
+      } catch {}
+
+      const lateCard = findCardByTitle(/^late\s*payments/i);
+      if (lateCard) {
+        const body = lateCard.querySelector(".no-records");
+        if (body)
+          body.textContent =
+            overdueCharges > 0
+              ? `${fmtInt(overdueCharges)} overdue`
+              : "No Records";
+      }
+    } catch { }
+
+    try {
+      const card = findCardByTitle(/^last\s*transaction/i);
+      if (card && recentPayments) {
+        const rows = Array.isArray(recentPayments) ? recentPayments : [];
+
+        const items = rows.slice(0, 3);
+        const existing = card.querySelectorAll(".transaction-item");
+        existing.forEach((el) => el.parentNode && el.parentNode.removeChild(el));
+        items.forEach((p) => {
+          const el = document.createElement("div");
+          el.className = "transaction-item";
+          const unit = p.property_name || p.unit || "—";
+          const payer =
+            p.paid_by_name ||
+            p.payer_name ||
+            p.paidBy ||
+            p.user_name ||
+            p.customer_name ||
+            p.tenant_name ||
+            p.full_name ||
+            (p.user && (p.user.full_name || p.user.name)) ||
+            (p.tenant && (p.tenant.full_name || p.tenant.name)) ||
+            "";
+          const when = p.created_at || p.paymentDate || p.createdAt;
+          el.innerHTML = `
+              <div class="transaction-icon"><i class="fas fa-receipt"></i></div>
+          <div class="transaction-details">
+            <h4>${(p.charge_description || p.description || "Payment").toString().slice(0, 48)}</h4>
+            <p>${unit}${payer ? ` • ${payer}` : ""}</p>
+            <small>${when ? new Date(when).toLocaleString() : ""}</small>
+          </div>
+          <span class="transaction-type payment">Payment</span>
+        `;
+          card.appendChild(el);
+        });
+
+        const seeAll = card.querySelector(".see-all");
+        if (seeAll) {
+          seeAll.href = "/paymentAdmin.html";
+          seeAll.addEventListener("click", (e) => {
+            e.preventDefault();
+            try {
+              localStorage.setItem(
+                "paymentAdminDeepLink",
+                JSON.stringify({ tab: "payments", view: "all" })
+              );
+            } catch { }
+            window.location.href = "/paymentAdmin.html";
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to populate Last Transaction", e);
+    }
+
+    try {
+      const amt = (p) => {
+        const n = Number(
+          p?.amount_paid ??
+          p?.amount ??
+          p?.total_amount ??
+          (p?.amount_cents ? p.amount_cents / 100 : 0)
+        );
+        return isFinite(n) ? n : 0;
+      };
+
+      const now = new Date();
+      const months = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+          key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+          label: d.toLocaleString("en", { month: "short" }),
+        });
+      }
+
+      const byMonth = new Map(months.map((m) => [m.key, 0]));
+      (Array.isArray(recentPayments) ? recentPayments : []).forEach((p) => {
+        const dtStr = p?.created_at || p?.paymentDate || p?.createdAt;
+        const d = dtStr ? new Date(dtStr) : null;
+        if (!d || isNaN(d)) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (byMonth.has(key)) byMonth.set(key, byMonth.get(key) + amt(p));
+      });
+      const series = months.map((m) => byMonth.get(m.key) || 0);
+
+      const sparkWidth = 400,
+        sparkHeight = 180,
+        pad = 20;
+      const max = Math.max(...series, 1);
+      const min = Math.min(...series, 0);
+      const span = Math.max(max - min, 1);
+      const stepX = (sparkWidth - pad * 2) / Math.max(series.length - 1, 1);
+
+      const pathPoints = series
+        .map((v, i) => {
+          const x = pad + i * stepX;
+          const y =
+            sparkHeight - pad - ((v - min) / span) * (sparkHeight - pad * 2);
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(" ");
+
+      const firstX = pad;
+      const lastX = pad + (series.length - 1) * stepX;
+      const bottomY = sparkHeight - pad;
+      const polyPoints = `${firstX},${bottomY} ${pathPoints} ${lastX},${bottomY}`;
+
+      const sparkSvg = `
+      <svg width="100%" height="${sparkHeight}" viewBox="0 0 ${sparkWidth} ${sparkHeight}" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%;">
+        <defs>
+          <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:0.3" />
+            <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.05" />
+          </linearGradient>
+        </defs>
+        <!-- Y-axis gridlines and labels -->
+        ${(() => {
+        const ticks = 4;
+        const lines = [];
+        for (let i = 0; i <= ticks; i++) {
+          const t = i / ticks;
+          const y = sparkHeight - pad - t * (sparkHeight - pad * 2);
+          const val = min + span * t;
+          lines.push(
+            `<line x1="${pad}" y1="${y.toFixed(1)}" x2="${sparkWidth - pad}" y2="${y.toFixed(1)}" stroke="#e5e7eb" stroke-width="1" />`
+          );
+          lines.push(
+            `<text x="${pad - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#94a3b8">${fmtCurrency(val).replace("₱", "")}</text>`
+          );
+        }
+        return lines.join("");
+      })()}
+        <polygon fill="url(#areaGradient)" points="${polyPoints}" />
+        <polyline fill="none" stroke="#3b82f6" stroke-width="3" points="${pathPoints}" />
+        ${series
+        .map((v, i) => {
+          const x = pad + i * stepX;
+          const y =
+            sparkHeight - pad - ((v - min) / span) * (sparkHeight - pad * 2);
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(
+            1
+          )}" r="4" fill="#ffffff" stroke="#3b82f6" stroke-width="2" />`;
+        })
+        .join("")}
+      </svg>
+      <div style="display:flex; gap:8px; justify-content:space-between; color:#64748b; font-size:12px; padding-top:12px; font-weight: 500;">
+        ${months
+        .map(
+          (m) => `<span style="flex:1; text-align:center;">${m.label}</span>`
+        )
+        .join("")}
+      </div>
+    `;
+      setCardContentByKey("revenueTrend", sparkSvg);
+
+      const counts = {};
+      (Array.isArray(recentPayments) ? recentPayments : []).forEach((p) => {
+        const raw = String(
+          p?.status || p?.payment_status || p?.state || ""
+        ).toLowerCase();
+        let key = "other";
+        if (/paid|success|approved|completed/.test(raw)) key = "paid";
+        else if (/pending|await|processing/.test(raw)) key = "pending";
+        else if (/failed|declined|rejected|error/.test(raw)) key = "failed";
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      const entries = Object.entries(counts);
+      const total = entries.reduce((a, [, v]) => a + v, 0) || 1;
+      const colors = { paid: "#10b981", pending: "#f59e0b", failed: "#ef4444", other: "#64748b" };
+      const labels = { paid: "Completed", pending: "Pending", failed: "Failed", other: "Other" };
+
+      const barsHtml = entries.length
+        ? `
+      <div style="padding: 16px 0;">
+        ${entries
+        .map(([k, v]) => {
+          const pct = Math.round((v / total) * 100);
+          return `<div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 13px; font-weight: 600; color: #334155;">${labels[k]}</span>
+              <span style="font-size: 13px; font-weight: 700; color: ${colors[k]};">${v} (${pct}%)</span>
+            </div>
+            <div style="height: 12px; background: #f1f5f9; border-radius: 6px; overflow: hidden; position: relative;">
+              <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, ${colors[k]}, ${colors[k]}dd); border-radius: 6px; transition: width 0.6s ease;"></div>
+            </div>
+          </div>`;
+        })
+        .join("")}
+      </div>
+    `
+        : `<div style="color:#64748b; font-size:12px; padding: 40px 0; text-align: center;">No recent payments</div>`;
+      setCardContentByKey("paymentsByStatus", barsHtml);
+    } catch (e) {
+      console.warn("Failed to render charts", e);
+    }
+
+    try {
+      setCardValueByKey("expectedIncomeThisMonth", fmtCurrency(expectedIncome || 0));
+      setCardValueByKey("kpiExpectedIncomeMonth", fmtCurrency(expectedIncome || 0));
+
+      const pendingAmt = Number(payDist?.sums?.Pending || 0);
+      const pendingPaymentsCount = Number(dashboard?.paymentsStats?.pendingCount || 0);
+      setCardValueByKey(
+        "pendingPayments",
+        fmtInt(pendingPaymentsCount),
+        pendingAmt > 0 ? `${fmtCurrency(pendingAmt)} pending` : ""
+      );
+      setCardValueByKey(
+        "kpiPendingPayments",
+        fmtInt(pendingPaymentsCount),
+        pendingAmt > 0 ? `${fmtCurrency(pendingAmt)} pending` : ""
+      );
+    } catch (e) {
+      console.warn("Extended metrics render failed", e);
+    }
+
+    try {
+      const tickets = Array.isArray(ticketsResp?.list)
+        ? ticketsResp.list
+        : Array.isArray(ticketsResp?.tickets)
+          ? ticketsResp.tickets
+          : [];
+      const isActive = (s) => /PENDING|ASSIGNED|IN_PROGRESS/i.test(String(s || ""));
+      const activeCount = tickets.filter((t) => isActive(t.ticket_status)).length;
+      setCardValueByKey("openTickets", fmtInt(activeCount));
+
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const completedThisMonth = tickets.filter((t) => {
+        const s = String(t.ticket_status || "");
+        if (!/COMPLETED/i.test(s)) return false;
+        const ed = t.end_datetime ? new Date(t.end_datetime) : null;
+        if (!ed || isNaN(ed)) return false;
+        return `${ed.getFullYear()}-${String(ed.getMonth() + 1).padStart(2, "0")}` === ym;
+      });
+      setCardValueByKey("resolvedTicketsThisMonth", fmtInt(completedThisMonth.length));
+
+      const durations = completedThisMonth
+        .map((t) => {
+          const start = t.start_datetime ? new Date(t.start_datetime) : t.created_at ? new Date(t.created_at) : null;
+          const end = t.end_datetime ? new Date(t.end_datetime) : null;
+          if (!start || !end || isNaN(start) || isNaN(end)) return 0;
+          return Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+        })
+        .filter((v) => isFinite(v) && v > 0);
+      const avgHrs = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+      const friendly = avgHrs >= 48 ? `${(avgHrs / 24).toFixed(1)} d` : `${avgHrs.toFixed(1)} h`;
+      setCardValueByKey("avgResolutionTime", friendly);
+
+      const countsByCat = tickets.reduce((m, t) => {
+        const k = (t.request_type || "Other").toString();
+        m[k] = (m[k] || 0) + 1; return m;
+      }, {});
+      const entries = Object.entries(countsByCat).sort((a, b) => b[1] - a[1]).slice(0, 7);
+      const maxV = Math.max(1, ...entries.map(([, v]) => v));
+      const totalTickets = entries.reduce((sum, [, v]) => sum + v, 0);
+      const categoryIcons = { Plumbing: "fas fa-wrench", Electrical: "fas fa-bolt", HVAC: "fas fa-fan", Cleaning: "fas fa-broom", Painting: "fas fa-paint-roller", Carpentry: "fas fa-hammer", Security: "fas fa-shield-alt", Other: "fas fa-clipboard-list" };
+      const bars = entries.map(([k, v], idx) => {
+        const pct = Math.round((v / maxV) * 100);
+        const sharePct = Math.round((v / totalTickets) * 100);
+        const colors = ["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899"];
+        const color = colors[idx % colors.length];
+        const icon = categoryIcons[k] || "fas fa-clipboard-list";
+        return `<div style="margin-bottom: 18px;">
+          <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;\">
+            <div style=\"display: flex; align-items: center; gap: 8px;\">
+              <i class=\"${icon}\" style=\"font-size:16px;color:${color};\"></i>
+              <span style=\"font-size: 13px; font-weight: 600; color: #334155;\">${k}</span>
+            </div>
+            <div style=\"display: flex; align-items: center; gap: 12px;\">
+              <span style=\"font-size: 11px; color: #64748b;\">${sharePct}%</span>
+              <span style=\"font-size: 14px; font-weight: 700; color: ${color};\">${v}</span>
+            </div>
+          </div>
+          <div style=\"height: 10px; background: #f1f5f9; border-radius: 5px; overflow: hidden;\">
+            <div style=\"width: ${pct}%; height: 100%; background: linear-gradient(90deg, ${color}, ${color}cc); border-radius: 5px; transition: width 0.6s ease;\"></div>
+          </div>
+        </div>`; }).join("");
+      setCardContentByKey("maintenanceByCategory", bars || `<div style=\"color:#64748b; font-size:12px; padding: 40px 0; text-align: center;\">No maintenance data</div>`);
+    } catch (e) { console.warn("Failed to compute maintenance stats", e); }
+
+    try {
+      const leases = Array.isArray(leasesResp?.list) ? leasesResp.list : Array.isArray(leasesResp?.leases) ? leasesResp.leases : [];
+      const isActiveLease = (s) => /ACTIVE|PENDING/i.test(String(s || ""));
+      const activeLeases = leases.filter((l) => isActiveLease(l.lease_status));
+      const activeLeasesCount = activeLeases.length;
+      const activeTenantIds = new Set(); activeLeases.forEach((l) => { if (l.tenant_id != null) activeTenantIds.add(String(l.tenant_id)); });
+      const activeTenantsCount = activeTenantIds.size;
+      const activePropertyIds = new Set(); activeLeases.forEach((l) => { if (l.property_id != null) activePropertyIds.add(String(l.property_id)); });
+      const occupiedProps = activePropertyIds.size;
+      const denom = Math.max(1, Number(propertiesCount || 0));
+      const occPct = Math.max(0, Math.min(100, Math.round((occupiedProps / denom) * 100)));
+      setCardValueByKey("kpiActiveLeases", fmtInt(activeLeasesCount));
+      setCardValueByKey("kpiOccupancyRate", `${occPct}%`, `${fmtInt(occupiedProps)} of ${fmtInt(denom)} properties occupied`);
+    } catch (e) { console.warn("Failed to compute summary KPIs from leases", e); }
+
+    try {
+      const leases = Array.isArray(leasesResp?.list) ? leasesResp.list : Array.isArray(leasesResp?.leases) ? leasesResp.leases : [];
+      const now = new Date();
+      const soon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
+      const expiringSoon = leases.filter((l) => {
+        const end = l?.lease_end_date ? new Date(l.lease_end_date) : null;
+        if (!end || isNaN(end)) return false;
+        const status = String(l.lease_status || "").toUpperCase();
+        return end >= now && end <= soon && (status === "ACTIVE" || status === "PENDING");
+      }).length;
+      const unresolvedTickets = (
+        Array.isArray(ticketsResp?.list) ? ticketsResp.list : Array.isArray(ticketsResp?.tickets) ? ticketsResp.tickets : []
+      ).filter((t) => !/COMPLETED|CANCELLED/i.test(String(t.ticket_status || ""))).length;
+      const newContacts = Number((contactsResp?.stats && (contactsResp.stats.pending ?? contactsResp.stats.unresponded)) ?? contactsResp?.total ?? 0);
+
+      const alertsHtml = `
+        <div class="alerts-grid" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#fff7ed; border:1px solid #fde68a; border-radius:10px;">
+            <div style="display:flex; align-items:center; gap:10px; color:#92400e;">
+              <i class="fas fa-calendar-alt"></i>
+              <div>
+                <div style="font-weight:700; font-size:13px;">Leases expiring ≤ 30 days</div>
+                <div style="font-size:12px; color:#9a3412;">Review upcoming renewals</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-weight:800; color:#b45309;">${fmtInt(expiringSoon)}</span>
+              <button type="button" data-action="goto-leases" class="btn-link">View</button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#fef2f2; border:1px solid #fecaca; border-radius:10px;">
+            <div style="display:flex; align-items:center; gap:10px; color:#991b1b;">
+              <i class="fas fa-exclamation-triangle"></i>
+              <div>
+                <div style="font-weight:700; font-size:13px;">Overdue payments</div>
+                <div style="font-size:12px; color:#9f1239;">Take action on late charges</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-weight:800; color:#b91c1c;">${fmtInt(overdueCharges)}</span>
+              <button type="button" data-action="goto-overdue" class="btn-link">Review</button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px;">
+            <div style="display:flex; align-items:center; gap:10px; color:#1e3a8a;">
+              <i class="fas fa-hourglass-half"></i>
+              <div>
+                <div style="font-weight:700; font-size:13px;">Pending confirmations</div>
+                <div style="font-size:12px; color:#1d4ed8;">Approve or decline payments</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-weight:800; color:#1d4ed8;">${fmtInt(pendingPaymentsCount)}</span>
+              <button type="button" data-action="goto-pending" class="btn-link">Process</button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#ecfeff; border:1px solid #a5f3fc; border-radius:10px;">
+            <div style="display:flex; align-items:center; gap:10px; color:#075985;">
+              <i class="fas fa-tools"></i>
+              <div>
+                <div style="font-weight:700; font-size:13px;">Unresolved maintenance</div>
+                <div style="font-size:12px; color:#0369a1;">View active tickets</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-weight:800; color:#0ea5e9;">${fmtInt((Array.isArray(ticketsResp?.list) ? ticketsResp.list : Array.isArray(ticketsResp?.tickets) ? ticketsResp.tickets : []).filter((t) => !/COMPLETED|CANCELLED/i.test(String(t.ticket_status || ""))).length)}</span>
+              <button type="button" data-action="goto-maint" class="btn-link">Open</button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; grid-column: span 2;">
+            <div style="display:flex; align-items:center; gap:10px; color:#065f46;">
+              <i class="fas fa-envelope"></i>
+              <div>
+                <div style="font-weight:700; font-size:13px;">New Contact Us inquiries</div>
+                <div style="font-size:12px; color:#047857;">Respond to incoming messages</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-weight:800; color:#059669;">${fmtInt(Number((contactsResp?.stats && (contactsResp.stats.pending ?? contactsResp.stats.unresponded)) ?? contactsResp?.total ?? 0))}</span>
+              <button type="button" data-action="goto-contacts" class="btn-link">View</button>
+            </div>
+          </div>
+        </div>`;
+      setCardContentByKey("alerts", alertsHtml);
+      try {
+        const card = findCardByKey("alerts");
+        if (card) {
+          card.querySelector('[data-action="goto-leases"]').addEventListener("click", () => { window.location.href = "/leaseAdmin.html"; });
+          card.querySelector('[data-action="goto-overdue"]').addEventListener("click", () => {
+            try { localStorage.setItem("paymentAdminDeepLink", JSON.stringify({ tab: "charges", chargesStatus: "overdue" })); } catch {}
+            window.location.href = "/paymentAdmin.html";
+          });
+          card.querySelector('[data-action="goto-pending"]').addEventListener("click", () => {
+            try { localStorage.setItem("paymentAdminDeepLink", JSON.stringify({ tab: "payments", view: "pending", pendingStatus: "Pending" })); } catch {}
+            window.location.href = "/paymentAdmin.html";
+          });
+          card.querySelector('[data-action="goto-maint"]').addEventListener("click", () => { window.location.href = "/maintenance.html"; });
+          card.querySelector('[data-action="goto-contacts"]').addEventListener("click", () => { window.location.href = "/messagesAdmin.html"; });
+        }
+      } catch {}
+    } catch (e) { console.warn("Failed to render alerts section", e); }
+  };
+
+  
+  const fetchBundle = async () => {
+    const dashboard = await getDashboardMetrics();
+    const [expectedIncome, payDist, ticketsResp, leasesResp, contactsResp] = await Promise.all([
+      getMonthlyExpectedIncome().catch(() => 0),
+      getPaymentsDistribution().catch(() => ({ counts: {}, sums: {} })),
+      apiGetTickets(1000).catch(() => ({ list: [], total: 0 })),
+      apiGetLeases(1000, "").catch(() => ({ list: [], total: 0 })),
+      getContactSubmissions(1, "pending").catch(() => ({ list: [], total: 0 })),
+    ]);
+
+    
+    let myPayments = null, myCharges = null, myTickets = null, myLeases = null;
+    try {
+      const payload = getCurrentUserPayload();
+      const role = (payload && (payload.role || payload.user_role || payload.userRole)) || '';
+      const tenantId = payload && (payload.user_id || payload.userId || payload.id);
+      if (tenantId && !isAdminRole(role)) {
+        [myPayments, myCharges, myTickets, myLeases] = await Promise.all([
+          getPaymentsForTenant(tenantId, 200).catch(() => []),
+          getChargesForTenant(tenantId, 'Pending', 1000).catch(() => []),
+          getTicketsForTenant(tenantId, 1000).catch(() => []),
+          getLeasesForTenant(tenantId, 20).catch(() => []),
+        ]);
+      }
+    } catch {}
+
+    return { dashboard, expectedIncome, payDist, ticketsResp, leasesResp, contactsResp, myPayments, myCharges, myTickets, myLeases };
+  };
+
+  
+  const bundle = await DashboardSWR.swr('dashboard:bundle', fetchBundle, 30000, applyBundle);
+  applyBundle(bundle);
+
+  
+  try {
+    const payload = getCurrentUserPayload();
+    const role = (payload && (payload.role || payload.user_role || payload.userRole)) || '';
+    if (!isAdminRole(role)) return;
+  } catch {}
 
   const paymentsTotal = Number(
     paymentsStats?.totalPayments || paymentsStats?.total || 0
@@ -1304,17 +2260,15 @@ export async function loadDashboardMetrics() {
 }
 
 export async function setDynamicInfo() {
-  const company = await fetchCompanyDetails();
-  if (!company) return;
-
-  const favicon = document.querySelector('link[rel="icon"]');
-  if (favicon && company.icon_logo_url) {
-    favicon.href = company.icon_logo_url;
-  }
-
-  document.title = company.company_name
-    ? `${company.company_name} Admin Dashboard`
-    : "Ambulo Properties Admin Dashboard";
+  const apply = (company) => {
+    if (!company) return;
+    const favicon = document.querySelector('link[rel="icon"]');
+    if (favicon && company.icon_logo_url) favicon.href = company.icon_logo_url;
+    document.title = company.company_name ? `${company.company_name} Admin Dashboard` : "Ambulo Properties Admin Dashboard";
+  };
+  const fetcher = () => fetchCompanyDetails().catch(() => null);
+  const data = await DashboardSWR.swr('company:details', fetcher, 5 * 60 * 1000, apply);
+  apply(data);
 }
 
 export function wireDashboardShortcuts() {
