@@ -1,0 +1,935 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* System color palette - matching navigation.css and theme.css */
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-dark: #1e40af;
+  --secondary-color: #64748b;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+  --info-color: #06b6d4;
+  
+  /* Neutral palette */
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --border-color: #e5e7eb;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 20px rgba(59, 130, 246, 0.08);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.1);
+  
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  
+  /* Spacing */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}
+
+body {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Main Content Styles */
+.main-content {
+  flex: 1;
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+  margin: 80px 24px 24px 104px;
+  transition: margin-left 0.3s ease;
+}
+
+/* Dashboard Header */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
+}
+
+.dashboard-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Dashboard Grid - Organized in logical sections */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+  margin-bottom: var(--spacing-xl);
+  grid-auto-rows: auto;
+}
+
+/* Card Styles - Clean, modern design without borders or accents */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #f1f5f9;
+  position: relative;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: #e0e7ff;
+}
+
+/* ===== SECTION 1: Top KPI Summary Row ===== */
+/* Compact KPI cards - 6 cards x 2 columns each */
+.card[data-card-key^="kpi"] {
+  grid-column: span 2;
+  background: #ffffff;
+  padding: 20px;
+  min-height: 110px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ===== SECTION 2: Primary Metrics - 4 equal cards ===== */
+.card[data-card-key="totalProperty"],
+.card[data-card-key="totalTransactions"],
+.card[data-card-key="totalIncome"],
+.card[data-card-key="expectedIncomeThisMonth"] {
+  grid-column: span 3;
+  background: #ffffff;
+  min-height: 140px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Highlight income cards */
+.card[data-card-key="totalIncome"] {
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+}
+
+.card[data-card-key="expectedIncomeThisMonth"] {
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+}
+
+/* ===== SECTION 3: Operations Row - 4 equal cards ===== */
+.card[data-card-key="tenants"],
+.card[data-card-key="pendingPayments"],
+.card[data-card-key="overdueCharges"],
+.card[data-card-key="openTickets"] {
+  grid-column: span 3;
+  background: #ffffff;
+  min-height: 140px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ===== SECTION 4: Service Metrics - Full width row split ===== */
+.card[data-card-key="resolvedTicketsThisMonth"] {
+  grid-column: span 3;
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+  min-height: 140px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.card[data-card-key="avgResolutionTime"] {
+  grid-column: span 6;
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+  min-height: 140px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ===== SECTION 5: Charts - Balanced 2x2 Grid ===== */
+.card[data-card-key="revenueTrend"],
+.card[data-card-key="paymentsByStatus"],
+.card[data-card-key="paymentStatusDonut"],
+.card[data-card-key="maintenanceByCategory"] {
+  grid-column: span 6;
+  min-height: 380px;
+  background: #ffffff;
+  padding: 28px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card[data-card-key="revenueTrend"] {
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+}
+
+.card[data-card-key="paymentsByStatus"] {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.card[data-card-key="paymentStatusDonut"] {
+  background: linear-gradient(135deg, #fef3c7 0%, #ffffff 100%);
+}
+
+.card[data-card-key="maintenanceByCategory"] {
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+  grid-column: span 3;
+}
+
+/* ===== SECTION 6: Alerts - Full Width ===== */
+.card[data-card-key="alerts"] {
+  grid-column: span 6;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  padding: 28px;
+  min-height: auto;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== Tenant-focused Cards: layout sizes ===== */
+.card[data-card-key="leaseOverview"] {
+  grid-column: span 6;
+  min-height: 240px;
+}
+.card[data-card-key="outstandingDues"] {
+  grid-column: span 3;
+  min-height: 200px;
+}
+.card[data-card-key="maintenanceActions"] {
+  grid-column: span 3;
+  min-height: 200px;
+}
+.card[data-card-key="announcements"] {
+  grid-column: span 6;
+  min-height: 200px;
+}
+.card[data-card-key="activitySummary"] {
+  grid-column: span 6;
+  min-height: 240px;
+}
+
+/* The standalone Payment History card is outside the grid; generic .card styles apply. */
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+/* Font Awesome icons in card titles */
+.card-title i {
+  font-size: 16px;
+  color: var(--primary-color);
+  opacity: 0.8;
+}
+
+.card-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 4px 0 8px 0;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+/* Balanced values for different card types */
+.card[data-card-key^="kpi"] .card-value {
+  font-size: 26px;
+}
+
+.card[data-card-key="totalIncome"] .card-value,
+.card[data-card-key="expectedIncomeThisMonth"] .card-value {
+  font-size: 28px;
+  color: #059669;
+}
+
+.card[data-card-key="totalProperty"] .card-value,
+.card[data-card-key="totalTransactions"] .card-value {
+  font-size: 36px;
+}
+
+.card-change {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.card-change.positive {
+  color: var(--success-color);
+}
+
+.card-change.negative {
+  color: var(--danger-color);
+}
+
+/* Hide mini sparkline */
+.mini-sparkline {
+  display: none;
+}
+
+/* Transaction Items */
+.transaction-item {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-md);
+  margin: var(--spacing-sm) 0;
+  background: var(--bg-main);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.transaction-item:hover {
+  background: #f1f5f9;
+  border-color: var(--primary-color);
+  transform: translateX(4px);
+}
+
+.transaction-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--spacing-md);
+  color: white;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.transaction-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.transaction-details h4 {
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.transaction-details p,
+.transaction-details small {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.transaction-type {
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.payment {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.maintenance {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Chart slot for dynamic content */
+.chart-slot {
+  min-height: 280px;
+  display: flex;
+  /* align-items: center; */
+  justify-content: center;
+  flex-direction: column;
+  padding: 16px 0;
+  flex: 1;
+}
+
+/* Make Payment History occupy more space and allow its internal table to stretch */
+.card[data-card-key="paymentHistory"] {
+  min-height: 340px;
+}
+.card[data-card-key="paymentHistory"] .chart-slot {
+  /* Allow the chart-slot to stretch vertically and let inner container control layout */
+  align-items: stretch;
+  justify-content: flex-start;
+  /* padding: 18px; */
+}
+.payment-history-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+.payment-history-table-container {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding-right: 6px; /* avoid clipping on small screens */
+}
+.payment-history-table {
+  width: 95%;
+  margin: 0 auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 0; /* allow table to shrink on small screens */
+}
+.payment-history-table th,
+.payment-history-table td {
+  padding: 10px 8px;
+  color: var(--text-primary);
+}
+.payment-history-table .amount { text-align: right; }
+.payment-history-table tbody tr:nth-child(odd) {
+  background: #fafafa;
+}
+.payment-history-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.chart-slot svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* See All Link */
+.see-all {
+  color: var(--primary-color);
+  font-size: 13px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.see-all:hover {
+  color: var(--primary-hover);
+}
+
+.see-all::after {
+  content: '→';
+  transition: transform 0.2s ease;
+}
+
+.see-all:hover::after {
+  transform: translateX(3px);
+}
+
+/* No Records State */
+.no-records {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--spacing-xl);
+  font-size: 14px;
+}
+
+/* Overlay */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Loading State */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.card-value:empty::before {
+  content: '';
+  display: inline-block;
+  width: 120px;
+  height: 36px;
+  background: linear-gradient(to right, #f0f0f0 0%, #e0e0e0 50%, #f0f0f0 100%);
+  background-size: 468px 104px;
+  animation: shimmer 1.2s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeInUp 0.5s ease forwards;
+  opacity: 0;
+}
+
+.card:nth-child(1) { animation-delay: 0.05s; }
+.card:nth-child(2) { animation-delay: 0.1s; }
+.card:nth-child(3) { animation-delay: 0.15s; }
+.card:nth-child(4) { animation-delay: 0.2s; }
+.card:nth-child(5) { animation-delay: 0.25s; }
+.card:nth-child(6) { animation-delay: 0.3s; }
+.card:nth-child(7) { animation-delay: 0.35s; }
+.card:nth-child(8) { animation-delay: 0.4s; }
+
+/* Profile Dropdown */
+#profileMenu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 110%;
+  background: var(--bg-card);
+  min-width: 300px;
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+#profileMenu.show {
+  display: block;
+  animation: fadeInUp 0.2s ease;
+}
+
+#profileMenu a {
+  color: var(--text-primary);
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+  transition: background 0.2s;
+  font-size: 14px;
+}
+
+#profileMenu a:hover {
+  background: var(--bg-main);
+  color: var(--primary-color);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--spacing-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: var(--spacing-md);
+    padding-top: 80px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+  
+  .card[data-card-key^="kpi"],
+  .card[data-card-key="revenueTrend"],
+  .card[data-card-key="paymentsByStatus"],
+  .card[data-card-key="paymentStatusDonut"],
+  .card[data-card-key="maintenanceByCategory"],
+  .card[data-card-key="alerts"],
+  .card {
+    grid-column: span 1;
+    grid-row: auto;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .dashboard-title {
+    font-size: 24px;
+  }
+
+  .card-value {
+    font-size: 28px;
+  }
+
+  .transaction-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: var(--spacing-sm);
+    padding-top: 70px;
+  }
+
+  .card {
+    padding: var(--spacing-md);
+  }
+
+  .dashboard-title {
+    font-size: 20px;
+  }
+
+  .card-value {
+    font-size: 24px;
+  }
+}
+
+/* Removed legacy KPI pseudo-elements and border accents to keep UI clean and icon-only via Font Awesome */
+
+/* Responsive adjustments for perfect visual balance */
+@media (min-width: 1400px) {
+  /* Desktop: Full 12-column grid as designed */
+  .dashboard-grid {
+    gap: 24px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1399px) {
+  /* Laptop: Keep 12-column but adjust gaps */
+  .dashboard-grid {
+    grid-template-columns: repeat(12, 1fr);
+    gap: 20px;
+  }
+  
+  /* KPI cards stay 2 columns */
+  .card[data-card-key^="kpi"] {
+    grid-column: span 2;
+  }
+  
+  /* Primary metrics stay 3 columns */
+  .card[data-card-key="totalProperty"],
+  .card[data-card-key="totalTransactions"],
+  .card[data-card-key="totalIncome"],
+  .card[data-card-key="expectedIncomeThisMonth"] {
+    grid-column: span 3;
+  }
+  
+  /* Operations stay 3 columns */
+  .card[data-card-key="tenants"],
+  .card[data-card-key="pendingPayments"],
+  .card[data-card-key="overdueCharges"],
+  .card[data-card-key="openTickets"] {
+    grid-column: span 3;
+  }
+  
+  /* Service metrics stay 6 columns */
+  .card[data-card-key="resolvedTicketsThisMonth"] {
+    grid-column: span 3;
+  }
+  .card[data-card-key="avgResolutionTime"] {
+    grid-column: span 6;
+  }
+  
+  /* Charts stay 6 columns */
+  .card[data-card-key="revenueTrend"],
+  .card[data-card-key="paymentsByStatus"],
+  .card[data-card-key="paymentStatusDonut"],
+  .card[data-card-key="maintenanceByCategory"] {
+    grid-column: span 6;
+  }
+  /* Make Maintenance Categories smaller on laptop */
+  .card[data-card-key="maintenanceByCategory"] { grid-column: span 3; }
+  
+  .card[data-card-key="alerts"] {
+    grid-column: span 12;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablet: 6-column layout for better balance */
+  .dashboard-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+  }
+  /* Tenant cards on tablet */
+  .card[data-card-key="leaseOverview"] { grid-column: span 6; }
+  .card[data-card-key="outstandingDues"] { grid-column: span 3; }
+  .card[data-card-key="maintenanceActions"] { grid-column: span 3; }
+  .card[data-card-key="announcements"] { grid-column: span 6; }
+  .card[data-card-key="activitySummary"] { grid-column: span 6; }
+  
+  /* KPI cards: 3 per row (2 cols each) */
+  .card[data-card-key^="kpi"] {
+    grid-column: span 2;
+  }
+  
+  /* Primary metrics: 2 per row (3 cols each) */
+  .card[data-card-key="totalProperty"],
+  .card[data-card-key="totalTransactions"],
+  .card[data-card-key="totalIncome"],
+  .card[data-card-key="expectedIncomeThisMonth"] {
+    grid-column: span 3;
+  }
+  
+  /* Operations: 2 per row (3 cols each) */
+  .card[data-card-key="tenants"],
+  .card[data-card-key="pendingPayments"],
+  .card[data-card-key="overdueCharges"],
+  .card[data-card-key="openTickets"] {
+    grid-column: span 3;
+  }
+  
+  /* Service metrics: Full width each */
+  .card[data-card-key="resolvedTicketsThisMonth"],
+  .card[data-card-key="avgResolutionTime"] {
+    grid-column: span 6;
+  }
+  /* Make Resolved Tickets smaller on tablet */
+  .card[data-card-key="resolvedTicketsThisMonth"] { grid-column: span 3; }
+  
+  /* Charts: Full width */
+  .card[data-card-key="revenueTrend"],
+  .card[data-card-key="paymentsByStatus"],
+  .card[data-card-key="paymentStatusDonut"],
+  .card[data-card-key="maintenanceByCategory"],
+  .card[data-card-key="alerts"] {
+    grid-column: span 6;
+  }
+  /* Make Maintenance Categories smaller on tablet */
+  .card[data-card-key="maintenanceByCategory"] { grid-column: span 3; }
+}
+
+@media (max-width: 767px) {
+  /* Mobile: 2-column layout */
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  /* Tenant cards on mobile: most full-width */
+  .card[data-card-key="leaseOverview"],
+  .card[data-card-key="announcements"],
+  .card[data-card-key="activitySummary"] {
+    grid-column: span 2;
+  }
+  .card[data-card-key="outstandingDues"],
+  .card[data-card-key="maintenanceActions"] {
+    grid-column: span 1;
+  }
+  
+  .dashboard-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+  
+  .dashboard-title {
+    font-size: 22px;
+  }
+  
+  .dashboard-subtitle {
+    font-size: 13px;
+  }
+  
+  /* KPI cards: Full width on mobile */
+  .card[data-card-key^="kpi"] {
+    grid-column: span 2;
+    min-height: 90px;
+    padding: 16px;
+  }
+  
+  /* All metric cards: 2 per row */
+  .card[data-card-key="totalProperty"],
+  .card[data-card-key="totalTransactions"],
+  .card[data-card-key="totalIncome"],
+  .card[data-card-key="expectedIncomeThisMonth"],
+  .card[data-card-key="tenants"],
+  .card[data-card-key="pendingPayments"],
+  .card[data-card-key="overdueCharges"],
+  .card[data-card-key="openTickets"],
+  .card[data-card-key="resolvedTicketsThisMonth"],
+  .card[data-card-key="avgResolutionTime"] {
+    grid-column: span 1;
+    min-height: 120px;
+    padding: 16px;
+  }
+  
+  /* Charts full width */
+  .card[data-card-key="revenueTrend"],
+  .card[data-card-key="paymentsByStatus"],
+  .card[data-card-key="paymentStatusDonut"],
+  .card[data-card-key="maintenanceByCategory"],
+  .card[data-card-key="alerts"] {
+    grid-column: span 2;
+    min-height: 320px;
+    padding: 20px;
+  }
+  
+  .card-value {
+    font-size: 26px;
+  }
+  
+  .card[data-card-key^="kpi"] .card-value {
+    font-size: 22px;
+  }
+  
+  .card-title {
+    font-size: 11px;
+  }
+  
+  .chart-slot {
+    min-height: 200px;
+  }
+}
+
+/* Action buttons in alerts card */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  color: #2563eb;
+  text-decoration: none; /* remove underline */
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-link:hover {
+  background: rgba(59, 130, 246, 0.06);
+  color: var(--primary-hover);
+  transform: translateX(2px);
+}
+
+/* Primary button variants to match system palette */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.btn-primary { background: var(--primary-color); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-success { background: var(--success-color); }
+.btn-success:hover { background: #059669; }
+.btn-info { background: var(--info-color); }
+.btn-info:hover { background: #0891b2; }
+.btn-neutral { background: #6366f1; }
+
+/* Status badges for payment history */
+.status-badge { display:inline-block; padding:4px 8px; border-radius:9999px; font-size:11px; font-weight:700; text-transform:capitalize; }
+.status-paid { background:#dcfce7; color:#065f46; }
+.status-pending { background:#fef3c7; color:#92400e; }
+.status-failed { background:#fee2e2; color:#991b1b; }
+.status-other { background:#f1f5f9; color:#475569; }
+
+/* Outstanding dues larger content */
+.card[data-card-key="outstandingDues"] { min-height: 260px; }
+.outstanding-content {font-size: 0.9rem;color: #334155;}
+.outstanding-content strong { font-size:18px; }
+
+/* Alert items styling */
+.card[data-card-key="alerts"] > div > div {
+  padding: 14px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.card[data-card-key="alerts"] > div > div:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.card[data-card-key="alerts"] > div > div:first-child {
+  padding-top: 0;
+}
+
+/* Legacy elements - hide or minimal styling */
+.tasks-card,
+.maintenance-requests,
+.maintenance-item,
+.maintenance-avatar,
+.bar-chart,
+.pie-chart,
+.chart-container,
+.chart-labels,
+.legend {
+  display: none;
+}
+
+.transactions-section,
+.chart-section {
+  display: none;
+}
+
+/* Override legacy alert separators when using the new alerts grid */
+.card[data-card-key="alerts"] .alerts-grid > div {
+  border-bottom: none !important;
+  padding: 20px 12px !important;
+}
