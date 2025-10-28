@@ -816,9 +816,6 @@ function renderTenantCards(bundle) {
             </tbody>
           </table>
         </div>
-        <div style="margin-top:0; text-align:center;">
-          <a href="/paymentTenant.html" class="btn btn-primary">See all payments</a>
-        </div>
       </div>
     ` : `<div style="color:#64748b; font-size:12px; padding: 8px 0;">No payment history</div>`;
     setCardContentByKey('paymentHistory', table);
@@ -1084,9 +1081,6 @@ export async function loadDashboardMetrics() {
                   ${rows.map(r => `<tr style=\"border-top:1px solid #e5e7eb;\"><td style=\"padding:10px 8px;\">${r.when ? new Date(r.when).toLocaleString() : '—'}</td><td style=\"padding:10px 8px; text-align:right; font-weight:700;\">${fmtCurrency(r.amt)}</td><td style=\"padding:10px 8px;\">${r.status || '—'}</td><td style=\"padding:10px 8px;\">${r.method || '—'}</td></tr>`).join('')}
                 </tbody>
               </table>
-            </div>
-            <div style="margin-top:0; text-align:center;">
-              <a href="/paymentAdmin.html" class="btn btn-primary">See all payments</a>
             </div>
           </div>
         ` : `<div style=\"color:#64748b; font-size:12px; padding: 8px 0;\">No payment history</div>`;
@@ -1550,6 +1544,27 @@ export async function loadDashboardMetrics() {
     const role = (payload && (payload.role || payload.user_role || payload.userRole)) || '';
     if (!isAdminRole(role)) return;
   } catch {}
+
+  // Ensure we have the same variables available here as were used inside applyBundle
+  const {
+    dashboard,
+    expectedIncome,
+    payDist,
+    ticketsResp,
+    leasesResp,
+    contactsResp,
+    myPayments,
+    myCharges,
+    myTickets,
+    myLeases,
+  } = bundle || {};
+
+  const propertiesCount = Number(dashboard?.propertiesCount || 0);
+  const tenantsCount = Number(dashboard?.tenantsCount || 0);
+  const paymentsStats = dashboard?.paymentsStats || {};
+  const chargesStats = dashboard?.chargesStats || {};
+  const ticketsList = Array.isArray(dashboard?.ticketsList) ? dashboard.ticketsList : [];
+  const recentPayments = Array.isArray(dashboard?.recentPayments) ? dashboard.recentPayments : [];
 
   const paymentsTotal = Number(
     paymentsStats?.totalPayments || paymentsStats?.total || 0

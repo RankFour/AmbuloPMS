@@ -879,7 +879,7 @@ body {
 .btn-primary:hover { background: var(--primary-hover); }
 .btn-success { background: var(--success-color); }
 .btn-success:hover { background: #059669; }
-.btn-info { background: var(--info-color); }
+.btn-info { background:var(--primary-color); }
 .btn-info:hover { background: #0891b2; }
 .btn-neutral { background: #6366f1; }
 
