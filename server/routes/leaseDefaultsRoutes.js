@@ -7,7 +7,7 @@ import {
 
 const router = express.Router();
 
-router.get("/", getLeaseDefaults);
+router.get("/", protect,getLeaseDefaults);
 router.patch("/:setting_id", protect, updateLeaseDefaultsById);
 
 export default router;

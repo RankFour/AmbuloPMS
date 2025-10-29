@@ -16,11 +16,11 @@ import {
 const router = express.Router();
 
 router.post('/create-charge', protect, createCharge);
-router.get('/', getAllCharges);
-router.get('/stats', getChargesStats);
-router.get('/users/:userId', getChargeByUserId);
-router.get('/leases/:leaseId', getChargeByLeaseId);
-router.get('/:id', getChargeById);
+router.get('/', protect, getAllCharges);
+router.get('/stats', protect, getChargesStats);
+router.get('/users/:userId', protect, getChargeByUserId);
+router.get('/leases/:leaseId', protect, getChargeByLeaseId);
+router.get('/:id', protect, getChargeById);
 router.patch('/:id', protect, updateChargeById);
 router.delete('/:id', protect, deleteChargeById);
 

@@ -13,8 +13,8 @@ import {
 const router = express.Router();
 
 router.post('/create-contact', createContactUsEntry);
-router.get('/', getAllContactUsEntries);
-router.get('/:entry_id', getContactUsEntryById);
+router.get('/', protect, getAllContactUsEntries);
+router.get('/:entry_id', protect, getContactUsEntryById);
 router.patch('/:entry_id', protect, editContactUsEntry);
 router.delete('/:entry_id', protect, deleteContactUsEntry);
 router.post('/:entry_id/reply', protect, sendContactReply);

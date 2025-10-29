@@ -27,13 +27,13 @@ router.post(
     }),
     createPayment
 );
-router.get("/", getAllPayments);
-router.get("/stats", getPaymentsStats);
+router.get("/", protect, getAllPayments);
+router.get("/stats", protect, getPaymentsStats);
 router.get("/search/by-charge", protect, searchPayments);
 router.get("/users/:userId", protect, getPaymentsByUserId);
 
 router.get("/:id/invoice.pdf", protect, streamInvoicePdf);
-router.get("/:id", getPaymentById);
+router.get("/:id", protect, getPaymentById);
 router.get("/:id/allocations", protect, getPaymentAllocations);
 router.patch(
     "/:id",

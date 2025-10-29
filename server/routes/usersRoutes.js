@@ -31,8 +31,8 @@ router.post(
   createUser
 );
 
-router.get('/', getUsers);
-router.get('/:user_id', getSingleUserById);
+router.get('/', protect, getUsers);
+router.get('/:user_id', protect, getSingleUserById);
 
 router.patch(
   '/:user_id',

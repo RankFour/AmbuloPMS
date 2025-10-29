@@ -19,13 +19,13 @@ router.post(
     fieldFolders: {
       contract: "lease_contracts",
     },
-  }),
+  }), protect,
   createLease
 );
 
-router.get("/", getAllLeases);
-router.get("/:id", getSingleLeaseById);
-router.get("/users/:userId", getLeaseByUserId);
+router.get("/", protect, getAllLeases);
+router.get("/:id", protect, getSingleLeaseById);
+router.get("/users/:userId", protect, getLeaseByUserId);
 
 router.patch(
   "/:id",
@@ -34,10 +34,10 @@ router.patch(
     fieldFolders: {
       contract: "lease_contracts",
     },
-  }),
+  }), protect,
   updateLeaseById
 );
 
-router.delete("/:id", deleteLeaseById);
+router.delete("/:id", protect, deleteLeaseById);
 
 export default router;

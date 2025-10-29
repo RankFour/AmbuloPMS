@@ -28,11 +28,11 @@ router.post(
     createTicket
 );
 
-router.post('/update-ticket-statuses', updateTicketStatuses);
+router.post('/update-ticket-statuses', protect, updateTicketStatuses);
 
-router.get('/', getTickets);
-router.get('/:ticket_id', getSingleTicketById);
-router.get('/users/:user_id', getTicketsByUserId);
+router.get('/', protect, getTickets);
+router.get('/:ticket_id', protect, getSingleTicketById);
+router.get('/users/:user_id', protect, getTicketsByUserId);
 router.patch('/:ticket_id', createUploadMiddleware({
     fields: [
       { name: 'attachments', maxCount: 5 },
