@@ -604,6 +604,26 @@ const deleteUserById = async (user_id = "") => {
   }
 };
 
+// Verify a user's password (used for admin confirmation flows)
+const verifyUserPassword = async (user_id = "", password = "") => {
+  try {
+    if (!user_id) throw new Error("User ID is required");
+    if (!password) throw new Error("Password is required");
+
+    const [rows] = await pool.query(
+      `SELECT password_hash FROM users WHERE user_id = ?`,
+      [user_id]
+    );
+    if (!rows || rows.length === 0) throw new Error("User not found");
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    return isMatch;
+  } catch (error) {
+    console.error("Error verifying user password:", error);
+    throw new Error(error.message || "Failed to verify password");
+  }
+};
+
 export default {
   authUser,
   createUser,
@@ -611,4 +631,5 @@ export default {
   getSingleUserById,
   updateSingleUserById,
   deleteUserById,
+  verifyUserPassword,
 };

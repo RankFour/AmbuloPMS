@@ -23,7 +23,7 @@ const createProperty = async (propertyData = {}) => {
     postal_code,
     country,
     latitude,
-    longitude
+    longitude,
   } = propertyData || {};
 
   const property_id = uuidv4();
@@ -40,7 +40,7 @@ const createProperty = async (propertyData = {}) => {
         postal_code: postal_code || null,
         country: country || "Philippines",
         latitude: latitude || null,
-        longitude: longitude || null
+        longitude: longitude || null,
       };
 
       Object.keys(newAddress).forEach(
@@ -68,9 +68,7 @@ const createProperty = async (propertyData = {}) => {
       display_image,
       property_status: property_status || "Available",
       base_rent: base_rent ? parseFloat(base_rent) : null,
-      advance_months: advance_months
-        ? parseInt(advance_months)
-        : null,
+      advance_months: advance_months ? parseInt(advance_months) : null,
       security_deposit_months: security_deposit_months
         ? parseInt(security_deposit_months)
         : null,
@@ -106,7 +104,6 @@ const createProperty = async (propertyData = {}) => {
     throw new Error(error.message || "Failed to create property");
   }
 };
-
 
 const getProperties = async (queryObj = {}) => {
   try {
@@ -189,13 +186,13 @@ const getProperties = async (queryObj = {}) => {
 
     const [rows] = await pool.query(query, values);
 
-    const propertyIds = rows.map(r => r.property_id);
+    const propertyIds = rows.map((r) => r.property_id);
     let picturesMap = {};
     if (propertyIds.length > 0) {
       const [pictures] = await pool.query(
         `SELECT property_id, image_id as id, image_url, image_desc, created_at, updated_at
          FROM properties_pictures
-         WHERE property_id IN (${propertyIds.map(() => '?').join(',')})`,
+         WHERE property_id IN (${propertyIds.map(() => "?").join(",")})`,
         propertyIds
       );
 
@@ -206,15 +203,15 @@ const getProperties = async (queryObj = {}) => {
           image_url: pic.image_url,
           image_desc: pic.image_desc,
           created_at: pic.created_at,
-          updated_at: pic.updated_at
+          updated_at: pic.updated_at,
         });
         return acc;
       }, {});
     }
 
-    const processedRows = rows.map(row => ({
+    const processedRows = rows.map((row) => ({
       ...row,
-      property_pictures: picturesMap[row.property_id] || []
+      property_pictures: picturesMap[row.property_id] || [],
     }));
 
     let countQuery = `
@@ -235,7 +232,13 @@ const getProperties = async (queryObj = {}) => {
     if (queryObj.search) {
       countQuery += ` AND (p.property_name LIKE ? OR a.building_name LIKE ? OR a.street LIKE ? OR a.city LIKE ? OR p.description LIKE ?)`;
       const searchTerm = `%${queryObj.search}%`;
-      countValues.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+      countValues.push(
+        searchTerm,
+        searchTerm,
+        searchTerm,
+        searchTerm,
+        searchTerm
+      );
     }
     if (queryObj.min_rent) {
       countQuery += ` AND p.base_rent >= ?`;
@@ -324,7 +327,7 @@ const getSinglePropertyById = async (property_id = "") => {
             postal_code: propertyRows[0].postal_code,
             country: propertyRows[0].country,
             latitude: propertyRows[0].latitude,
-            longitude: propertyRows[0].longitude
+            longitude: propertyRows[0].longitude,
           }
         : null,
     };
@@ -378,7 +381,7 @@ const editPropertyById = async (property_id = "", propertyData = {}) => {
         postal_code: postal_code || null,
         country: country || "Philippines",
         latitude: latitude || null,
-        longitude: longitude || null
+        longitude: longitude || null,
       };
 
       Object.keys(newAddress).forEach(
@@ -588,7 +591,7 @@ const deletePropertyById = async (property_id = "") => {
     }
 
     const property = await getSinglePropertyById(property_id);
-    
+
     const [leaseRows] = await pool.query(
       "SELECT lease_id FROM leases WHERE property_id = ? AND (lease_status = 'ACTIVE' OR lease_status = 'PENDING')",
       [property_id]
@@ -608,7 +611,10 @@ const deletePropertyById = async (property_id = "") => {
     try {
       await pool.query(deletePicturesQuery, [property_id]);
     } catch (e) {
-      console.warn(`Failed to delete property pictures for ${property_id}:`, e.message || e);
+      console.warn(
+        `Failed to delete property pictures for ${property_id}:`,
+        e.message || e
+      );
     }
 
     const deletePropertyQuery = `DELETE FROM properties WHERE property_id = ?`;
