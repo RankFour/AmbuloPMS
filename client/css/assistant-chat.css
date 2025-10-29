@@ -87,7 +87,8 @@
   overflow: auto;
   padding: 12px;
   background: #ffffff;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -157,10 +158,19 @@
 }
 
 /* Message bubbles */
-.aac-msg-user, .aac-msg-bot { max-width: 80%; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.4; }
+.aac-msg-user, .aac-msg-bot {
+  display: block;
+  max-width: 85%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
 
 .aac-msg-user {
-  justify-self: end;
+  align-self: flex-end;
   background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(37,99,235,0.06) 100%);
   color: #0f172a;
   border: 1px solid rgba(59, 130, 246, 0.25);
@@ -168,7 +178,7 @@
 }
 
 .aac-msg-bot {
-  justify-self: start;
+  align-self: flex-start;
   background: #f8fafc;
   color: #0f172a;
   border: 1px solid var(--border-color);

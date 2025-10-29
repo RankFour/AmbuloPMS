@@ -5,6 +5,12 @@ import paymentsServices from "../services/paymentsServices.js";
 import chargesServices from "../services/chargesServices.js";
 import faqsServices from "../services/faqsServices.js";
 import messagesServices from "../services/messagesServices.js";
+import propertiesServices from "../services/propertiesServices.js";
+import companyDetailsServices from "../services/companyDetailsServices.js";
+import aboutUsServices from "../services/aboutUsServices.js";
+import { getInvoiceByPaymentId } from "../services/invoicesServices.js";
+import reportsServices from "../services/reportsServices.js";
+import notificationsServices from "../services/notificationsServices.js";
 
 const isAdminLike = (role) =>
     ["ADMIN", "MANAGER"].includes(String(role || "").toUpperCase());
@@ -78,6 +84,122 @@ export default {
     initSession,
     getMyProfile,
     getMyTickets,
+    /**
+     * Browse properties (tenant/admin). Supports filters: status, search, min/max_rent, min/max_area, city, page, limit
+     */
+    async listProperties(req, res) {
+        try {
+            const data = await propertiesServices.getProperties(req.query || {});
+            return res.json(data);
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to list properties' });
+        }
+    },
+    /**
+     * Get single property details by id
+     */
+    async getProperty(req, res) {
+        try {
+            const { property_id } = req.params;
+            if (!property_id) return res.status(400).json({ message: 'property_id is required' });
+            const data = await propertiesServices.getSinglePropertyById(property_id);
+            return res.json(data);
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to get property' });
+        }
+    },
+    /**
+     * Company details (tenant/admin)
+     */
+    async getCompany(req, res) {
+        try {
+            const rows = await companyDetailsServices.getCompanyDetails();
+            return res.json({ company: Array.isArray(rows) && rows.length ? rows[0] : null });
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to get company details' });
+        }
+    },
+    /**
+     * About Us content (tenant/admin)
+     */
+    async getAbout(req, res) {
+        try {
+            const data = await aboutUsServices.getAboutUs();
+            return res.json(data);
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to get About Us' });
+        }
+    },
+    /**
+     * My notifications (tenant/admin)
+     */
+    async getMyNotifications(req, res) {
+        try {
+            const { user_id } = req.user || {};
+            const { page = 1, limit = 10, unread } = req.query || {};
+            // notificationsServices likely has createNotification only; if no list exists, fallback: return empty
+            if (!notificationsServices.getNotificationsByUser) {
+                return res.json({ notifications: [], pagination: { currentPage: 1, totalPages: 1, total: 0 } });
+            }
+            const data = await notificationsServices.getNotificationsByUser(String(user_id), { page, limit, unread });
+            return res.json(data);
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to get notifications' });
+        }
+    },
+    /**
+     * Invoice details by payment id (tenant/admin)
+     */
+    async getInvoiceByPayment(req, res) {
+        try {
+            const { payment_id } = req.params;
+            if (!payment_id) return res.status(400).json({ message: 'payment_id is required' });
+            const data = await getInvoiceByPaymentId(payment_id);
+            return res.json({ invoice: data });
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to get invoice' });
+        }
+    },
+    /**
+     * Stats: charges counts (admin)
+     * - If no status provided, returns overview: total, overdue, dueSoon, outstanding
+     * - If status provided, returns { total } for that status using generic search
+     */
+    async getChargesStats(req, res) {
+        try {
+            const { role } = req.user || {};
+            if (!isAdminLike(role)) return res.status(403).json({ message: 'Forbidden' });
+            const { status } = req.query || {};
+            if (status) {
+                const s = String(status);
+                const data = await chargesServices.getAllCharges({ status: s, page: 1, limit: 1 });
+                const total = Number(data?.total || 0);
+                return res.json({ status: s, total });
+            }
+            const stats = await chargesServices.getChargesStats();
+            return res.json(stats);
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to get charges stats' });
+        }
+    },
+    /**
+     * Stats: properties count (admin/tenant)
+     * - Supports property_status filter (e.g., Available)
+     */
+    async getPropertiesStats(req, res) {
+        try {
+            const { property_status } = req.query || {};
+            const q = { ...req.query, page: 1, limit: 1 };
+            // Only count is needed; leverage existing service's total
+            const data = await propertiesServices.getProperties(q);
+            return res.json({
+                property_status: property_status || 'all',
+                total: Number(data?.total || Array.isArray(data?.properties) ? data.properties.length : 0),
+            });
+        } catch (e) {
+            return res.status(500).json({ message: e.message || 'Failed to get properties stats' });
+        }
+    },
     /**
      * Me: list my messages with another user (direct conversation)
      */
@@ -439,6 +561,42 @@ export default {
                 .status(500)
                 .json({ message: e.message || "Failed to waive charge" });
         }
+    },
+    /** Reports: financial summary (admin) */
+    async adminReportFinancial(req, res) {
+        try {
+            const { role } = req.user || {};
+            if (!isAdminLike(role)) return res.status(403).json({ message: 'Forbidden' });
+            const data = await reportsServices.getFinancialSummary(req.query || {});
+            return res.json(data);
+        } catch (e) { return res.status(500).json({ message: e.message || 'Failed to get financial summary' }); }
+    },
+    /** Reports: tenant summary (admin) */
+    async adminReportTenants(req, res) {
+        try {
+            const { role } = req.user || {};
+            if (!isAdminLike(role)) return res.status(403).json({ message: 'Forbidden' });
+            const data = await reportsServices.getTenantSummary(req.query || {});
+            return res.json(data);
+        } catch (e) { return res.status(500).json({ message: e.message || 'Failed to get tenant summary' }); }
+    },
+    /** Reports: property/lease summary (admin) */
+    async adminReportProperties(req, res) {
+        try {
+            const { role } = req.user || {};
+            if (!isAdminLike(role)) return res.status(403).json({ message: 'Forbidden' });
+            const data = await reportsServices.getPropertyLeaseSummary(req.query || {});
+            return res.json(data);
+        } catch (e) { return res.status(500).json({ message: e.message || 'Failed to get property/lease summary' }); }
+    },
+    /** Reports: maintenance summary (admin) */
+    async adminReportMaintenance(req, res) {
+        try {
+            const { role } = req.user || {};
+            if (!isAdminLike(role)) return res.status(403).json({ message: 'Forbidden' });
+            const data = await reportsServices.getMaintenanceSummary(req.query || {});
+            return res.json(data);
+        } catch (e) { return res.status(500).json({ message: e.message || 'Failed to get maintenance summary' }); }
     },
     async getMyLease(req, res) {
         try {
