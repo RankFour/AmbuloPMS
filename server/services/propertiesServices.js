@@ -588,21 +588,34 @@ const deletePropertyById = async (property_id = "") => {
     }
 
     const property = await getSinglePropertyById(property_id);
+    
+    const [leaseRows] = await pool.query(
+      "SELECT lease_id FROM leases WHERE property_id = ? AND (lease_status = 'ACTIVE' OR lease_status = 'PENDING')",
+      [property_id]
+    );
+
+    if (Array.isArray(leaseRows) && leaseRows.length > 0) {
+      throw new Error(
+        "Cannot delete property: there are active or pending leases associated with this property. Please terminate, cancel, or archive the related lease(s) before deleting the property."
+      );
+    }
 
     if (property.property.property_status !== "Available") {
       throw new Error("Only properties with 'Available' status can be deleted");
     }
 
-    const softDeleteQuery = `
-            UPDATE properties 
-            SET property_status = 'deleted', updated_at = NOW() 
-            WHERE property_id = ? AND property_status = 'Available'
-        `;
+    const deletePicturesQuery = `DELETE FROM properties_pictures WHERE property_id = ?`;
+    try {
+      await pool.query(deletePicturesQuery, [property_id]);
+    } catch (e) {
+      console.warn(`Failed to delete property pictures for ${property_id}:`, e.message || e);
+    }
 
-    const [result] = await pool.query(softDeleteQuery, [property_id]);
+    const deletePropertyQuery = `DELETE FROM properties WHERE property_id = ?`;
+    const [result] = await pool.query(deletePropertyQuery, [property_id]);
 
     if (result.affectedRows === 0) {
-      throw new Error("Property not found or not available for deletion");
+      throw new Error("Property not found or could not be deleted");
     }
 
     return {

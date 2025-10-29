@@ -2650,6 +2650,19 @@ function hidePropertyDetails() {
 }
 
 async function removeProperty(propertyId) {
+  
+  
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? ((msg, title) => window.showConfirm(msg, title))
+      : (msg => Promise.resolve(confirm(String(msg))));
+
+  const ok = !!(await confirmFn(
+    "Are you sure you want to delete this property? This action cannot be undone.",
+    "Delete Property"
+  ));
+  if (!ok) return;
+
   try {
     const response = await fetch(`${API_BASE_URL}/${propertyId}`, {
       method: "DELETE",
@@ -2661,15 +2674,14 @@ async function removeProperty(propertyId) {
 
     if (response.ok) {
       const result = await response.json();
-
       showSuccessMessage(result.message || "Property deleted successfully!");
-
-      await loadProperties();
+      
+      await loadProperties(1, pageSize);
     } else {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || `Failed to delete property: ${response.status}`
-      );
+      const errMsg = errorData.message || `Failed to delete property: ${response.status}`;
+      console.warn("Delete property failed:", errMsg);
+      showErrorMessage(errMsg);
     }
   } catch (error) {
     console.error("Error deleting property:", error);
@@ -2794,6 +2806,33 @@ function closeZoomModal() {
   }
 }
 
+
+function showSuccessMessage(message) {
+  try {
+    if (typeof showInlineSuccessMessage === "function") {
+      showInlineSuccessMessage(message || "Success");
+      return;
+    }
+  } catch (e) {
+    /* fallback below */
+  }
+  
+  alert(message || "Success");
+}
+
+function showErrorMessage(message) {
+  try {
+    if (typeof showInlineErrorMessage === "function") {
+      showInlineErrorMessage(message || "An error occurred");
+      return;
+    }
+  } catch (e) {
+    /* fallback below */
+  }
+  
+  alert(message || "An error occurred");
+}
+
 window.removeEditShowcaseImage = removeEditShowcaseImage;
 window.openAddModal = openAddModal;
 window.closeAddModal = closeAddModal;
@@ -2809,6 +2848,9 @@ window.hideAddPropertyForm = hideAddPropertyForm;
 window.showEditPropertyForm = showEditPropertyForm;
 window.hideEditPropertyForm = hideEditPropertyForm;
 window.navigateToPropertiesListDirectly = navigateToPropertiesListDirectly;
+window.removeProperty = removeProperty;
+window.showErrorMessage = showErrorMessage;
+window.showSuccessMessage = showSuccessMessage;
 
 window.goToPage = function (page) {
   const totalPages = Math.ceil(totalProperties / pageSize);
