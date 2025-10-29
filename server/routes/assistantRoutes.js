@@ -1,6 +1,7 @@
 import express from "express";
 import { protect } from "../middlewares/authMiddleware.js";
 import assistantController from "../controllers/assistantControllers.js";
+import assistantChatApi from "../controllers/assistantChatApiController.js";
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ router.post(
     assistantController.sendMyMessage
 );
 
-// Admin-focused endpoints
+
 router.get(
     "/admin/tenants",
     protect,
@@ -90,5 +91,10 @@ router.post(
     protect,
     assistantController.adminWaiveCharge
 );
+
+
+router.post("/chat/open", protect, assistantChatApi.openConversation);
+router.post("/chat/send", protect, assistantChatApi.send);
+router.get("/chat/messages", protect, assistantChatApi.history);
 
 export default router;

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { colours } from './constants/constants.js';
 
 /*  ========== Importing Middleware ========== */
@@ -44,7 +45,7 @@ import conn from './config/db.js';
 const app = express();
 const server = createServer(app);
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(__filename);// dotenv is already loaded via the side-effect import above; keep this for safety
 dotenv.config();
 
 const API_VERSION = process.env.API_VERSION;
