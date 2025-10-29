@@ -83,7 +83,7 @@ fetch("/components/sidebar.html")
           sidebar?.classList.toggle("collapsed");
           mainContent?.classList.toggle("sidebar-collapsed");
           const arrow = sidebarToggle.querySelector("span");
-          arrow.textContent = isCollapsed ? "→" : "←";
+          if (arrow) arrow.textContent = isCollapsed ? '→' : '←';
         }
       });
     }
@@ -106,16 +106,14 @@ fetch("/components/sidebar.html")
       });
     }
 
-    document.querySelectorAll(".nav-link").forEach((link) => {
-      link.addEventListener("click", function () {
+    document.querySelectorAll(".nav-link").forEach((l) => {
+      l.addEventListener("click", function () {
+        document.querySelectorAll(".nav-link").forEach((ln) => ln.classList.remove("active"));
+        this.classList.add("active");
         if (isMobile) {
           sidebar?.classList.remove("open");
           overlay?.classList.remove("active");
         }
-        document
-          .querySelectorAll(".nav-link")
-          .forEach((l) => l.classList.remove("active"));
-        this.classList.add("active");
       });
     });
 
@@ -1417,8 +1415,8 @@ export async function loadDashboardMetrics() {
       const newContacts = Number((contactsResp?.stats && (contactsResp.stats.pending ?? contactsResp.stats.unresponded)) ?? contactsResp?.total ?? 0);
 
       const alertsHtml = `
-        <div class="alerts-grid" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#fff7ed; border:1px solid #fde68a; border-radius:10px;">
+        <div class="alerts-grid">
+          <div class="alert-tile" style="background:#fff7ed; border:1px solid #fde68a; border-radius:10px;">
             <div style="display:flex; align-items:center; gap:10px; color:#92400e;">
               <i class="fas fa-calendar-alt"></i>
               <div>
@@ -1431,7 +1429,7 @@ export async function loadDashboardMetrics() {
               <button type="button" data-action="goto-leases" class="btn-link">View</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#fef2f2; border:1px solid #fecaca; border-radius:10px;">
+          <div class="alert-tile" style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px;">
             <div style="display:flex; align-items:center; gap:10px; color:#991b1b;">
               <i class="fas fa-exclamation-triangle"></i>
               <div>
@@ -1444,7 +1442,7 @@ export async function loadDashboardMetrics() {
               <button type="button" data-action="goto-overdue" class="btn-link">Review</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px;">
+          <div class="alert-tile" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px;">
             <div style="display:flex; align-items:center; gap:10px; color:#1e3a8a;">
               <i class="fas fa-hourglass-half"></i>
               <div>
@@ -1457,7 +1455,7 @@ export async function loadDashboardMetrics() {
               <button type="button" data-action="goto-pending" class="btn-link">Process</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#ecfeff; border:1px solid #a5f3fc; border-radius:10px;">
+          <div class="alert-tile" style="background:#ecfeff; border:1px solid #a5f3fc; border-radius:10px;">
             <div style="display:flex; align-items:center; gap:10px; color:#075985;">
               <i class="fas fa-tools"></i>
               <div>
@@ -1470,7 +1468,7 @@ export async function loadDashboardMetrics() {
               <button type="button" data-action="goto-maint" class="btn-link">Open</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; grid-column: span 2;">
+          <div class="alert-tile" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; grid-column: span 2;">
             <div style="display:flex; align-items:center; gap:10px; color:#065f46;">
               <i class="fas fa-envelope"></i>
               <div>

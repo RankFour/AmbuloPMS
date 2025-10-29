@@ -933,3 +933,38 @@ body {
   border-bottom: none !important;
   padding: 20px 12px !important;
 }
+
+/* Alerts grid: controlled by CSS for responsiveness (JS now only emits classes) */
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.alerts-grid .alert-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+/* Mobile: stack alerts into a single column and allow tiles to wrap their internal content */
+@media (max-width: 768px) {
+  .alerts-grid {
+    grid-template-columns: 1fr !important; /* override any inline styles if present */
+  }
+  
+  .alerts-grid .alert-tile {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .alerts-grid .alert-tile > div:last-child {
+    margin-top: 12px;
+    align-self: flex-end;
+  }
+
+  .alerts-grid div{
+    padding: 0 0;
+  }
+}

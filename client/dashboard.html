@@ -10,6 +10,7 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/css/dashboard.css">
     <link rel="stylesheet" href="/css/navigation.css">
+    <link rel="stylesheet" href="/css/assistant-chat.css">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png">
     <title>Admin Dashboard</title>
 </head>
@@ -45,42 +46,13 @@
 
     <script type="module" src="/javascript/dashboard.js"></script>
 
-    <!-- Assistant/Webchat globals: make sure these are defined BEFORE assistant-webchat.js -->
+    <!-- Assistant via REST API (no webchat embed) -->
     <script>
         window.API_BASE = window.API_BASE || 'https://ambuloproperties-00d066e1316e.herokuapp.com/api';
         window.API_VERSION = window.API_VERSION || 'v1';
     </script>
-    <script src="https://cdn.botpress.cloud/webchat/v3.3/inject.js"></script>
-    <script src="https://files.bpcontent.cloud/2025/10/20/20/20251020204110-KI06VUC7.js" defer></script>    
-    <script src="/javascript/assistant-webchat.js"></script>
-
-
-    <style>
-        #bp-web-widget,
-        #bpWidgetContainer, 
-        [id^="bp-web-widget"],
-        .bp-widget,
-
-        .bpw-floating-button,
-        .bpFab {
-            z-index: 2147483647 !important;
-            pointer-events: auto !important;
-        }
-
-        .bpw-floating-button,
-        .bpFab {
-            border-radius: 9999px !important;
-            border: 2px solid rgba(0, 0, 0, 0.15) !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18) !important;
-            background-color: rgba(255, 255, 255, 0.8) !important;
-            backdrop-filter: saturate(120%) blur(2px);
-        }
-
-        .bpw-floating-button img,
-        .bpFab img {
-            border-radius: 9999px !important;
-        }
-    </style>
+    <div id="assistantApiChat"></div>
+    <script src="/javascript/assistant-api-chat.js"></script>
     <script src="/javascript/navigations.js"></script>
 </body>
 
