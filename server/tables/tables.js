@@ -45,6 +45,8 @@ import notificationsTable from "./notificationsTable.js";
 
 //assistant
 import assistantLogsTable from "./assistantLogsTable.js";
+import assistantConversationsTable from "./assistantConversationsTable.js";
+import assistantMessagesTable from "./assistantMessagesTable.js";
 
 const tables = async (dbConnection) => {
   const queries = [
@@ -93,8 +95,10 @@ const tables = async (dbConnection) => {
     messageAttachmentsTable,
   notificationsTable,
 
-    // assistant analytics
-    assistantLogsTable
+  // assistant analytics & chat persistence
+  assistantLogsTable,
+  assistantConversationsTable,
+  assistantMessagesTable
 
   ];
 
