@@ -27,6 +27,7 @@
   "homepage": "https://github.com/RankFour/AmbuloPMS#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "@google/generative-ai": "^0.21.0",
     "cloudinary": "^1.41.3",
     "colors": "^1.4.0",
     "cookie-parser": "^1.4.7",
@@ -43,8 +44,7 @@
     "path": "^0.12.7",
     "pdfkit": "^0.17.2",
     "socket.io": "^4.8.1",
-    "uuid": "^11.1.0",
-    "@botpress/chat": "^0.5.2"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.0",
