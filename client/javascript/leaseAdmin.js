@@ -3,17 +3,16 @@ import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 
 const API_BASE_URL = "/api/v1/leases";
 
-// Ensure modal helpers (showAlert/showConfirm/showPrompt) are available at runtime.
-// If the helpers script isn't already loaded on the page, dynamically load it and
-// provide a tiny fallback implementation so calls won't fail.
+window.currentEditingLeaseId = null;
+let deleteLeaseId = null;
+
 function loadModalHelpersIfNeeded() {
   return new Promise((resolve) => {
     try {
       if (typeof window !== "undefined" && typeof window.showAlert === "function") {
         return resolve(true);
       }
-
-      // If already injected, wait for it
+ 
       var existing = document.querySelector('script[data-modalhelpers]');
       if (existing) {
         existing.addEventListener("load", function () {
@@ -32,7 +31,6 @@ function loadModalHelpersIfNeeded() {
       s.async = true;
       s.setAttribute("data-modalhelpers", "1");
       s.onload = function () {
-        // the helper attaches showAlert/showConfirm/showPrompt to window
         return resolve(true);
       };
       s.onerror = function () {
@@ -68,7 +66,6 @@ function loadModalHelpersIfNeeded() {
   });
 }
 
-// Start loading early so it's ready when UI code needs it
 loadModalHelpersIfNeeded().then(function (ok) {
   if (ok) console.debug("ModalHelpers available");
   else console.debug("ModalHelpers fallback in use");
@@ -443,23 +440,7 @@ function showAccordionSection(sectionId) {
 
   const section = document.getElementById(sectionId);
   if (section) section.classList.add("show");
-}
-
-function showEditView(leaseId) {
-  const lease = leaseManager.getLeaseById(leaseId);
-  if (!lease) {
-    showToast("Lease not found", "error");
-    return;
-  }
-
-  document.getElementById("listView").classList.add("hidden");
-  document.getElementById("formView").classList.remove("hidden");
-  document.getElementById("detailView").classList.add("hidden");
-  document.getElementById("formTitle").textContent = "Edit Lease";
-
-  clearErrors();
-  showTab("details");
-}
+} 
 
 document.addEventListener("DOMContentLoaded", function () {
   document
@@ -779,35 +760,78 @@ function getNextDueDate(lease) {
 //#endregion
 
 function loadForm(lease) {
-  document.getElementById("tenantId").value = lease.tenantId || "";
-  document.getElementById("propertyId").value = lease.propertyId || "";
-  document.getElementById("startDate").value = lease.startDate || "";
-  document.getElementById("endDate").value = lease.endDate || "";
-  document.getElementById("status").value = lease.status || "PENDING";
-  document.getElementById("monthlyRent").value = lease.monthlyRent || "";
-  document.getElementById("paymentFrequency").value =
-    lease.paymentFrequency || "Monthly";
-  document.getElementById("quarterlyTax").value = lease.quarterlyTax || "";
-  document.getElementById("securityDeposit").value =
-    lease.securityDeposit || "";
-  document.getElementById("advancePayment").value = lease.advancePayment || "";
-  document.getElementById("lateFee").value = lease.lateFee || "";
-  document.getElementById("gracePeriod").value = lease.gracePeriod || "";
-  document.getElementById("isSecurityRefundable").checked =
-    lease.isSecurityRefundable !== false;
-  document.getElementById("advanceForfeited").checked =
-    lease.advanceForfeited === true;
-  document.getElementById("autoTerminationMonths").value =
-    lease.autoTerminationMonths || "";
-  document.getElementById("terminationTriggerDays").value =
-    lease.terminationTriggerDays || 61;
-  document.getElementById("noticeCancelDays").value =
-    lease.noticeCancelDays || "";
-  document.getElementById("noticeRenewalDays").value =
-    lease.noticeRenewalDays || "";
-  document.getElementById("rentIncreaseRenewal").value =
-    lease.rentIncreaseRenewal || "";
-  document.getElementById("notes").value = lease.notes || "";
+  // Defensive DOM assignments: element may not exist on all pages.
+  // For select fields (tenant/property), if the option for the current value
+  // isn't present (e.g., property filtered out because it's already leased),
+  // insert a selected option showing the current tenant/property name so the
+  // edit form reflects the existing lease.
+
+  const tenantSelect = document.getElementById("tenantId");
+  const propertySelect = document.getElementById("propertyId");
+
+  const safeSet = (id, value) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = value || "";
+  };
+
+  // Tenant
+  try {
+    const tenantVal = lease.tenantId || lease.user_id || "";
+    if (tenantSelect) {
+      // If option doesn't exist, add a readonly option to display current tenant
+      if (tenantVal && !tenantSelect.querySelector(`option[value="${tenantVal}"]`)) {
+        const opt = document.createElement('option');
+        opt.value = tenantVal;
+        opt.textContent = lease.tenantName || lease.tenant_name || `Tenant ${tenantVal}`;
+        // keep it selectable but mark as current
+        tenantSelect.appendChild(opt);
+      }
+      tenantSelect.value = tenantVal || "";
+    }
+  } catch (e) {
+    console.warn('Failed to set tenant select value', e);
+  }
+
+  // Property
+  try {
+    const propertyVal = lease.propertyId || lease.property_id || "";
+    if (propertySelect) {
+      if (propertyVal && !propertySelect.querySelector(`option[value="${propertyVal}"]`)) {
+        const opt = document.createElement('option');
+        opt.value = propertyVal;
+        opt.textContent = lease.propertyName || lease.property_name || `Property ${propertyVal}`;
+        propertySelect.appendChild(opt);
+      }
+      propertySelect.value = propertyVal || "";
+    }
+  } catch (e) {
+    console.warn('Failed to set property select value', e);
+  }
+
+  safeSet("startDate", lease.startDate || "");
+  safeSet("endDate", lease.endDate || "");
+  safeSet("status", lease.status || "PENDING");
+  safeSet("monthlyRent", lease.monthlyRent || "");
+  safeSet("paymentFrequency", lease.paymentFrequency || "Monthly");
+  safeSet("quarterlyTax", lease.quarterlyTax || "");
+  safeSet("securityDeposit", lease.securityDeposit || "");
+  safeSet("advancePayment", lease.advancePayment || "");
+  safeSet("lateFee", lease.lateFee || "");
+  safeSet("gracePeriod", lease.gracePeriod || "");
+
+  const isSecurityRefundableEl = document.getElementById("isSecurityRefundable");
+  if (isSecurityRefundableEl) isSecurityRefundableEl.checked = lease.isSecurityRefundable !== false;
+
+  const advanceForfeitedEl = document.getElementById("advanceForfeited");
+  if (advanceForfeitedEl) advanceForfeitedEl.checked = lease.advanceForfeited === true;
+
+  safeSet("autoTerminationMonths", lease.autoTerminationMonths || "");
+  safeSet("terminationTriggerDays", lease.terminationTriggerDays || 61);
+  safeSet("noticeCancelDays", lease.noticeCancelDays || "");
+  safeSet("noticeRenewalDays", lease.noticeRenewalDays || "");
+  safeSet("rentIncreaseRenewal", lease.rentIncreaseRenewal || "");
+  safeSet("notes", lease.notes || "");
 }
 
 function clearForm() {
@@ -835,7 +859,34 @@ function clearForm() {
 }
 
 async function saveLease() {
-  if (!validateForm()) {
+  console.debug("saveLease called", { currentEditingLeaseId: window.currentEditingLeaseId });
+
+  // If editing an existing lease, require admin password BEFORE proceeding
+  // so the admin is prompted as soon as they click Save.
+  if (window.currentEditingLeaseId) {
+    try {
+      const verified = await verifyAdminPassword();
+      if (!verified) {
+        showToast("Password verification failed", "error");
+        return;
+      }
+    } catch (e) {
+      console.error("Admin verification error:", e);
+      showToast("Password verification failed", "error");
+      return;
+    }
+  }
+
+  let isValid = false;
+  try {
+    isValid = validateForm();
+  } catch (err) {
+    console.error("validateForm threw an error:", err);
+    showToast("Form validation failed. See console for details.", "error");
+    return;
+  }
+
+  if (!isValid) {
     showToast("Please correct the errors in the form", "error");
     return;
   }
@@ -843,8 +894,8 @@ async function saveLease() {
   const saveBtn = document.getElementById("saveBtn");
   const saveText = document.getElementById("saveText");
 
-  saveBtn.disabled = true;
-  saveText.textContent = "Saving...";
+  if (saveBtn) saveBtn.disabled = true;
+  if (saveText) saveText.textContent = "Saving...";
 
   try {
     const formData = new FormData();
@@ -917,26 +968,58 @@ async function saveLease() {
     if (uploadedFiles.length > 0) {
       formData.append("contract", uploadedFiles[0]);
     }
+    // If editing an existing lease, we've already verified the admin password
+    // earlier — proceed to PATCH the lease.
+    if (window.currentEditingLeaseId) {
+      const url = `${API_BASE_URL}/${window.currentEditingLeaseId}`;
+      console.debug('Saving (PATCH)', url);
+      const response = await fetch(url, { method: "PATCH", body: formData });
 
-    const response = await fetch(`${API_BASE_URL}/create-lease`, {
-      method: "POST",
-      body: formData,
-    });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        console.error('PATCH failed', response.status, text);
+        let errorMessage = 'Failed to update lease';
+        try {
+          const errorData = JSON.parse(text || '{}');
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // ignore parse error
+        }
+        throw new Error(errorMessage);
+      }
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to save lease");
+      showToast("Lease updated successfully!");
+      window.currentEditingLeaseId = null;
+      resetFormState();
+      showListView();
+    } else {
+      const url = `${API_BASE_URL}/create-lease`;
+      console.debug('Saving (POST)', url);
+      const response = await fetch(url, { method: "POST", body: formData });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        console.error('POST failed', response.status, text);
+        let errorMessage = 'Failed to save lease';
+        try {
+          const errorData = JSON.parse(text || '{}');
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // ignore parse error
+        }
+        throw new Error(errorMessage);
+      }
+
+      showToast("Lease created successfully!");
+      resetFormState();
+      showListView();
     }
-
-    showToast("Lease created successfully!");
-    resetFormState();
-    showListView();
   } catch (error) {
     showToast("Error saving lease. Please try again.", "error");
     console.error("Save error:", error);
   } finally {
-    saveBtn.disabled = false;
-    saveText.textContent = "Save Lease";
+    if (saveBtn) saveBtn.disabled = false;
+    if (saveText) saveText.textContent = "Save Lease";
   }
 }
 
@@ -1055,7 +1138,7 @@ function resetFormState() {
   clearErrors();
 }
 
-async function showDetailView(leaseId) {
+async function showEditView(leaseId) {
   try {
     const lease = await fetchLeaseById(leaseId);
     if (!lease) {
@@ -1063,13 +1146,81 @@ async function showDetailView(leaseId) {
       return;
     }
 
-    document.getElementById("listView").classList.add("hidden");
-    document.getElementById("formView").classList.add("hidden");
-    document.getElementById("detailView").classList.remove("hidden");
-    loadDetailView(lease);
-  } catch (error) {
-    showToast("Failed to load lease details", "error");
+    // mark current editing lease id so saveLease will PATCH instead of POST
+    window.currentEditingLeaseId = leaseId;
+
+  // Guard DOM access: some pages or states may not include all elements
+  // so check existence before manipulating to avoid uncaught TypeErrors.
+  const listViewEl = document.getElementById("listView");
+  const formViewEl = document.getElementById("formView");
+  const detailViewEl = document.getElementById("detailView");
+  const formTitleEl = document.getElementById("formTitle");
+  if (listViewEl) listViewEl.classList.add("hidden");
+  if (formViewEl) formViewEl.classList.remove("hidden");
+  if (detailViewEl) detailViewEl.classList.add("hidden");
+  if (formTitleEl) formTitleEl.textContent = "Edit Lease";
+
+    clearErrors();
+    // Ensure dropdowns and defaults are populated first so select values can be set
+    try {
+      await populateTenantDropdown();
+      await populatePropertyDropdown();
+      await populateFinancialDefaults();
+    } catch (e) {
+      // non-fatal, still attempt to populate form
+      console.warn('Failed to pre-populate dropdowns/defaults for edit view', e);
+    }
+
+    loadForm(mapLeaseToFormFields(lease));
+    // showTab("details");
+  } catch (err) {
+    console.error("showEditView error:", err);
+    showToast("Failed to load lease for editing", "error");
   }
+}
+
+function mapLeaseToFormFields(lease) {
+  // Map server lease keys to form-friendly keys used by loadForm
+  const out = {
+    tenantId: lease.user_id || lease.tenantId || "",
+    propertyId: lease.property_id || lease.propertyId || "",
+    startDate:
+      lease.lease_start_date && lease.lease_start_date.split
+        ? lease.lease_start_date.split("T")[0]
+        : "",
+    endDate:
+      lease.lease_end_date && lease.lease_end_date.split
+        ? lease.lease_end_date.split("T")[0]
+        : "",
+    status: lease.lease_status || lease.status || "PENDING",
+    monthlyRent: lease.monthly_rent || lease.monthlyRent || "",
+    paymentFrequency:
+      lease.payment_frequency || lease.paymentFrequency || "Monthly",
+    quarterlyTax: lease.quarterly_tax_percentage || lease.quarterlyTax || "",
+    securityDeposit: lease.security_deposit_months || lease.securityDeposit || "",
+    advancePayment: lease.advance_payment_months || lease.advancePayment || "",
+    lateFee: lease.late_fee_percentage || lease.lateFee || "",
+    gracePeriod: lease.grace_period_days || lease.gracePeriod || "",
+    isSecurityRefundable:
+      lease.is_security_deposit_refundable !== undefined
+        ? lease.is_security_deposit_refundable
+        : true,
+    advanceForfeited: lease.advance_payment_forfeited_on_cancel === true,
+    autoTerminationMonths:
+      lease.auto_termination_after_months || lease.autoTerminationMonths || "",
+    terminationTriggerDays:
+      lease.termination_trigger_days || lease.terminationTriggerDays || 61,
+    noticeCancelDays: lease.notice_before_cancel_days || lease.noticeCancelDays || "",
+    noticeRenewalDays:
+      lease.notice_before_renewal_days || lease.noticeRenewalDays || "",
+    rentIncreaseRenewal: lease.rent_increase_on_renewal || lease.rentIncreaseRenewal || "",
+    // include display names so loadForm can show a readable option when the
+    // tenant/property isn't present in the current dropdown options
+    tenantName: lease.tenant_name || lease.tenantName || "",
+    propertyName: lease.property_name || lease.propertyName || "",
+    notes: lease.notes || "",
+  };
+  return out;
 }
 
 function loadDetailView(lease) {
@@ -1224,16 +1375,36 @@ function hideDeleteModal() {
 }
 
 function confirmDelete() {
-  if (deleteLeaseId) {
-    const deletedLease = leaseManager.deleteLease(deleteLeaseId);
-    if (deletedLease) {
+  if (!deleteLeaseId) {
+    hideDeleteModal();
+    return;
+  }
+
+  (async function () {
+    try {
+      const ok = await verifyAdminPassword();
+      if (!ok) {
+        showToast("Password verification failed", "error");
+        hideDeleteModal();
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/${deleteLeaseId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to delete lease");
+      }
       showToast("Lease deleted successfully");
       loadLeaseTable();
-    } else {
-      showToast("Error deleting lease", "error");
+    } catch (error) {
+      console.error("Delete lease error:", error);
+      showToast(error.message || "Error deleting lease", "error");
+    } finally {
+      hideDeleteModal();
     }
-  }
-  hideDeleteModal();
+  })();
 }
 
 //#region File Upload
@@ -1360,10 +1531,6 @@ function showToast(message, type = "success") {
   }, 4000);
 }
 
-function generateContract() {
-  showToast("Contract generation feature coming soon!");
-}
-
 function sendReminder() {
   showToast("Payment reminder sent successfully!");
 }
@@ -1425,6 +1592,177 @@ function setSessionCache(key, data) {
   } catch { }
 }
 
+// ------------------ Admin password verification (client) ------------------
+function createPasswordPromptModal() {
+  return new Promise((resolve) => {
+    // Create modal elements
+    const overlay = document.createElement('div');
+    overlay.className = 'admin-password-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.background = 'rgba(0,0,0,0.4)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.zIndex = '2200';
+
+    const modal = document.createElement('div');
+    modal.className = 'admin-password-modal';
+    modal.style.background = '#fff';
+    modal.style.padding = '20px';
+    modal.style.borderRadius = '8px';
+    modal.style.width = '380px';
+    modal.style.boxShadow = '0 10px 30px rgba(0,0,0,0.15)';
+
+    const title = document.createElement('div');
+    title.style.fontWeight = '700';
+    title.style.marginBottom = '8px';
+    title.textContent = 'Confirm password';
+
+    const desc = document.createElement('div');
+    desc.style.fontSize = '13px';
+    desc.style.color = '#374151';
+    desc.style.marginBottom = '12px';
+    desc.textContent = 'Please enter your password to confirm this action.';
+
+    const input = document.createElement('input');
+    // Prevent browser autofill by using unpredictable name and new-password
+    input.autocomplete = 'new-password';
+    input.name = 'p_' + Math.random().toString(36).slice(2);
+    input.type = 'password';
+    input.style.width = '100%';
+    input.style.padding = '10px 12px';
+    input.style.border = '1px solid #d1d5db';
+    input.style.borderRadius = '6px';
+    input.style.marginBottom = '12px';
+
+    const buttonRow = document.createElement('div');
+    buttonRow.style.display = 'flex';
+    buttonRow.style.justifyContent = 'flex-end';
+    buttonRow.style.gap = '8px';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.padding = '8px 12px';
+
+    const okBtn = document.createElement('button');
+    okBtn.className = 'btn btn-primary';
+    okBtn.textContent = 'Confirm';
+    okBtn.style.padding = '8px 12px';
+
+    buttonRow.appendChild(cancelBtn);
+    buttonRow.appendChild(okBtn);
+
+    modal.appendChild(title);
+    modal.appendChild(desc);
+    modal.appendChild(input);
+    modal.appendChild(buttonRow);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const cleanup = () => {
+      try { document.body.removeChild(overlay); } catch (e) { }
+    };
+
+    cancelBtn.addEventListener('click', () => {
+      cleanup();
+      resolve(null);
+    });
+
+    okBtn.addEventListener('click', () => {
+      const val = input.value || '';
+      cleanup();
+      resolve(val);
+    });
+
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        okBtn.click();
+      }
+      if (ev.key === 'Escape') {
+        cancelBtn.click();
+      }
+    });
+
+    // Focus the input
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
+async function showDetailView(leaseId) {
+  try {
+    const lease = await fetchLeaseById(leaseId);
+    if (!lease) {
+      showToast("Lease not found", "error");
+      return;
+    }
+
+    document.getElementById("listView").classList.add("hidden");
+    document.getElementById("formView").classList.add("hidden");
+    document.getElementById("detailView").classList.remove("hidden");
+    loadDetailView(lease);
+  } catch (error) {
+    showToast("Failed to load lease details", "error");
+  }
+}
+
+async function verifyAdminPassword() {
+  try {
+    // Prefer platform modal if available
+    let pwd = null;
+    if (typeof Modal !== 'undefined' && Modal && typeof Modal.open === 'function') {
+      // Try global Modal prompt if it supports prompt-style inputs
+      try {
+        const result = await Modal.open({
+          title: 'Confirm password',
+          body: '<div>Please enter your password to continue.</div><input autocomplete="new-password" type="password" id="_modal_admin_pwd" style="width:100%;margin-top:12px;padding:8px;border:1px solid #ddd;border-radius:6px;">',
+          showFooter: true,
+          confirmText: 'Confirm',
+          cancelText: 'Cancel',
+          onConfirm: () => document.getElementById('_modal_admin_pwd')?.value || '',
+        });
+        // If Modal.open returned a string, use it. If it returned falsy (including
+        // undefined), assume the modal handled the UI and the user cancelled — do
+        // not fall back to the inline prompt to avoid showing two prompts.
+        if (typeof result === 'string' && result.length) {
+          pwd = result;
+        } else {
+          // Modal was shown but returned no value (user cancelled or modal
+          // framework doesn't return result). Treat as cancelled.
+          return false;
+        }
+      } catch (e) {
+        // ignore and fallback
+      }
+    }
+
+    // If Modal.open wasn't available or we didn't return above, show fallback
+    // inline prompt.
+    if (!pwd) {
+      pwd = await createPasswordPromptModal();
+    }
+
+    if (!pwd) return false;
+
+    const res = await fetch('/api/v1/admin/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd }),
+    });
+    if (!res.ok) return false;
+    return true;
+  } catch (err) {
+    console.error('verifyAdminPassword error:', err);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 showListView();
 
 window.showCreateView = showCreateView;
@@ -1440,7 +1778,6 @@ window.hideDeleteModal = hideDeleteModal;
 window.confirmDelete = confirmDelete;
 window.handleFileUpload = handleFileUpload;
 window.removeFile = removeFile;
-window.generateContract = generateContract;
 window.sendReminder = sendReminder;
 window.terminateLease = terminateLease;
 window.viewPaymentHistory = viewPaymentHistory;
@@ -1451,3 +1788,4 @@ window.showEditView = showEditView;
 window.showDetailView = showDetailView;
 window.showListView = showListView;
 window.showAccordionSection = showAccordionSection;
+// window.showTab = showTab;

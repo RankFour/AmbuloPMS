@@ -56,7 +56,7 @@ h4 {
 }
 
 h5 {
-  font-size: 0.8125rem;
+  font-size: 1.2rem;
 }
 
 h6 {
@@ -1510,7 +1510,7 @@ li.breadcrumb-item:hover {
 .btn-primary,
 .btn-secondary {
   min-width: 90px;
-  font-size: 1rem;
+  font-size: 1.3rem;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
 }

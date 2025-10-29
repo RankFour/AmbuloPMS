@@ -475,7 +475,7 @@
                             <button class="btn btn-secondary" onclick="showListView()">
                                 <i class="fa-solid fa-arrow-left"></i> Back to List
                             </button>
-                            <button class="btn btn-primary" onclick="editCurrentLease()">
+                            <button class="btn btn-primary" onclick="showEditView()">
                                 <i class="fa-solid fa-pen"></i> Edit Lease
                             </button>
                         </div>
@@ -528,12 +528,8 @@
                                     <div class="sidebar-section">
                                         <h3>Quick Actions</h3>
                                         <div style="display: flex; flex-direction: column; gap: 12px;">
-                                            <button class="btn btn-primary" onclick="editCurrentLease()"><i
+                                            <button class="btn btn-primary" onclick="showEditView()"><i
                                                     class="fa-solid fa-pen"></i> Edit Lease</button>
-                                            <button class="btn btn-success" onclick="generateContract()"><i
-                                                    class="fa-solid fa-file"></i> Generate Contract</button>
-                                            <button class="btn btn-warning" onclick="sendReminder()"><i
-                                                    class="fa-solid fa-bell"></i> Send Payment Reminder</button>
                                             <button class="btn btn-danger" onclick="terminateLease()"><i
                                                     class="fa-solid fa-x"></i> Terminate Lease</button>
                                         </div>
