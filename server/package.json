@@ -33,7 +33,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
-  "express-rate-limit": "^7.4.0",
+    "express-rate-limit": "^7.4.0",
     "express-async-handler": "^1.2.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
@@ -43,7 +43,8 @@
     "path": "^0.12.7",
     "pdfkit": "^0.17.2",
     "socket.io": "^4.8.1",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "@botpress/chat": "^0.5.2"
   },
   "devDependencies": {
     "concurrently": "^9.2.0",
