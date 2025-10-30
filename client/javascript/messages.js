@@ -1012,6 +1012,11 @@ function renderChatMessages(messages) {
       const textColor = msg.sent ? "#ffffff" : "var(--text-primary)";
       const border = msg.sent ? "none" : "1px solid var(--border-color)";
       const safeText = escapeHtml(String(msg.text || ""));
+      const delBtn = msg.sent
+        ? `<button type="button" class="msg-del-btn" onclick="deleteChatMessage(${msg.id})" title="Delete message" style="border:none;background:none;color:${
+            msg.sent ? "#E0E7FF" : "var(--text-muted)"
+          }; cursor:pointer; float:right; margin-left:0.375rem"><i class="fas fa-trash-alt"></i></button>`
+        : "";
       const attachmentsHtml =
         Array.isArray(msg.attachments) && msg.attachments.length
           ? (() => {
@@ -1076,6 +1081,7 @@ function renderChatMessages(messages) {
       return `
             <div style="display:flex; justify-content:${align};">
               <div class="message-bubble" style="max-width:70%; background:${bubbleBg}; color:${textColor}; border:${border}; border-radius:0.75rem; padding:0.5rem 0.75rem; box-shadow:0 1px 1px rgba(0,0,0,0.05)">
+                ${delBtn}
                 <div class="message-text" style="white-space:pre-wrap; word-wrap:break-word;">${safeText}</div>
                 ${attachmentsHtml}
                 <div class="message-time" style="font-size:0.75rem; opacity:0.8; margin-top:0.25rem; text-align:${
@@ -1085,6 +1091,52 @@ function renderChatMessages(messages) {
             </div>`;
     })
     .join("");
+}
+
+async function deleteChatMessage(messageId) {
+  try {
+    if (!messageId) return;
+    // Prefer modal helpers when available
+    let ok = false;
+    try {
+      if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
+        ok = !!(await window.showConfirm('Delete this message?', 'Delete message'));
+      } else {
+        ok = !!window.confirm?.('Delete this message?');
+      }
+    } catch (e) {
+      ok = !!window.confirm?.('Delete this message?');
+    }
+    if (!ok) return;
+
+    const res = await fetch(`${API_BASE}/messages/${encodeURIComponent(String(messageId))}`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: jwtToken ? { Authorization: `Bearer ${jwtToken}` } : undefined,
+    });
+    if (!res.ok) {
+      let msg = "Failed to delete message";
+      try {
+        const j = await res.json();
+        if (j && j.message) msg = j.message;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    // Remove from cache and re-render
+    if (chatMessagesCache[currentChatContact]) {
+      chatMessagesCache[currentChatContact] = chatMessagesCache[currentChatContact].filter(
+        (m) => String(m.id) !== String(messageId)
+      );
+    }
+    // Re-render main chat area
+    const contact = chatContacts.find((c) => String(c.id) === String(currentChatContact));
+    renderChatMain(contact || { id: currentChatContact, name: "" });
+    showNotification("Message deleted", "success");
+  } catch (e) {
+    console.error("deleteChatMessage error:", e);
+    showNotification(e.message || "Failed to delete message", "error");
+  }
 }
 
 let imageModalState = { messageId: null, items: [], index: 0 };
@@ -2358,5 +2410,6 @@ window.switchConvMediaTab = switchConvMediaTab;
 window.openChatSidebarMobile = openChatSidebarMobile;
 window.closeChatSidebarMobile = closeChatSidebarMobile;
 window.closeModal = closeModal;
+window.deleteChatMessage = deleteChatMessage;
 
 window.logout = globalLogout;

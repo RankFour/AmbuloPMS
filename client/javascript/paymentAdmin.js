@@ -3087,37 +3087,46 @@ function removeCharge(id) {
     openModal("deleteChargeModal");
 }
 
-function confirmDeleteCharge() {
+async function confirmDeleteCharge() {
     if (!chargeToDelete) {
         showAlert("No charge selected for deletion", "error");
         return;
     }
 
-    const { charge, lease } = chargeToDelete;
+    const { charge } = chargeToDelete;
+    try {
+        // Call API to delete charge
+        const res = await fetch(`${API_BASE_URL}/charges/${encodeURIComponent(
+            String(charge.id)
+        )}`, {
+            method: "DELETE",
+            credentials: "include",
+        });
+        if (!res.ok) {
+            let msg = "Failed to delete charge";
+            try {
+                const j = await res.json();
+                if (j && j.message) msg = j.message;
+            } catch {}
+            throw new Error(msg);
+        }
 
-    const chargeIndex = lease.charges.findIndex((c) => c.id === charge.id);
-    if (chargeIndex > -1) {
-        lease.charges.splice(chargeIndex, 1);
+        // Refresh cached data and UI after successful delete
+        invalidateChargesCache();
+        invalidateStatsCache();
+        await fetchCharges({ force: true });
+        requestStatisticsUpdate({ force: true });
+        renderChargesTable();
+        renderPaymentsTable();
+
+        closeModal("deleteChargeModal");
+        showAlert("Charge deleted successfully!", "success");
+    } catch (e) {
+        console.error("Delete charge failed:", e);
+        showAlert(e.message || "Failed to delete charge", "error");
+    } finally {
+        chargeToDelete = null;
     }
-
-    if (lease.paymentHistory) {
-        lease.paymentHistory = lease.paymentHistory.filter(
-            (p) => p.chargeId !== charge.id
-        );
-    }
-
-    syncDataArrays();
-    filteredCharges = [...charges];
-    filteredPayments = [...payments];
-    invalidateChargesCache();
-    invalidateStatsCache();
-    requestStatisticsUpdate({ force: true });
-    renderChargesTable();
-    renderPaymentsTable();
-    closeModal("deleteChargeModal");
-
-    showAlert("Charge deleted successfully!", "success");
-    chargeToDelete = null;
 }
 
 function recordPayment(chargeId) {
