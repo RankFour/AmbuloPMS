@@ -25,6 +25,17 @@
     <!-- Main Content -->
     <div class="main-content">
         <div class="documents-section">
+            <!-- Breadcrumb Navigation (page-level) -->
+            <div class="breadcrumb-container">
+                <nav class="breadcrumb-nav">
+                    <a href="/dashboard.html">
+                        <i class="fas fa-home"></i> Dashboard
+                    </a>
+                    <span class="breadcrumb-separator">></span>
+                    <span class="breadcrumb-current">Documents</span>
+                </nav>
+            </div>
+
             <div class="controls">
                 <div class="dropdown">
                     <button class="btn btn-add" onclick="toggleAddMenu()">
@@ -54,18 +65,10 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="dropdown">
-                    <div class="dropdown-button" onclick="toggleDropdown('tenantDropdown')">
-                        <span>Tenant Name</span>
-                        <span>▼</span>
-                    </div>
-                    <div class="dropdown-content" id="tenantDropdown">
-                        <div class="dropdown-item" onclick="selectTenant('All Tenants')">All Tenants</div>
-                        <div class="dropdown-item" onclick="selectTenant('Tenant A')">Tenant A</div>
-                        <div class="dropdown-item" onclick="selectTenant('Tenant B')">Tenant B</div>
-                        <div class="dropdown-item" onclick="selectTenant('Tenant C')">Tenant C</div>
-                    </div>
+                <!-- Search and filters -->
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="search-input" placeholder="Search documents..." id="searchInput" />
                 </div>
 
                 <div class="dropdown">
@@ -93,6 +96,10 @@
                         <div class="dropdown-item" onclick="selectModified('This month')">This month</div>
                     </div>
                 </div>
+
+                <button class="clear-filters-btn" onclick="clearFilters()">
+                    <i class="fas fa-times"></i> Clear Filters
+                </button>
             </div>
 
             <!-- Main Content Area -->

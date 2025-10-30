@@ -35,6 +35,7 @@ import assistantRoutes from './routes/assistantRoutes.js';
 import reportsRoutes from './routes/reportsRoutes.js';
 import notificationsRoutes from './routes/notificationsRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import documentsRoutes from './routes/documentsRoutes.js';
 import remindersService from './services/remindersService.js';
 
 
@@ -100,6 +101,7 @@ app.use(`/api/${API_VERSION}/messages`, messagesRoutes);
 app.use(`/api/${API_VERSION}/reports`, reportsRoutes);
 app.use(`/api/${API_VERSION}/notifications`, notificationsRoutes);
 app.use(`/api/${API_VERSION}/admin`, adminRoutes);
+app.use(`/api/${API_VERSION}/documents`, documentsRoutes);
 
 // Rate limiting specifically for assistant endpoints
 const assistantLimiter = rateLimit({
