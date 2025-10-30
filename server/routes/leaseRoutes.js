@@ -24,8 +24,9 @@ router.post(
 );
 
 router.get("/", protect, getAllLeases);
-router.get("/:id", protect, getSingleLeaseById);
+// Place more specific route before generic :id to avoid shadowing
 router.get("/users/:userId", protect, getLeaseByUserId);
+router.get("/:id", protect, getSingleLeaseById);
 
 router.patch(
   "/:id",

@@ -417,6 +417,8 @@ function showListView() {
   document.getElementById("listView").classList.remove("hidden");
   document.getElementById("formView").classList.add("hidden");
   document.getElementById("detailView").classList.add("hidden");
+  // Ensure we're not in edit mode when showing list
+  window.currentEditingLeaseId = null;
   loadLeaseTable();
 }
 
@@ -424,11 +426,16 @@ function showCreateView() {
   document.getElementById("listView").classList.add("hidden");
   document.getElementById("formView").classList.remove("hidden");
   document.getElementById("detailView").classList.add("hidden");
+  // Reset edit state to ensure Save performs a create (POST), not a patch
+  window.currentEditingLeaseId = null;
   clearForm();
   clearErrors();
   populateTenantDropdown();
   populatePropertyDropdown();
   populateFinancialDefaults();
+  // Optional: refresh the form title to reflect create mode
+  const titleEl = document.getElementById("formTitle");
+  if (titleEl) titleEl.textContent = "Create Lease";
 }
 
 function showAccordionSection(sectionId) {
@@ -911,10 +918,11 @@ async function saveLease() {
       "monthly_rent",
       document.getElementById("monthlyRent").value
     );
-    formData.append(
-      "payment_frequency",
-      document.getElementById("paymentFrequency").value
-    );
+    {
+      const pfEl = document.getElementById("paymentFrequency");
+      const paymentFrequency = pfEl && pfEl.value ? pfEl.value : "Monthly";
+      formData.append("payment_frequency", paymentFrequency);
+    }
     formData.append(
       "quarterly_tax_percentage",
       document.getElementById("quarterlyTax").value
@@ -968,8 +976,7 @@ async function saveLease() {
     if (uploadedFiles.length > 0) {
       formData.append("contract", uploadedFiles[0]);
     }
-    // If editing an existing lease, we've already verified the admin password
-    // earlier — proceed to PATCH the lease.
+
     if (window.currentEditingLeaseId) {
       const url = `${API_BASE_URL}/${window.currentEditingLeaseId}`;
       console.debug('Saving (PATCH)', url);
@@ -1129,13 +1136,15 @@ function checkForUnsavedChanges() {
         return field.checked !== field.defaultChecked;
       }
       return field.value !== field.defaultValue;
-    }) || leaseManager.uploadedFiles.length > 0
+    }) || (Array.isArray(uploadedFiles) && uploadedFiles.length > 0)
   );
 }
 
 function resetFormState() {
   clearForm();
   clearErrors();
+  // Always exit edit mode when resetting form state
+  window.currentEditingLeaseId = null;
 }
 
 async function showEditView(leaseId) {
@@ -1504,9 +1513,13 @@ function showToast(message, type = "success") {
 
   messageEl.textContent = message;
 
-  // Reset classes and add notification + type + show
-  toast.classList.remove("show", "success", "info", "error");
-  toast.classList.add("notification", type === "error" ? "error" : type === "info" ? "info" : "success");
+  // Reset classes and add type + show (CSS uses .toast and .toast.show)
+  toast.classList.remove("show", "error", "info", "success");
+  // Ensure base class is present
+  if (!toast.classList.contains("toast")) {
+    toast.classList.add("toast");
+  }
+  if (type === "error") toast.classList.add("error");
 
   // set icon for each type (FontAwesome classes)
   if (icon) {
@@ -1526,7 +1539,7 @@ function showToast(message, type = "success") {
     toast.classList.remove("show");
     // remove type class shortly after hide to allow CSS transitions
     setTimeout(() => {
-      toast.classList.remove("success", "info", "error");
+      toast.classList.remove("error", "info", "success");
     }, 300);
   }, 4000);
 }
@@ -1712,40 +1725,8 @@ async function showDetailView(leaseId) {
 
 async function verifyAdminPassword() {
   try {
-    // Prefer platform modal if available
-    let pwd = null;
-    if (typeof Modal !== 'undefined' && Modal && typeof Modal.open === 'function') {
-      // Try global Modal prompt if it supports prompt-style inputs
-      try {
-        const result = await Modal.open({
-          title: 'Confirm password',
-          body: '<div>Please enter your password to continue.</div><input autocomplete="new-password" type="password" id="_modal_admin_pwd" style="width:100%;margin-top:12px;padding:8px;border:1px solid #ddd;border-radius:6px;">',
-          showFooter: true,
-          confirmText: 'Confirm',
-          cancelText: 'Cancel',
-          onConfirm: () => document.getElementById('_modal_admin_pwd')?.value || '',
-        });
-        // If Modal.open returned a string, use it. If it returned falsy (including
-        // undefined), assume the modal handled the UI and the user cancelled — do
-        // not fall back to the inline prompt to avoid showing two prompts.
-        if (typeof result === 'string' && result.length) {
-          pwd = result;
-        } else {
-          // Modal was shown but returned no value (user cancelled or modal
-          // framework doesn't return result). Treat as cancelled.
-          return false;
-        }
-      } catch (e) {
-        // ignore and fallback
-      }
-    }
-
-    // If Modal.open wasn't available or we didn't return above, show fallback
-    // inline prompt.
-    if (!pwd) {
-      pwd = await createPasswordPromptModal();
-    }
-
+    // Always use a reliable inline password prompt to avoid Modal API return-value issues
+    const pwd = await createPasswordPromptModal();
     if (!pwd) return false;
 
     const res = await fetch('/api/v1/admin/verify-password', {

@@ -52,6 +52,40 @@ const createLease = async (leaseData = {}, contractFile = null, io = null) => {
 
     const lease_id = leaseData.lease_id || uuidv4();
 
+    // Whitelist of columns that exist in the leases table
+    const allowedColumns = new Set([
+      'lease_id',
+      'user_id',
+      'property_id',
+      // dates and meta
+      'lease_start_date',
+      'lease_end_date',
+      'renewal_count',
+      'parent_lease_id',
+      // financials/status
+      'monthly_rent',
+      'lease_status',
+      // overrideable settings
+      'security_deposit_months',
+      'advance_payment_months',
+      'payment_frequency',
+      'quarterly_tax_percentage',
+      'lease_term_months',
+      'late_fee_percentage',
+      'grace_period_days',
+      'is_security_deposit_refundable',
+      'auto_termination_after_months',
+      'advance_payment_forfeited_on_cancel',
+      'termination_trigger_days',
+      'notice_before_cancel_days',
+      'notice_before_renewal_days',
+      'rent_increase_on_renewal',
+      // misc
+      'notes',
+      'lease_contract_id',
+    ]);
+
+    // Start with the core required fields
     const newLease = {
       lease_id,
       user_id: leaseData.user_id,
@@ -66,17 +100,37 @@ const createLease = async (leaseData = {}, contractFile = null, io = null) => {
       lease_contract_id,
     };
 
-    Object.keys(defaults).forEach((key) => {
-      if (leaseData[key] === undefined || leaseData[key] === null) {
-        newLease[key] = defaults[key];
-      } else {
+    // For each overrideable/optional column, prefer request value, else default value
+    const optionalColumns = [
+      'security_deposit_months',
+      'advance_payment_months',
+      'payment_frequency',
+      'quarterly_tax_percentage',
+      'lease_term_months',
+      'late_fee_percentage',
+      'grace_period_days',
+      'is_security_deposit_refundable',
+      'auto_termination_after_months',
+      'advance_payment_forfeited_on_cancel',
+      'termination_trigger_days',
+      'notice_before_cancel_days',
+      'notice_before_renewal_days',
+      'rent_increase_on_renewal',
+    ];
+    for (const key of optionalColumns) {
+      if (leaseData[key] !== undefined && leaseData[key] !== null) {
         newLease[key] = leaseData[key];
+      } else if (defaults[key] !== undefined && defaults[key] !== null) {
+        newLease[key] = defaults[key];
+      }
+    }
+
+    // Remove any unexpected keys and undefined values
+    Object.keys(newLease).forEach((key) => {
+      if (!allowedColumns.has(key) || newLease[key] === undefined) {
+        delete newLease[key];
       }
     });
-
-    Object.keys(newLease).forEach(
-      (key) => newLease[key] === undefined && delete newLease[key]
-    );
 
     const fields = Object.keys(newLease).join(", ");
     const placeholders = Object.keys(newLease)
@@ -141,6 +195,7 @@ const getAllLeases = async (queryObj = {}) => {
       FROM leases l
       LEFT JOIN users u ON l.user_id = u.user_id
       LEFT JOIN properties p ON l.property_id = p.property_id
+      WHERE 1=1
     `;
 
     const values = [];
