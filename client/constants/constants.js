@@ -19,11 +19,8 @@ const TICKET_REQUEST_TYPES = [
     { value: 'Electrical', label: 'Electrical' },
     { value: 'Plumbing', label: 'Plumbing' },
     { value: 'HVAC', label: 'HVAC' },
-    { value: 'Appliance', label: 'Appliance' },
-    { value: 'Structural', label: 'Structural' },
     { value: 'Painting', label: 'Painting' },
     { value: 'Cleaning', label: 'Cleaning' },
-    { value: 'Security', label: 'Security' },
     { value: 'Other', label: 'Other' }
 ];
 
