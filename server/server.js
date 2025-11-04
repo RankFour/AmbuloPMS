@@ -122,19 +122,32 @@ app.get('/login', (req, res) => {
 });
 
 const prettyRoutes = {
-    '/properties': 'propertySpaces.html',
+    '/property-spaces': 'propertySpaces.html',
     '/contact-us': 'contactus.html',
     '/about-us': 'aboutus.html',
     '/faqs': 'FAQs.html',
     '/maintenance': 'maintenance.html',
+    '/maintenance': 'maintenanceTenant.html',
     '/documents': 'documents.html',
     '/reports': 'reports.html',
     '/messages': 'messages.html',
-    '/tenants': 'tenants.html',
+    '/users': 'tenants.html',
     '/dashboard': 'dashboard.html',
     '/profile': 'account-profile.html',
+    '/payments': 'paymentAdmin.html',
     '/payments': 'paymentTenant.html',
-    '/leases': 'leaseTenant.html'
+    '/leases': 'leaseTenant.html',
+    '/leases': 'leaseAdmin.html',
+    '/properties': 'propertyAdmin.html',
+    '/reports' : 'reports.html',
+    '/manage-content' : 'contentManagement.html',
+    '/manage-addresses' : 'building-addresses.html',
+    '/manage-company-info' : 'company-information.html',
+    '/manage-lease-terms' : 'lease-terms-cms.html',
+    '/edit-payment-info' : 'edit-payments-details.html',
+    '/forgot-password': 'forgotPassword.html',
+    '/inquiries': 'contact-us-submissions.html'
+    
 };
 
 for (const [routePath, htmlFile] of Object.entries(prettyRoutes)) {
