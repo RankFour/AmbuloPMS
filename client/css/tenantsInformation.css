@@ -1,0 +1,261 @@
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Poppins, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .profile-card {
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .profile-card.mobile {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+        
+        .profile-card.tablet {
+            max-width: 700px;
+        }
+        
+        .profile-card.hidden {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        
+        .profile-header {
+            padding: 24px;
+            position: relative;
+            transition: padding 0.3s ease;
+        }
+        
+        .profile-header.mobile {
+            padding: 16px;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #666;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s ease;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .profile-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .profile-info.mobile {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 12px;
+        }
+        
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .user-details {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+        
+        .user-title {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .user-phone {
+            color: #007AFF;
+            font-size: 14px;
+            text-decoration: none;
+            margin-bottom: 16px;
+            display: block;
+            transition: color 0.2s ease;
+        }
+        
+        .user-phone:hover {
+            color: #0056b3;
+        }
+        
+        .send-message-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s ease;
+        }
+        
+        .send-message-btn:hover {
+            background: #0056b3;
+        }
+        
+        .profile-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .profile-stats.mobile {
+            align-items: center;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .file-icon {
+            width: 12px;
+            height: 12px;
+            background: #666;
+            border-radius: 2px;
+        }
+        
+        .profile-nav {
+            border-top: 5px solid #e5e5e5;
+            display: flex;
+        }
+        
+        .nav-item {
+            flex: 1;
+            padding: 16px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-item.active {
+            color: #007AFF;
+            border-bottom-color: #007AFF;
+        }
+        
+        .nav-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .profile-content {
+            height: 400px;
+            background: #fafafa;
+            padding: 24px;
+            overflow-y: auto;
+        }
+        
+        .content-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .info-item {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #007AFF;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
