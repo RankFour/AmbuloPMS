@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/css/dashboard.css">
     <link rel="stylesheet" href="/css/navigation.css">
     <link rel="stylesheet" href="/css/assistant-chat.css">
+    
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png">
     <title>Admin Dashboard</title>
 </head>
@@ -48,7 +49,8 @@
 
     <!-- Assistant via REST API (no webchat embed) -->
     <script>
-        window.API_BASE = window.API_BASE || 'https://ambuloproperties-00d066e1316e.herokuapp.com/api';
+        // window.API_BASE = window.API_BASE || 'https://ambuloproperties-00d066e1316e.herokuapp.com/api';
+        window.API_BASE = window.API_BASE || 'http://localhost:5000/api';
         window.API_VERSION = window.API_VERSION || 'v1';
     </script>
     <div id="assistantApiChat"></div>
