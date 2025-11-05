@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/css/fonts.css">
     <link rel="stylesheet" href="/css/spacesDetails.css">
+    <link rel="stylesheet" href="/css/navbar.css">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png">
     <title>Property Space Details</title>
@@ -92,6 +93,13 @@
                                         <option value="Lease Information">Lease Information</option>
                                         <option value="General Inquiry">General Inquiry</option>
                                     </select>
+                                </div>
+                                <!-- Preferred schedule: shown only when Schedule a Viewing is selected -->
+                                <div class="form-group" id="scheduleContainer" style="display:none;">
+                                    <label for="preferredSchedule">Preferred Viewing Date &amp; Time</label>
+                                    <input type="datetime-local" id="preferredSchedule" name="preferredSchedule">
+                                    <small class="muted">Choose a preferred date and time for the viewing.</small>
+                                    <div id="scheduleError" class="form-error" style="display:none; margin-top:8px;">Please select a future date and time for the viewing.</div>
                                 </div>
                                 <div class="form-group">
                                     <label for="contactMessage">Message</label>

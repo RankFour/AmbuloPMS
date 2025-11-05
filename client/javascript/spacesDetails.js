@@ -11,7 +11,113 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
   setupPropertyDetails();
+  setupScheduleField();
 });
+
+function setupScheduleField() {
+  const subjectSelect = document.getElementById('subject');
+  const scheduleContainer = document.getElementById('scheduleContainer');
+  const scheduleInput = document.getElementById('preferredSchedule');
+  const scheduleError = document.getElementById('scheduleError');
+
+  if (!subjectSelect || !scheduleContainer || !scheduleInput) return;
+
+  function getLocalDatetimeMin() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${d}T${hh}:${mm}`;
+  }
+
+  function setMinNow() {
+    try {
+      scheduleInput.min = getLocalDatetimeMin();
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // initialize min to now
+  setMinNow();
+
+  // show/hide schedule input based on selection and toggle required
+  subjectSelect.addEventListener('change', () => {
+    if (subjectSelect.value === 'Schedule a Viewing') {
+      scheduleContainer.style.display = '';
+      scheduleInput.required = true;
+      setMinNow();
+      if (scheduleError) scheduleError.style.display = 'none';
+    } else {
+      // hide and clear value when not needed
+      scheduleContainer.style.display = 'none';
+      scheduleInput.required = false;
+      scheduleInput.value = '';
+      if (scheduleError) scheduleError.style.display = 'none';
+    }
+  });
+
+  // update min when user focuses input (keeps it from being stale)
+  scheduleInput.addEventListener('focus', setMinNow);
+
+  // basic inline validation on input
+  scheduleInput.addEventListener('input', () => {
+    if (!scheduleError) return;
+    const val = scheduleInput.value;
+    if (!val) {
+      scheduleError.style.display = 'none';
+      return;
+    }
+    if (!isFutureDate(val)) {
+      scheduleError.textContent = 'Please choose a future date and time.';
+      scheduleError.style.display = '';
+    } else {
+      scheduleError.style.display = 'none';
+    }
+  });
+}
+
+function formatPreferredSchedule(value) {
+  // expected input: "YYYY-MM-DDTHH:MM" (datetime-local)
+  if (!value) return '';
+  // split date and time
+  const [datePart, timePart] = value.split('T');
+  if (!datePart) return '';
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute] = (timePart || '').split(':').map(Number);
+
+  // create a Date using local components
+  const dt = new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0);
+
+  const monthNames = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+  const weekdayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  const monthName = monthNames[dt.getMonth()] || '';
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const yyyy = dt.getFullYear();
+  const weekday = weekdayNames[dt.getDay()] || '';
+  const hh = String(dt.getHours()).padStart(2, '0');
+  const mm = String(dt.getMinutes()).padStart(2, '0');
+
+  // Format: "Month, DD, YYYY Day - HH:MM"
+  return `${monthName}, ${dd}, ${yyyy} ${weekday} - ${hh}:${mm}`;
+}
+
+function isFutureDate(value) {
+  if (!value) return false;
+  // expected format YYYY-MM-DDTHH:MM
+  const [datePart, timePart] = value.split('T');
+  if (!datePart) return false;
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute] = (timePart || '').split(':').map(Number);
+  const dt = new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0);
+  return dt.getTime() > Date.now();
+}
 
 function setupNavbarFeatures() {
   const navbar =
@@ -212,7 +318,37 @@ window.handleContactSubmit = async function handleContactSubmit(e) {
   const phone = form.querySelector('#contactPhone')?.value?.trim() || '';
   const subjectField = form.querySelector('#subject');
   const subject = subjectField?.value || '';
-  const message = form.querySelector('#contactMessage')?.value?.trim() || '';
+  let message = form.querySelector('#contactMessage')?.value?.trim() || '';
+    // If scheduling a viewing, validate schedule is present and in the future,
+    // then append formatted Preferred Schedule to message.
+    if (subject === 'Schedule a Viewing') {
+      const scheduleVal = form.querySelector('#preferredSchedule')?.value || '';
+      const scheduleError = document.getElementById('scheduleError');
+      if (!scheduleVal) {
+        if (scheduleError) {
+          scheduleError.textContent = 'Please select a preferred date and time.';
+          scheduleError.style.display = '';
+        }
+        const sched = document.getElementById('preferredSchedule');
+        if (sched) sched.focus();
+        return;
+      }
+      if (!isFutureDate(scheduleVal)) {
+        if (scheduleError) {
+          scheduleError.textContent = 'Please choose a future date and time.';
+          scheduleError.style.display = '';
+        }
+        const sched = document.getElementById('preferredSchedule');
+        if (sched) sched.focus();
+        return;
+      }
+      try {
+        const formatted = formatPreferredSchedule(scheduleVal);
+        if (formatted) message += `\n\nPreferred Schedule: ${formatted}`;
+        if (scheduleError) scheduleError.style.display = 'none';
+      } catch (err) {
+        console.warn('Failed to parse preferred schedule:', err);
+      }
 
   
   form.querySelectorAll('input, select, textarea').forEach(f => {
@@ -345,6 +481,7 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 400);
   }, 4500);
 }
+}
 
 function setMainImage(thumbnail, index) {
   const mainImageElement = document.getElementById("mainImage");
@@ -413,5 +550,8 @@ function updateImageGallery(newImages) {
   }
 }
 
+
 window.changeImage = changeImage;
 window.setMainImage = setMainImage;
+window.revealOnScroll = revealOnScroll;
+window.updateImageGallery = updateImageGallery;
