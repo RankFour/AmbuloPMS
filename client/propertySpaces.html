@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/css/fonts.css">
     <link rel="stylesheet" href="/css/propertySpaces.css">
+    <link rel="stylesheet" href="/css/navbar.css">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png">
     <title>Property Spaces</title>
@@ -31,7 +32,7 @@
 
                 <div class="filter-content" id="filterContent">
                     <!-- Search Bar -->
-                    <div class="filter-group" style="margin-bottom: 24px;">
+                    <div class="filter-group filter-search">
                         <input type="text" class="filter-input" id="searchInput"
                             placeholder="Search by unit name or location...">
                     </div>
@@ -55,83 +56,18 @@
                         </div>
                     </div>
 
-                    <!-- Property Type Filters
-                    <div class="filter-category">
-                        <label class="filter-label">Property Type</label>
-                        <div class="button-filters">
-                            <button class="filter-btn type-office" data-filter="type" data-value="office">
-                                <span class="filter-icon"></span>
-                                Office Space
-                            </button>
-                            <button class="filter-btn type-retail" data-filter="type" data-value="retail">
-                                <span class="filter-icon"></span>
-                                Retail Space
-                            </button>
-                            <button class="filter-btn type-warehouse" data-filter="type" data-value="warehouse">
-                                <span class="filter-icon"></span>
-                                Warehouse
-                            </button>
-                            <button class="filter-btn type-restaurant" data-filter="type" data-value="restaurant">
-                                <span class="filter-icon"></span>
-                                Restaurant
-                            </button>
-                            <button class="filter-btn type-coworking" data-filter="type" data-value="coworking">
-                                <span class="filter-icon"></span>
-                                Co-working
-                            </button>
-                            <button class="filter-btn type-medical" data-filter="type" data-value="medical">
-                                <span class="filter-icon"></span>
-                                Medical Office
-                            </button>
-                        </div>
-                    </div> -->
-
-                    <!-- More Property Types -->
-                    <!-- <div class="filter-category">
-                        <div class="button-filters">
-                            <button class="filter-btn type-showroom" data-filter="type" data-value="showroom">
-                                <span class="filter-icon"></span>
-                                Showroom
-                            </button>
-                            <button class="filter-btn type-salon" data-filter="type" data-value="salon">
-                                <span class="filter-icon"></span>
-                                Salon Space
-                            </button>
-                            <button class="filter-btn type-gym" data-filter="type" data-value="gym">
-                                <span class="filter-icon"></span>
-                                Gym Space
-                            </button>
-                            <button class="filter-btn type-training" data-filter="type" data-value="training">
-                                <span class="filter-icon"></span>
-                                Training Center
-                            </button>
-                            <button class="filter-btn type-bookstore" data-filter="type" data-value="bookstore">
-                                <span class="filter-icon"></span>
-                                Bookstore
-                            </button>
-                            <button class="filter-btn type-supermarket" data-filter="type" data-value="supermarket">
-                                <span class="filter-icon"></span>
-                                Supermarket
-                            </button>
-                        </div>
-                    </div> -->
-
                     <!-- Price Range Filters -->
                     <div class="filter-category">
                         <label class="filter-label">Price Range</label>
-                        <div class="button-filters">
-                            <button class="filter-btn price-low" data-filter="price" data-value="low">
-                                <span class="filter-icon"></span>
-                                Under ₱40k
-                            </button>
-                            <button class="filter-btn price-mid" data-filter="price" data-value="mid">
-                                <span class="filter-icon"></span>
-                                ₱40k - ₱70k
-                            </button>
-                            <button class="filter-btn price-high" data-filter="price" data-value="high">
-                                <span class="filter-icon"></span>
-                                Over ₱70k
-                            </button>
+                        <div class="price-dropdowns">
+                            <select id="priceMinSelect" class="filter-select" aria-label="Minimum Price">
+                                <option value="">Min (Any)</option>
+                            </select>
+                            <span class="range-sep" aria-hidden="true">to</span>
+                            <select id="priceMaxSelect" class="filter-select" aria-label="Maximum Price">
+                                <option value="">Max (Any)</option>
+                            </select>
+                            <!-- <button type="button" id="resetPriceBtn" class="btn-filter btn-secondary">Reset Price</button> -->
                         </div>
                     </div>
 

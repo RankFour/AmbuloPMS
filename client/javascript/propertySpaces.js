@@ -90,9 +90,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let activeFilters = {
   status: [],
-  
-  price: [],
   area: [],
+  minPrice: null,
+  maxPrice: null,
 };
 
 function toggleFilter(filterType, value, buttonElement) {
@@ -140,14 +140,11 @@ function applyFilters() {
     
 
     let matchesPrice = true;
-    if (activeFilters.price.length > 0) {
-      matchesPrice = activeFilters.price.some((priceRange) => {
-        if (priceRange === "low") return cardPrice < 40000;
-        if (priceRange === "mid")
-          return cardPrice >= 40000 && cardPrice <= 70000;
-        if (priceRange === "high") return cardPrice > 70000;
-        return true;
-      });
+    if (typeof activeFilters.minPrice === 'number') {
+      matchesPrice = matchesPrice && (isNaN(cardPrice) ? true : cardPrice >= activeFilters.minPrice);
+    }
+    if (typeof activeFilters.maxPrice === 'number') {
+      matchesPrice = matchesPrice && (isNaN(cardPrice) ? true : cardPrice <= activeFilters.maxPrice);
     }
 
     let matchesArea = true;
@@ -196,14 +193,19 @@ function clearAllFilters() {
 
   activeFilters = {
     status: [],
-    
-    price: [],
     area: [],
+    minPrice: null,
+    maxPrice: null,
   };
 
   document.querySelectorAll(".filter-btn").forEach((btn) => {
     btn.classList.remove("active");
   });
+
+  const minSelect = document.getElementById('priceMinSelect');
+  const maxSelect = document.getElementById('priceMaxSelect');
+  if (minSelect) minSelect.value = '';
+  if (maxSelect) maxSelect.value = '';
 
   const sortSelect = document.getElementById("sortSelect");
   if (sortSelect) {
@@ -273,6 +275,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (sortSelect) {
     sortSelect.addEventListener("change", sortProperties);
   }
+  
   document.addEventListener("mouseover", function (e) {
     if (e.target.closest(".property-card")) {
       const card = e.target.closest(".property-card");
@@ -318,7 +321,7 @@ async function fetchProperties() {
 }
 
 function formatPrice(price) {
-  return price ? `₱ ${Number(price).toLocaleString()}/mo` : "N/A";
+  return price ? `₱ ${Number(price).toLocaleString()}` : "N/A";
 }
 
 function formatArea(area) {
@@ -362,7 +365,7 @@ function renderPropertyCard(property) {
               property.property_name || "Unit"
             }</div>
             <div class="property-desc">${address}</div>
-            <div class="property-price">${formatPrice(property.base_rent)}</div>
+            <div class="property-price"><span class="price-amount">${formatPrice(property.base_rent)}</span><span class="price-term">/mo</span></div>
           </div>
         </div>
         <div class="property-details">
@@ -409,6 +412,8 @@ async function populatePropertyGrid() {
       return;
     }
     grid.innerHTML = properties.map(renderPropertyCard).join("");
+    
+    initializePriceDropdowns(properties);
     revealCards();
   } catch (err) {
     grid.innerHTML = `<div class="error">Failed to load properties.</div>`;
@@ -424,3 +429,95 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 window.clearAllFilters = clearAllFilters;
+
+
+function formatPeso(n) {
+  return `₱ ${Number(n).toLocaleString()}`;
+}
+
+function computePriceSteps(min, max) {
+  if (!isFinite(min) || !isFinite(max) || min >= max) {
+    return [];
+  }
+  
+  const span = max - min;
+  let step = 5000; 
+  if (span > 200000) step = 20000;
+  else if (span > 120000) step = 10000;
+  else if (span < 40000) step = 2000;
+  
+  const start = Math.floor(min / step) * step;
+  const end = Math.ceil(max / step) * step;
+  const values = [];
+  for (let v = start; v <= end; v += step) values.push(v);
+  return values;
+}
+
+function initializePriceDropdowns(properties) {
+  const minSelect = document.getElementById('priceMinSelect');
+  const maxSelect = document.getElementById('priceMaxSelect');
+  if (!minSelect || !maxSelect) return;
+
+  
+  const rents = (properties || [])
+    .map(p => Number(p.base_rent))
+    .filter(v => Number.isFinite(v) && v > 0)
+    .sort((a,b)=>a-b);
+
+  if (rents.length === 0) {
+    minSelect.disabled = true;
+    maxSelect.disabled = true;
+    activeFilters.minPrice = null;
+    activeFilters.maxPrice = null;
+    return;
+  }
+
+  const min = rents[0];
+  const max = rents[rents.length - 1];
+  const steps = computePriceSteps(min, max);
+
+  
+  const buildOptions = (select, isMin) => {
+    const current = select.value;
+    select.innerHTML = '';
+    const anyOpt = document.createElement('option');
+    anyOpt.value = '';
+    anyOpt.textContent = isMin ? 'Min (Any)' : 'Max (Any)';
+    select.appendChild(anyOpt);
+    steps.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = String(v);
+      opt.textContent = formatPeso(v);
+      select.appendChild(opt);
+    });
+    
+    if ([...select.options].some(o => o.value === current)) {
+      select.value = current;
+    }
+  };
+
+  buildOptions(minSelect, true);
+  buildOptions(maxSelect, false);
+
+  const applyRange = () => {
+    const minVal = minSelect.value === '' ? null : Number(minSelect.value);
+    const maxVal = maxSelect.value === '' ? null : Number(maxSelect.value);
+    
+    if (minVal != null && maxVal != null && minVal > maxVal) {
+      
+      maxSelect.value = String(minVal);
+      activeFilters.minPrice = minVal;
+      activeFilters.maxPrice = minVal;
+    } else {
+      activeFilters.minPrice = minVal;
+      activeFilters.maxPrice = maxVal;
+    }
+    applyFilters();
+  };
+
+  minSelect.addEventListener('change', applyRange);
+  maxSelect.addEventListener('change', applyRange);
+
+}
+
+window.toggleFilters = toggleFilters;
