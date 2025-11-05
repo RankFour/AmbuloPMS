@@ -63,9 +63,6 @@ function enhanceFormInteractions() {
     const lastName = formData.get("lastName");
     const email = formData.get("email");
     const phone = formData.get("phone");
-    const businessType = formData.get("businessType");
-    const spaceSize = formData.get("spaceSize");
-    const budget = formData.get("budget");
     const subject = formData.get("subject");
     const message = formData.get("message");
 
@@ -95,9 +92,6 @@ function enhanceFormInteractions() {
       lastName,
       email,
       phone,
-      businessType,
-      spaceSize,
-      budget,
       subject,
       message,
     });
@@ -132,14 +126,6 @@ function enhanceFormInteractions() {
       form.style.opacity = "";
       form.style.pointerEvents = "";
 
-      if (businessType) {
-        setTimeout(() => {
-          showNotification(
-            `We've noted your interest in ${businessType} space. Our leasing specialist will prepare relevant options for you.`,
-            "info"
-          );
-        }, 2000);
-      }
     } catch (err) {
       console.error("Submit contact error:", err);
       showNotification(
