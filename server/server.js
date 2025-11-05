@@ -126,18 +126,24 @@ const prettyRoutes = {
     '/contact-us': 'contactus.html',
     '/about-us': 'aboutus.html',
     '/faqs': 'FAQs.html',
+    // Admin maintenance page
     '/maintenance': 'maintenance.html',
-    '/maintenance': 'maintenanceTenant.html',
+    // Tenant maintenance page (explicit path)
+    '/view-maintenance': 'maintenanceTenant.html',
     '/documents': 'documents.html',
     '/reports': 'reports.html',
     '/messages': 'messages.html',
     '/users': 'tenants.html',
     '/dashboard': 'dashboard.html',
     '/profile': 'account-profile.html',
+    // Admin payments page
     '/payments': 'paymentAdmin.html',
-    '/payments': 'paymentTenant.html',
-    '/leases': 'leaseTenant.html',
+    // Tenant payments page (explicit path)
+    '/my-payments': 'paymentTenant.html',
+    // Admin leases page
     '/leases': 'leaseAdmin.html',
+    // Tenant leases page
+    '/my-leases': 'leaseTenant.html',
     '/properties': 'propertyAdmin.html',
     '/reports' : 'reports.html',
     '/manage-content' : 'contentManagement.html',
