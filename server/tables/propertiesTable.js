@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS properties (
     floor_area_sqm DECIMAL(10,2) NOT NULL,
     description TEXT,
     display_image VARCHAR(255),
-    property_status ENUM('Available', 'Occupied', 'Maintenance', 'Reserved') DEFAULT 'Available' NOT NULL,
+    property_status varchar(50) DEFAULT 'Available' NOT NULL,
     base_rent DECIMAL(10,2) NOT NULL,
     advance_months INT NOT NULL,
     security_deposit_months INT NOT NULL,

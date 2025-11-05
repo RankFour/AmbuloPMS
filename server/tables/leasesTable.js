@@ -2,6 +2,8 @@ const leasesTable = `CREATE TABLE IF NOT EXISTS leases (
     lease_id VARCHAR(255) PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
     property_id VARCHAR(255) NOT NULL,
+    business_name VARCHAR(255),
+    business_type VARCHAR(100),
     
     -- Contract Dates
     lease_start_date DATE NOT NULL,

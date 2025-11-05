@@ -1,3 +1,8 @@
+const USER_ROLES = {
+    ADMIN: 'ADMIN',
+    MANAGER: 'MANAGER',
+    TENANT: 'TENANT'
+};
 
 const TICKET_STATUSES = {
     PENDING: 'PENDING',
@@ -23,14 +28,6 @@ const TICKET_REQUEST_TYPES = [
     { value: 'Cleaning', label: 'Cleaning' },
     { value: 'Other', label: 'Other' }
 ];
-
-
-const USER_ROLES = {
-    ADMIN: 'ADMIN',
-    MANAGER: 'MANAGER',
-    TENANT: 'TENANT'
-};
-
 
 const FILE_UPLOAD = {
     MAX_SIZE: 10 * 1024 * 1024, 
@@ -226,6 +223,29 @@ const CHARGE_TYPES = [
     { value: 'Others', label: 'Others' }
 ];
 
+const SUBMISSION_STATUSES = {
+    PENDING: 'pending',
+    RESPONDED: 'responded',
+    ARCHIVED: 'archived'
+};
+
+const PROPERTY_STATUSES = {
+    AVAILABLE: 'Available',
+    OCCUPIED: 'Occupied',
+    MAINTENANCE: 'Maintenance',
+    RESERVED: 'Reserved',
+    ARCHIVED: 'Archived'
+};
+
+const BUSINESS_TYPES = [
+    { value: 'Retail', label: 'Retail' },
+    { value: 'Food and Beverage', label: 'Food and Beverage' },
+    { value: 'Office', label: 'Office' },
+    { value: 'Healthcare', label: 'Healthcare' },
+    { value: 'Education', label: 'Education' },
+    { value: 'Entertainment', label: 'Entertainment' },
+    { value: 'Other', label: 'Other' }
+];
 
 const PAGINATION = {
     DEFAULT_LIMIT: 20,
@@ -255,6 +275,9 @@ if (typeof module !== 'undefined' && module.exports) {
         CHARGE_STATUS_MAPPINGS,
         CHARGE_TYPES,
         PRIORITY_MAPPINGS,
+        SUBMISSION_STATUSES,
+        PROPERTY_STATUSES,
+        BUSINESS_TYPES,
         PAGINATION
     };
 } else {
@@ -270,12 +293,15 @@ if (typeof module !== 'undefined' && module.exports) {
         DATE_FORMATS,
         MESSAGES,
         SUBJECT_LINES,
-    PAYMENT_METHODS,
+        PAYMENT_METHODS,
         STATUS_MAPPINGS,
         CHARGE_STATUSES,
         CHARGE_STATUS_MAPPINGS,
         CHARGE_TYPES,
         PRIORITY_MAPPINGS,
+        SUBMISSION_STATUSES,
+        PROPERTY_STATUSES,
+        BUSINESS_TYPES,
         PAGINATION
     };
 }

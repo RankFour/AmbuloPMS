@@ -9,7 +9,7 @@ const contactSubmissionsTable = `CREATE TABLE IF NOT EXISTS contact_submissions 
     preferred_space_size VARCHAR(50),
     monthly_budget_range VARCHAR(50),
     message TEXT NOT NULL,
-    status ENUM('pending', 'responded', 'archived') DEFAULT 'pending',
+    status varchar(20) DEFAULT 'pending',
     replied_at DATETIME null,
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
 );`;
