@@ -36,14 +36,14 @@ function setupScheduleField() {
     try {
       scheduleInput.min = getLocalDatetimeMin();
     } catch (e) {
-      // ignore
+      
     }
   }
 
-  // initialize min to now
+  
   setMinNow();
 
-  // show/hide schedule input based on selection and toggle required
+  
   subjectSelect.addEventListener('change', () => {
     if (subjectSelect.value === 'Schedule a Viewing') {
       scheduleContainer.style.display = '';
@@ -51,7 +51,7 @@ function setupScheduleField() {
       setMinNow();
       if (scheduleError) scheduleError.style.display = 'none';
     } else {
-      // hide and clear value when not needed
+      
       scheduleContainer.style.display = 'none';
       scheduleInput.required = false;
       scheduleInput.value = '';
@@ -59,10 +59,10 @@ function setupScheduleField() {
     }
   });
 
-  // update min when user focuses input (keeps it from being stale)
+  
   scheduleInput.addEventListener('focus', setMinNow);
 
-  // basic inline validation on input
+  
   scheduleInput.addEventListener('input', () => {
     if (!scheduleError) return;
     const val = scheduleInput.value;
@@ -80,15 +80,15 @@ function setupScheduleField() {
 }
 
 function formatPreferredSchedule(value) {
-  // expected input: "YYYY-MM-DDTHH:MM" (datetime-local)
+  
   if (!value) return '';
-  // split date and time
+  
   const [datePart, timePart] = value.split('T');
   if (!datePart) return '';
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour, minute] = (timePart || '').split(':').map(Number);
 
-  // create a Date using local components
+  
   const dt = new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0);
 
   const monthNames = [
@@ -104,13 +104,13 @@ function formatPreferredSchedule(value) {
   const hh = String(dt.getHours()).padStart(2, '0');
   const mm = String(dt.getMinutes()).padStart(2, '0');
 
-  // Format: "Month, DD, YYYY Day - HH:MM"
+  
   return `${monthName}, ${dd}, ${yyyy} ${weekday} - ${hh}:${mm}`;
 }
 
 function isFutureDate(value) {
   if (!value) return false;
-  // expected format YYYY-MM-DDTHH:MM
+  
   const [datePart, timePart] = value.split('T');
   if (!datePart) return false;
   const [year, month, day] = datePart.split('-').map(Number);
@@ -319,8 +319,8 @@ window.handleContactSubmit = async function handleContactSubmit(e) {
   const subjectField = form.querySelector('#subject');
   const subject = subjectField?.value || '';
   let message = form.querySelector('#contactMessage')?.value?.trim() || '';
-    // If scheduling a viewing, validate schedule is present and in the future,
-    // then append formatted Preferred Schedule to message.
+    
+    
     if (subject === 'Schedule a Viewing') {
       const scheduleVal = form.querySelector('#preferredSchedule')?.value || '';
       const scheduleError = document.getElementById('scheduleError');

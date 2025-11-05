@@ -119,6 +119,7 @@ fetch("/components/sidebar.html")
 
     window.addEventListener("resize", updateLayout);
     updateLayout();
+    try { document.dispatchEvent(new CustomEvent('sidebar:loaded')); } catch (e) {}
   });
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     };
 
-    // Sticky navbar
+    
     const handleScroll = () => {
       const scrollTop =
         window.pageYOffset || document.documentElement.scrollTop;
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
       revealOnScroll();
     };
 
-    // Smooth scrolling
+    
     document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
       anchor.addEventListener("click", function (e) {
         e.preventDefault();
@@ -55,10 +55,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Event listeners
+    
     window.addEventListener("scroll", handleScroll);
     window.addEventListener("load", revealOnScroll);
-    revealOnScroll(); // Initial reveal
+    revealOnScroll(); 
   }
 
   const observerOptions = {
@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let activeFilters = {
   status: [],
-  // type: [],
+  
   price: [],
   area: [],
 };
@@ -116,7 +116,7 @@ function applyFilters() {
 
   propertyCards.forEach((card) => {
     const cardStatus = card.getAttribute("data-status");
-    // const cardType = card.getAttribute("data-type");
+    
     const cardPrice = parseInt(card.getAttribute("data-price"));
     const cardArea = parseInt(card.getAttribute("data-area"));
     const cardTitle = card
@@ -130,14 +130,14 @@ function applyFilters() {
       !searchTerm ||
       cardTitle.includes(searchTerm) ||
       cardLocation.includes(searchTerm)
-      // cardType.toLowerCase().includes(searchTerm);
+      
 
     const matchesStatus =
       activeFilters.status.length === 0 ||
       activeFilters.status.includes(cardStatus);
 
-    // const matchesType =
-    //   activeFilters.type.length === 0 || activeFilters.type.includes(cardType);
+    
+    
 
     let matchesPrice = true;
     if (activeFilters.price.length > 0) {
@@ -163,7 +163,7 @@ function applyFilters() {
     const shouldShow =
       matchesSearch &&
       matchesStatus &&
-      // matchesType &&
+      
       matchesPrice &&
       matchesArea;
 
@@ -196,7 +196,7 @@ function clearAllFilters() {
 
   activeFilters = {
     status: [],
-    // type: [],
+    
     price: [],
     area: [],
   };

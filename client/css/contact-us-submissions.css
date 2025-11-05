@@ -886,14 +886,9 @@ body:has(.sidebar.collapsed) .main-content,
 }
 
 .modal-header {
-  background: linear-gradient(135deg, #15a4ed 0%, #00486c 100%);
-  color: white;
+  color: var(--text-primary);
   padding: 28px;
   border-radius: 24px 24px 0 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
   overflow: hidden;
 }
 
