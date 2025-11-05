@@ -209,13 +209,17 @@
       document.getElementById("navbarContainer")
     ) {
       await maybeInjectFragment("/components/sidebar.html", "sidebarContainer");
+      try { document.dispatchEvent(new CustomEvent('sidebar:loaded')); } catch (e) {}
       await maybeInjectFragment(
         "/components/top-navbar.html",
         "navbarContainer"
       );
+      try { document.dispatchEvent(new CustomEvent('navbar:loaded')); } catch (e) {}
     } else {
       await maybeInjectFragment("/components/top-navbar.html", "navbar");
+      try { document.dispatchEvent(new CustomEvent('navbar:loaded')); } catch (e) {}
       await maybeInjectFragment("/components/sidebar.html", "sidebar");
+      try { document.dispatchEvent(new CustomEvent('sidebar:loaded')); } catch (e) {}
     }
 
     

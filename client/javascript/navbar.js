@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((data) => {
       document.getElementById("navbar-placeholder").innerHTML = data;
       setupNavbarFeatures();
+      try { document.dispatchEvent(new CustomEvent('navbar:loaded')); } catch (e) {}
     })
     .catch((error) => {
       console.error("Error loading navbar:", error);
