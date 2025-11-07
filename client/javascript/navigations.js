@@ -959,6 +959,13 @@
         const mapped = (list || []).slice(0, limit).map((c) => this._mapConversationToInboxItem(c));
         this.inboxMessages = mapped;
         this.populateInbox();
+        
+        const messagesBadge = document.getElementById('messagesBadge');
+        if (messagesBadge) {
+          const unread = this.inboxMessages.filter(m => m.unread).length;
+          messagesBadge.textContent = unread;
+          messagesBadge.style.display = unread > 0 ? 'flex' : 'none';
+        }
       } catch (e) {
         console.warn('Failed to load inbox conversations', e);
       }
@@ -1269,21 +1276,20 @@
         }
         const s = window.__ambuloSocket;
         if (!s.__notifListenerAttached) {
-          s.on('notification', () => {
-            
-            if (this.notificationBadge) {
-              const current = parseInt(this.notificationBadge.textContent || '0', 10) || 0;
-              const next = current + 1;
-              this.notificationBadge.textContent = String(next);
-              this.notificationBadge.style.display = 'flex';
-            }
-            
+          s.on('notification', (payload) => {
             try {
-              const isOpen = this.notificationMenu && this.notificationMenu.classList.contains('show');
-              if (isOpen) {
-                this.refreshNotifications();
+              const type = String(
+                (payload && (payload.type || payload.notification_type)) ||
+                (payload && payload.notification && payload.notification.type) ||
+                ''
+              ).toUpperCase();
+              
+              if (type === 'MESSAGE') {
+                return; 
               }
             } catch(_) {}
+            
+            try { this.refreshNotifications && this.refreshNotifications(); } catch(_) {}
           });
           
           s.on && s.on('new_message', (msg) => {
@@ -1380,7 +1386,8 @@
       const menu = this.notificationMenu;
       if (!menu) return;
       const filter = this._ensureNotifFilter();
-  const chips = ['INQUIRY','MESSAGE','PAYMENT','TICKET','LEASE','INFO'];
+      
+  const chips = ['INQUIRY','PAYMENT','TICKET','LEASE','INFO'];
       const headerHtml = `
         <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
           <span>Notifications</span>
@@ -1397,17 +1404,23 @@
         </div>`;
       if (!Array.isArray(list) || list.length === 0) {
         menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
-        if (this.notificationBadge) this.notificationBadge.textContent = '0';
+        if (this.notificationBadge) {
+          this.notificationBadge.textContent = '0';
+          this.notificationBadge.style.display = 'none';
+        }
         return;
       }
   
-  const unreadCount = (this._notifCache || list).filter(n => !n.is_read).length;
-      if (this.notificationBadge) this.notificationBadge.textContent = String(unreadCount);
+  const unreadCount = (this._notifCache || list).filter(n => !n.is_read && String(n.type).toUpperCase() !== 'MESSAGE').length;
+    if (this.notificationBadge) {
+      this.notificationBadge.textContent = String(unreadCount);
+      this.notificationBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
+    }
       menu.innerHTML = `
         ${headerHtml}
         <div class="notification-list">
           ${list.map(n => `
-            <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.notification_id}">
+            <div class="notification-item ${n.is_read || String(n.type).toUpperCase()==='MESSAGE' ? '' : 'unread'}" data-id="${n.notification_id}">
               <div class="notification-title">${(n.title||'').toString()}</div>
               ${n.body ? `<div class="notification-body">${(n.body||'').toString()}</div>` : ''}
               <div class="notification-meta">
@@ -1454,11 +1467,17 @@
           const notif = (this._notifCache || []).find(x => String(x.notification_id) === String(id));
           const targetUrl = this._resolveNotificationUrl ? this._resolveNotificationUrl(notif || {}) : null;
           try {
-            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
-            el.classList.remove('unread');
-            if (this.notificationBadge) {
-              const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
-              this.notificationBadge.textContent = String(Math.max(0, current - 1));
+            const notifType = (notif && notif.type) ? String(notif.type).toUpperCase() : '';
+            if (notifType !== 'MESSAGE') {
+              await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
+              el.classList.remove('unread');
+              if (this.notificationBadge) {
+                const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
+                this.notificationBadge.textContent = String(Math.max(0, current - 1));
+              }
+            } else {
+              
+              try { el.classList.remove('unread'); } catch(_) {}
             }
           } catch {}
           if (targetUrl) {
@@ -1472,8 +1491,9 @@
           e.stopPropagation();
           try {
             await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/read-all`, { method: 'PATCH', credentials: 'include' });
+            
             menu.querySelectorAll('.notification-item.unread').forEach(el => el.classList.remove('unread'));
-            if (this.notificationBadge) this.notificationBadge.textContent = '0';
+            if (this.notificationBadge) { this.notificationBadge.textContent = '0'; this.notificationBadge.style.display = 'none'; }
           } catch {}
         });
       }
@@ -1482,7 +1502,8 @@
     async refreshNotifications() {
       const filter = this._ensureNotifFilter();
       const { notifications } = await this.fetchNotifications({ unreadOnly: !!filter.unreadOnly });
-      this._notifCache = notifications || [];
+      
+      this._notifCache = (notifications || []).filter(n => String(n.type || '').toUpperCase() !== 'MESSAGE');
       this.renderNotifications(this._applyTypeFilter(this._notifCache));
     }
     openMessage(messageId) {
@@ -1662,6 +1683,8 @@
       const menu = this.notificationMenu;
       if (!menu) return;
       const filter = this._ensureNotifFilter ? this._ensureNotifFilter() : { unreadOnly: false };
+      
+      const filtered = (list || []).filter(n => String(n.type || '').toUpperCase() !== 'MESSAGE');
       const headerHtml = `
         <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
           <span>Notifications</span>
@@ -1670,7 +1693,7 @@
             <button type="button" id="notifFilterUnread" class="btn btn-link" style="padding:.25rem .5rem; ${filter.unreadOnly ? 'font-weight:600; text-decoration:underline;' : ''}">Unread</button>
           </div>
         </div>`;
-      if (!Array.isArray(list) || list.length === 0) {
+      if (!Array.isArray(filtered) || filtered.length === 0) {
         menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
         if (this.notificationBadge) {
           this.notificationBadge.textContent = '0';
@@ -1678,7 +1701,7 @@
         }
             return `<button type=\"button\" class=\"chip ${selected ? 'selected' : ''} chip-${t.toLowerCase()}\" data-type=\"${t}\">${t}</button>`;
       }
-      const unreadCount = list.filter(n => !n.is_read).length;
+      const unreadCount = filtered.filter(n => !n.is_read).length;
       if (this.notificationBadge) {
         this.notificationBadge.textContent = String(unreadCount);
         this.notificationBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
@@ -1686,7 +1709,7 @@
       menu.innerHTML = `
         ${headerHtml}
         <div class="notification-list">
-          ${list.map(n => `
+          ${filtered.map(n => `
             <div class="notification-item ${n.is_read ? '' : 'unread'}" data-id="${n.notification_id}">
               <div class="notification-title">${(n.title||'').toString()}</div>
               ${n.body ? `<div class="notification-body">${(n.body||'').toString()}</div>` : ''}
@@ -1705,13 +1728,13 @@
         e.stopPropagation();
         this._notifFilter.unreadOnly = false;
         const { notifications } = await this.fetchNotifications({ unreadOnly: false });
-        this.renderNotifications(notifications || []);
+        this.renderNotifications((notifications || []).filter(n => String(n.type||'').toUpperCase() !== 'MESSAGE'));
       });
       if (btnUnread) btnUnread.addEventListener('click', async (e) => {
         e.stopPropagation();
         this._notifFilter.unreadOnly = true;
         const { notifications } = await this.fetchNotifications({ unreadOnly: true });
-        this.renderNotifications(notifications || []);
+        this.renderNotifications((notifications || []).filter(n => String(n.type||'').toUpperCase() !== 'MESSAGE'));
       });
       menu.querySelectorAll('.notification-item').forEach(el => {
         el.addEventListener('click', async () => {
@@ -1751,7 +1774,7 @@
     async refreshNotifications() {
       const filter = this._ensureNotifFilter ? this._ensureNotifFilter() : { unreadOnly: false };
       const { notifications } = await this.fetchNotifications({ unreadOnly: !!filter.unreadOnly });
-      this.renderNotifications(notifications || []);
+      this.renderNotifications((notifications || []).filter(n => String(n.type||'').toUpperCase() !== 'MESSAGE'));
     }
     addKeyboardShortcuts() {
       document.addEventListener("keydown", (e) => {
@@ -2710,19 +2733,18 @@
         }
         const s = window.__ambuloSocket;
         if (!s.__notifListenerAttached) {
-          s.on('notification', () => {
-            if (this.notificationBadge) {
-              const current = parseInt(this.notificationBadge.textContent || '0', 10) || 0;
-              const next = current + 1;
-              this.notificationBadge.textContent = String(next);
-              this.notificationBadge.style.display = 'flex';
-            }
+          s.on('notification', (payload) => {
             try {
-              const isOpen = this.notificationMenu && this.notificationMenu.classList.contains('show');
-              if (isOpen) {
-                this.refreshNotifications();
+              const type = String(
+                (payload && (payload.type || payload.notification_type)) ||
+                (payload && payload.notification && payload.notification.type) ||
+                ''
+              ).toUpperCase();
+              if (type === 'MESSAGE') {
+                return; 
               }
             } catch(_) {}
+            try { this.refreshNotifications && this.refreshNotifications(); } catch(_) {}
           });
           
           s.on && s.on('new_message', (msg) => {

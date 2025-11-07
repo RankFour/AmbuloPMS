@@ -2213,3 +2213,7 @@ tr.highlight-pulse td { transition: background .6s ease; }
     animation: none !important;
   }
 }
+
+#submission-details-modal {
+  grid-template-columns: 1fr 1fr;
+}
