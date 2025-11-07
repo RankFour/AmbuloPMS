@@ -349,6 +349,7 @@ window.handleContactSubmit = async function handleContactSubmit(e) {
       } catch (err) {
         console.warn('Failed to parse preferred schedule:', err);
       }
+    }
 
   
   form.querySelectorAll('input, select, textarea').forEach(f => {
@@ -481,7 +482,7 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 400);
   }, 4500);
 }
-}
+
 
 function setMainImage(thumbnail, index) {
   const mainImageElement = document.getElementById("mainImage");
