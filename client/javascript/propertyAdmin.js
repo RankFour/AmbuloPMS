@@ -1149,13 +1149,14 @@ function getEditShowcaseImagesForSubmission() {
 
 function setupEditInlineForm() {
   if (editInlineFormHandler) return;
+  // Initialize edit form components (image upload, showcase, validation).
   setupEditInlineImageUpload();
   setupEditImageShowcase();
-  setupEditInlineAddressHandlers();
+  // Removed: setupEditInlineAddressHandlers() and new address creation logic.
   setupRealTimeValidation(true);
-  document
-    .getElementById("inlineEditPropertyForm")
-    .addEventListener("submit", handleEditInlineFormSubmit);
+  const formEl = document.getElementById("inlineEditPropertyForm");
+  if (formEl) formEl.addEventListener("submit", handleEditInlineFormSubmit);
+  // Load existing addresses only (no inline creation now).
   loadEditInlineAddresses();
   editInlineFormHandler = true;
 }
@@ -1325,149 +1326,12 @@ function setupEditInlineImageUpload() {
   };
 }
 
-function setupEditInlineAddressHandlers() {
-  const addNewAddressBtn = document.getElementById(
-    "editInlineAddNewAddressBtn"
-  );
-  const newAddressForm = document.getElementById("editInlineNewAddressForm");
-  const saveNewAddressBtn = document.getElementById(
-    "editInlineSaveNewAddressBtn"
-  );
-  const cancelNewAddressBtn = document.getElementById(
-    "editInlineCancelNewAddressBtn"
-  );
-  const addressSelect = document.getElementById("editInlineAddressSelect");
-  addNewAddressBtn.addEventListener("click", () => {
-    const isVisible = newAddressForm.style.display !== "none";
-    newAddressForm.style.display = isVisible ? "none" : "block";
-    addNewAddressBtn.innerHTML = isVisible
-      ? '<i class="fas fa-plus me-1"></i> Add New Address'
-      : '<i class="fas fa-minus me-1"></i> Cancel New Address';
-
-    setEditNewAddressRequired(!isVisible);
-  });
-
-  cancelNewAddressBtn.addEventListener("click", () => {
-    clearEditInlineAddressForm();
-    newAddressForm.style.display = "none";
-    addNewAddressBtn.innerHTML =
-      '<i class="fas fa-plus me-1"></i> Add New Address';
-    setEditNewAddressRequired(false);
-  });
-  saveNewAddressBtn.addEventListener("click", () => {
-    const newAddress = collectEditInlineAddressData();
-    if (validateEditInlineAddress(newAddress)) {
-      addEditInlineAddressToSelect(newAddress);
-      clearEditInlineAddressForm();
-      newAddressForm.style.display = "none";
-      addNewAddressBtn.innerHTML =
-        '<i class="fas fa-plus me-1"></i> Add New Address';
-      setEditNewAddressRequired(false);
-      showInlineSuccessMessage(
-        "Address prepared! It will be saved when you update the property."
-      );
-    }
-  });
-
-  addressSelect.addEventListener("change", () => {
-    if (addressSelect.value) {
-      clearEditInlineAddressForm();
-      newAddressForm.style.display = "none";
-      addNewAddressBtn.innerHTML =
-        '<i class="fas fa-plus me-1"></i> Add New Address';
-      setEditNewAddressRequired(false);
-    }
-  });
-}
-
-function setEditNewAddressRequired(isRequired) {
-  document.getElementById("editInlineNewBuildingName").required = isRequired;
-  document.getElementById("editInlineNewStreet").required = isRequired;
-  document.getElementById("editInlineNewCity").required = isRequired;
-}
-
-function collectEditInlineAddressData() {
-  return {
-    building_name: document
-      .getElementById("editInlineNewBuildingName")
-      .value.trim(),
-    street: document.getElementById("editInlineNewStreet").value.trim(),
-    barangay: document.getElementById("editInlineNewBarangay").value.trim(),
-    city: document.getElementById("editInlineNewCity").value.trim(),
-    province: document.getElementById("editInlineNewProvince").value.trim(),
-    postal_code: document
-      .getElementById("editInlineNewPostalCode")
-      .value.trim(),
-    country: document.getElementById("editInlineNewCountry").value.trim(),
-  };
-}
-
-function validateEditInlineAddress(address) {
-  const requiredFields = ["building_name", "street", "city"];
-  const missingFields = requiredFields.filter((field) => !address[field]);
-
-  if (missingFields.length > 0) {
-    const msg = `Please fill in the following required fields: ${missingFields.join(", ")}`;
-    try {
-      if (typeof window !== "undefined" && typeof window.showAlert === "function") {
-        window.showAlert(msg, "warning");
-      } else {
-        alert(msg);
-      }
-    } catch (e) {
-      try { alert(msg); } catch (err) { /* noop */ }
-    }
-    return false;
-  }
-
-  return true;
-}
-
-function addEditInlineAddressToSelect(newAddress) {
-  const addressSelect = document.getElementById("editInlineAddressSelect");
-  const tempId = "temp_" + Date.now();
-
-  const addressWithTempId = {
-    ...newAddress,
-    address_id: tempId,
-    is_new: true,
-  };
-
-  const formatted = formatAddress(newAddress, false);
-
-  const option = document.createElement("option");
-  option.value = tempId;
-  option.textContent = `${formatted} (New - will be created)`;
-  option.dataset.addressData = JSON.stringify(addressWithTempId);
-  option.selected = true;
-  addressSelect.appendChild(option);
-
-  if (window.editInlineAddressTomSelect) {
-    window.editInlineAddressTomSelect.addOption({
-      value: tempId,
-      text: `${formatted} (New - will be created)`,
-      addressData: JSON.stringify(addressWithTempId),
-    });
-    window.editInlineAddressTomSelect.addItem(tempId, true);
-  }
-}
-
-function clearEditInlineAddressForm() {
-  document.getElementById("editInlineNewBuildingName").value = "";
-  document.getElementById("editInlineNewStreet").value = "";
-  document.getElementById("editInlineNewBarangay").value = "";
-  document.getElementById("editInlineNewCity").value = "";
-  document.getElementById("editInlineNewProvince").value = "";
-  document.getElementById("editInlineNewPostalCode").value = "";
-  document.getElementById("editInlineNewCountry").value = "Philippines";
-}
-
 function populateAddressSelectFromCachedProperties(
   selectElement,
   propertiesData
 ) {
   selectElement.innerHTML =
-    '<option value="">Select an existing address (optional)</option>';
+    '<option value="">Select an existing address</option>';
 
   const uniqueAddresses = new Map();
 
@@ -1577,7 +1441,7 @@ async function loadEditInlineAddresses() {
               </div>`;
             },
           },
-          placeholder: "Select an existing address (optional)",
+          placeholder: "Select an existing address",
           dropdownInput:
             '<input type="text" autocomplete="off" class="ts-dropdown-input" placeholder="Type to search addresses...">',
         });
@@ -1842,137 +1706,17 @@ function setupInlineImageUpload() {
   uploadContainer.getUploadedImage = () => uploadedImage;
 }
 
-function setupInlineAddressHandlers() {
-  const addNewAddressBtn = document.getElementById("inlineAddNewAddressBtn");
-  const newAddressForm = document.getElementById("inlineNewAddressForm");
-  const saveNewAddressBtn = document.getElementById("inlineSaveNewAddressBtn");
-  const cancelNewAddressBtn = document.getElementById(
-    "inlineCancelNewAddressBtn"
-  );
-  const addressSelect = document.getElementById("inlineAddressSelect");
+function setupInlineAddressHandlers() {}
 
-  addNewAddressBtn.addEventListener("click", () => {
-    const isVisible = newAddressForm.style.display !== "none";
-    newAddressForm.style.display = isVisible ? "none" : "block";
-    addNewAddressBtn.innerHTML = isVisible
-      ? '<i class="fas fa-plus me-1"></i> Add New Address'
-      : '<i class="fas fa-minus me-1"></i> Cancel New Address';
-    setNewAddressRequired(!isVisible);
-  });
+function setNewAddressRequired() {}
 
-  cancelNewAddressBtn.addEventListener("click", () => {
-    clearInlineAddressForm();
-    newAddressForm.style.display = "none";
-    addNewAddressBtn.innerHTML =
-      '<i class="fas fa-plus me-1"></i> Add New Address';
-    setNewAddressRequired(false);
-  });
+function collectInlineAddressData() { return {}; }
 
-  saveNewAddressBtn.addEventListener("click", () => {
-    const newAddress = collectInlineAddressData();
-    if (validateInlineAddress(newAddress)) {
-      addInlineAddressToSelect(newAddress);
-      clearInlineAddressForm();
-      newAddressForm.style.display = "none";
-      addNewAddressBtn.innerHTML =
-        '<i class="fas fa-plus me-1"></i> Add New Address';
-      setNewAddressRequired(false);
-      showInlineSuccessMessage(
-        "Address prepared! It will be saved when you create the property."
-      );
-    }
-  });
+function validateInlineAddress() { return false; }
 
-  addressSelect.addEventListener("change", () => {
-    if (addressSelect.value) {
-      clearInlineAddressForm();
-      newAddressForm.style.display = "none";
-      addNewAddressBtn.innerHTML =
-        '<i class="fas fa-plus me-1"></i> Add New Address';
-      setNewAddressRequired(false);
-    }
-  });
-}
+function addInlineAddressToSelect() {}
 
-function setNewAddressRequired(isRequired) {
-  document.getElementById("inlineNewBuildingName").required = isRequired;
-  document.getElementById("inlineNewStreet").required = isRequired;
-  document.getElementById("inlineNewCity").required = isRequired;
-}
-
-function collectInlineAddressData() {
-  return {
-    building_name: document
-      .getElementById("inlineNewBuildingName")
-      .value.trim(),
-    street: document.getElementById("inlineNewStreet").value.trim(),
-    barangay: document.getElementById("inlineNewBarangay").value.trim(),
-    city: document.getElementById("inlineNewCity").value.trim(),
-    province: document.getElementById("inlineNewProvince").value.trim(),
-    postal_code: document.getElementById("inlineNewPostalCode").value.trim(),
-    country: document.getElementById("inlineNewCountry").value.trim(),
-  };
-}
-
-function validateInlineAddress(address) {
-  const requiredFields = ["building_name", "street", "city"];
-  const missingFields = requiredFields.filter((field) => !address[field]);
-
-  if (missingFields.length > 0) {
-    const msg = `Please fill in the following required fields: ${missingFields.join(", ")}`;
-    try {
-      if (typeof window !== "undefined" && typeof window.showAlert === "function") {
-        window.showAlert(msg, "warning");
-      } else {
-        alert(msg);
-      }
-    } catch (e) {
-      try { alert(msg); } catch (err) { /* noop */ }
-    }
-    return false;
-  }
-
-  return true;
-}
-
-function addInlineAddressToSelect(newAddress) {
-  const addressSelect = document.getElementById("inlineAddressSelect");
-  const tempId = "temp_" + Date.now();
-
-  const addressWithTempId = {
-    ...newAddress,
-    address_id: tempId,
-    is_new: true,
-  };
-
-  const formatted = formatAddress(addressWithTempId, true);
-
-  const option = document.createElement("option");
-  option.value = tempId;
-  option.textContent = `${formatted} (New - will be created)`;
-  option.dataset.addressData = JSON.stringify(addressWithTempId);
-  option.selected = true;
-  addressSelect.appendChild(option);
-
-  if (window.inlineAddressTomSelect) {
-    window.inlineAddressTomSelect.addOption({
-      value: tempId,
-      text: `${formatted} (New - will be created)`,
-      addressData: JSON.stringify(addressWithTempId),
-    });
-    window.inlineAddressTomSelect.addItem(tempId, true);
-  }
-}
-
-function clearInlineAddressForm() {
-  document.getElementById("inlineNewBuildingName").value = "";
-  document.getElementById("inlineNewStreet").value = "";
-  document.getElementById("inlineNewBarangay").value = "";
-  document.getElementById("inlineNewCity").value = "";
-  document.getElementById("inlineNewProvince").value = "";
-  document.getElementById("inlineNewPostalCode").value = "";
-  document.getElementById("inlineNewCountry").value = "Philippines";
-}
+function clearInlineAddressForm() {}
 
 async function loadInlineAddresses() {
   const addressSelect = document.getElementById("inlineAddressSelect");
@@ -1994,7 +1738,7 @@ async function loadInlineAddresses() {
       const result = await response.json();
       if (result.addresses && Array.isArray(result.addresses)) {
         addressSelect.innerHTML =
-          '<option value="">Select an existing address (optional)</option>';
+          '<option value="">Select an existing address</option>';
 
         result.addresses.forEach((address) => {
           const lines = formatAddress(address, true);
@@ -2030,7 +1774,7 @@ async function loadInlineAddresses() {
               </div>`;
             },
           },
-          placeholder: "Select an existing address (optional)",
+          placeholder: "Select an existing address",
         });
 
         return;
@@ -2195,7 +1939,7 @@ function resetInlineFormSilently() {
   if (uploadPrompt) uploadPrompt.style.display = "block";
   if (imagePreview) imagePreview.style.display = "none";
 
-  clearInlineAddressForm();
+  // Clear address selection (no inline new address form anymore)
   const addressSelect = document.getElementById("inlineAddressSelect");
   if (addressSelect) {
     addressSelect.selectedIndex = 0;
@@ -2204,12 +1948,11 @@ function resetInlineFormSilently() {
     }
   }
 
+  // Remove any remnants of inline new-address UI if present
   const newAddressForm = document.getElementById("inlineNewAddressForm");
   const addNewAddressBtn = document.getElementById("inlineAddNewAddressBtn");
-  if (newAddressForm) newAddressForm.style.display = "none";
-  if (addNewAddressBtn)
-    addNewAddressBtn.innerHTML =
-      '<i class="fas fa-plus me-1"></i> Add New Address';
+  if (newAddressForm) newAddressForm.remove();
+  if (addNewAddressBtn) addNewAddressBtn.remove();
 
   const descEditor = document.getElementById("addDescriptionEditor");
   if (descEditor) descEditor.innerHTML = "";
@@ -2217,12 +1960,12 @@ function resetInlineFormSilently() {
 
 function setupInlineForm() {
   if (inlineFormHandler) return;
+  // Initialize add form components (image upload, validation). Address creation removed.
   setupInlineImageUpload();
-  setupInlineAddressHandlers();
   setupRealTimeValidation(false);
-  document
-    .getElementById("inlineAddPropertyForm")
-    .addEventListener("submit", handleInlineFormSubmit);
+  const formEl = document.getElementById("inlineAddPropertyForm");
+  if (formEl) formEl.addEventListener("submit", handleInlineFormSubmit);
+  // Load existing addresses into select (no inline creation capability now).
   loadInlineAddresses();
   inlineFormHandler = true;
 }
@@ -2244,14 +1987,11 @@ function resetInlineForm() {
   if (uploadPrompt) uploadPrompt.style.display = "block";
   if (imagePreview) imagePreview.style.display = "none";
 
-  clearInlineAddressForm();
-  resetEditInlineForm();
-  const newAddressForm = document.getElementById("inlineNewAddressForm");
-  const addNewAddressBtn = document.getElementById("inlineAddNewAddressBtn");
-  if (newAddressForm) newAddressForm.style.display = "none";
-  if (addNewAddressBtn)
-    addNewAddressBtn.innerHTML =
-      '<i class="fas fa-plus me-1"></i> Add New Address';
+  // Remove any inline new address elements if they still exist
+  const lingeringNewAddressForm = document.getElementById("inlineNewAddressForm");
+  const lingeringAddBtn = document.getElementById("inlineAddNewAddressBtn");
+  if (lingeringNewAddressForm) lingeringNewAddressForm.remove();
+  if (lingeringAddBtn) lingeringAddBtn.remove();
 
   if (window.inlineAddressTomSelect) {
     window.inlineAddressTomSelect.destroy();
@@ -2564,15 +2304,7 @@ function resetEditInlineForm() {
   deletedShowcaseImages = [];
   renderEditShowcasePreview();
 
-  clearEditInlineAddressForm();
-  const newAddressForm = document.getElementById("editInlineNewAddressForm");
-  const addNewAddressBtn = document.getElementById(
-    "editInlineAddNewAddressBtn"
-  );
-  if (newAddressForm) newAddressForm.style.display = "none";
-  if (addNewAddressBtn)
-    addNewAddressBtn.innerHTML =
-      '<i class="fas fa-plus me-1"></i> Add New Address';
+  // Inline new-address UI removed; nothing to reset here
 }
 
 function navigateToPropertiesListDirectly() {
