@@ -1,8 +1,11 @@
+import fetchCompanyDetails from "../api/loadCompanyInfo.js";
+
 document.addEventListener("DOMContentLoaded", () => {
   fetch("/components/navbar.html")
     .then((res) => res.text())
-    .then((data) => {
+    .then(async (data) => {
       document.getElementById("navbar-placeholder").innerHTML = data;
+      await injectDynamicLogo();
       setupNavbarFeatures();
       try { document.dispatchEvent(new CustomEvent('navbar:loaded')); } catch (e) {}
     })
@@ -10,6 +13,23 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error loading navbar:", error);
     });
 });
+
+async function injectDynamicLogo() {
+  try {
+    const logoContainer = document.getElementById('logoContainer');
+    if (!logoContainer) return;
+    const details = await fetchCompanyDetails();
+    if (!details) return; // keep fallback text
+    // Prefer alt logo, then icon logo, else fallback text remains
+    const markup = details.altLogoHtml || details.logoHtml;
+    if (markup) {
+      logoContainer.innerHTML = markup;
+      logoContainer.classList.add('has-image');
+    }
+  } catch (e) {
+    console.warn('Failed to inject company logo', e);
+  }
+}
 
 function setupNavbarFeatures() {
   const navbar =

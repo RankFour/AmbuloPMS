@@ -52,6 +52,11 @@ nav {
     align-items: center;
     z-index: 1001;
 }
+.logo.has-image img, .logo img {
+    max-height: 50px;
+    width: auto;
+    display: block;
+}
 
 .logo::before {
     margin-right: 8px;
@@ -124,6 +129,7 @@ nav {
     .logo {
         font-size: 20px;
     }
+    .logo.has-image img, .logo img { max-height: 34px; }
 
     .logo::before {
         font-size: 18px;
@@ -181,6 +187,7 @@ nav {
     .logo {
         font-size: 18px;
     }
+    .logo.has-image img, .logo img { max-height: 30px; }
 
     .logo::before {
         font-size: 16px;
@@ -213,6 +220,7 @@ nav {
     .logo {
         font-size: 16px;
     }
+    .logo.has-image img, .logo img { max-height: 28px; }
 
     .nav-links {
         width: 85%;

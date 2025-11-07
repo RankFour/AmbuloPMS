@@ -3,6 +3,7 @@ import { protect } from "../middlewares/authMiddleware.js";
 import assistantController from "../controllers/assistantControllers.js";
 import assistantChatApi from "../controllers/assistantChatApiController.js";
 import assistantGeminiController from "../controllers/assistantGeminiController.js";
+import assistantViewProxyController from "../controllers/assistantViewProxyController.js";
 
 const router = express.Router();
 
@@ -116,6 +117,9 @@ router.post("/chat/open", protect, assistantChatApi.openConversation);
 router.post("/chat/send", protect, assistantChatApi.send);
 router.get("/chat/messages", protect, assistantChatApi.history);
 router.post("/chat/clear", protect, assistantChatApi.clear);
+
+// Secure inline view proxy for Cloudinary-hosted documents (lease contracts, etc.)
+router.get("/view", protect, assistantViewProxyController.proxy);
 
 // Gemini SDK utilities
 router.get("/gemini/status", protect, assistantGeminiController.status);

@@ -804,10 +804,12 @@ body {
 }
 
 .hero-brand .brand {
-  color: #60a5fa;
-  background: linear-gradient(90deg, #60a5fa 40%, #8b5cf6 100%);
+  color: #ffffff;
+  background: linear-gradient(90deg, #6366f1 40%, #4f46e5 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  text-stroke: 1px #191a4f;
+  -webkit-text-stroke: 1px #4d4e7f;
   background-clip: text;
   text-shadow: none;
   font-weight: 900;

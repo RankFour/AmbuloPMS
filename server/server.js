@@ -103,12 +103,13 @@ app.use(`/api/${API_VERSION}/notifications`, notificationsRoutes);
 app.use(`/api/${API_VERSION}/admin`, adminRoutes);
 app.use(`/api/${API_VERSION}/documents`, documentsRoutes);
 
-// Rate limiting specifically for assistant endpoints
+// Rate limiting specifically for assistant endpoints (configurable)
 const assistantLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, // limit each IP to 200 requests per windowMs
+    windowMs: (process.env.ASSISTANT_RATE_WINDOW_MS ? parseInt(process.env.ASSISTANT_RATE_WINDOW_MS) : (15 * 60 * 1000)),
+    max: (process.env.ASSISTANT_RATE_MAX ? parseInt(process.env.ASSISTANT_RATE_MAX) : 400), // bumped default; client backoff prevents abuse
     standardHeaders: true,
     legacyHeaders: false,
+    message: { error: 'Too Many Requests', retry_after_ms: 15000 },
 });
 app.use(`/api/${API_VERSION}/assistant`, assistantLimiter, assistantAnalytics, assistantRoutes);
 

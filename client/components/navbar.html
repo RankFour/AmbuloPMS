@@ -10,7 +10,10 @@
 <body>
     <header id="navbar">
         <nav class="nav-container">
-            <div class="logo">Ambulo Properties</div>
+            <div id="logoContainer" class="logo" aria-label="Company logo" style="display:flex;align-items:center;gap:8px;">
+                <!-- Logo will be injected dynamically -->
+                <span class="logo-fallback" style="font-weight:700; font-size:18px;">Ambulo Properties</span>
+            </div>
             <!-- ADD THIS HAMBURGER BUTTON -->
             <button class="hamburger" aria-label="Toggle menu">
                 <span></span>
@@ -27,6 +30,6 @@
             </ul>
         </nav>
     </header>
-    <script src="/javascript/navbar.js"></script>
+    <script type="module" src="/javascript/navbar.js"></script>
 </body>
 </html>

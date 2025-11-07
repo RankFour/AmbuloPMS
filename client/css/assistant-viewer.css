@@ -1,0 +1,14 @@
+:root{
+  --aac-viewer-bg: rgba(0,0,0,0.65);
+  --aac-viewer-panel-bg: #111827;
+  --aac-viewer-panel-fg: #e5e7eb;
+}
+.aac-viewer{ position: fixed; inset: 0; display:none; align-items:center; justify-content:center; background: var(--aac-viewer-bg); z-index: 999999; }
+.aac-viewer-inner{ position: relative; width: min(920px, 96vw); height: min(80vh, 820px); background: var(--aac-viewer-panel-bg); color: var(--aac-viewer-panel-fg); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
+.aac-viewer-close{ position:absolute; top:8px; right:10px; background: transparent; color: var(--aac-viewer-panel-fg); border: none; font-size: 22px; cursor: pointer; }
+.aac-viewer-content{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#000; }
+
+/* Links and view buttons inside bubbles */
+.aac-link{ color:#2563eb; text-decoration: underline; }
+.aac-view-btn{ margin-left: 6px; border: 1px solid #93c5fd; color:#1d4ed8; background:#eff6ff; border-radius: 6px; padding: 2px 6px; font-size: 12px; cursor: pointer; }
+.aac-view-btn:hover{ background:#dbeafe; }

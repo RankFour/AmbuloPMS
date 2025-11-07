@@ -7,6 +7,7 @@ import chargesServices from "./chargesServices.js";
 import propertiesServices from "./propertiesServices.js";
 import companyDetailsServices from "./companyDetailsServices.js";
 import gemini from "./geminiService.js";
+import { documentsService } from "./documentsService.js";
 import assistantMessages from "./assistantMessagesService.js";
 
 // Persistence powered by DB (assistant_conversations, assistant_messages)
@@ -30,8 +31,30 @@ async function tryGeminiReply(promptText, context = {}, role = null) {
   try {
     const parsed = await gemini.extractIntent({ text: promptText, role });
     if (parsed && parsed.intent) {
-      const handled = await handleParsedIntent(context.userId || null, role, parsed.intent, parsed.params || {});
-      if (handled) return handled;
+      const handled = await handleParsedIntent(context.userId || null, role, parsed.intent, parsed.params || {}, parsed.detail_level || 'minimal', promptText);
+      if (handled) {
+        // If handler returned structured data, pass through Gemini for phrasing and preserve meta
+        if (typeof handled === 'object' && handled !== null) {
+          const phrased = await gemini.generateText({
+            text: promptText,
+            context: {
+              intent: parsed.intent,
+              detail_level: parsed.detail_level || 'minimal',
+              raw: handled.raw,
+              data: handled.data || null
+            },
+            system: gemini.getSystemResponsePrompt()
+          });
+          return { text: (phrased || handled.raw || '').trim(), meta: handled.meta || null };
+        }
+        // Backward compatibility if handler returned string
+        const phrased = await gemini.generateText({
+          text: `Rephrase data response: ${handled}`,
+          context: { intent: parsed.intent, detail_level: parsed.detail_level || 'minimal' },
+          system: gemini.getSystemResponsePrompt()
+        });
+        return { text: (phrased || handled || '').trim(), meta: null };
+      }
     }
   } catch (e) {
     if (process.env.NODE_ENV !== "production") console.warn("[localAssistant] Gemini intent extraction failed:", e?.message || e);
@@ -48,14 +71,14 @@ Capabilities you can use:
 - Utility commands: 'help'/'commands' shows capabilities; 'clear chat' resets the conversation
 `;
     const text = await gemini.generateText({ text: promptText, system, context: { ...context, role: sysRole } });
-    return (text || "").trim() || null;
+    return text ? { text: (text || "").trim() } : null;
   } catch (e) {
     if (process.env.NODE_ENV !== "production") console.warn("[localAssistant] Gemini generate failed:", e?.message || e);
     return null;
   }
 }
 
-async function handleParsedIntent(userId, role, intent, params = {}) {
+async function handleParsedIntent(userId, role, intent, params = {}, detailLevel = 'minimal', originalUtterance = '') {
   const as = String(intent || "").toLowerCase();
   const isAdmin = isAdminLike(role);
   try {
@@ -91,6 +114,20 @@ async function handleParsedIntent(userId, role, intent, params = {}) {
       case "show_lease": {
         const leases = await leaseServices.getLeaseByUserId(String(userId));
         const sorted = (leases || []).slice().sort((a, b) => new Date(b.lease_start_date || 0) - new Date(a.lease_start_date || 0));
+        if (!sorted.length) return "I couldn't find a lease for you.";
+        const wantAll = (detailLevel === 'full') || /\b(all|list|every)\b/.test(String(originalUtterance||'').toLowerCase());
+        if (wantAll && sorted.length > 1) {
+          const blocks = sorted.map(l => {
+            const parts = [];
+            if (l.property_name) parts.push(`${l.property_name}`);
+            if (l.monthly_rent) parts.push(`${l.monthly_rent}`);
+            const dates = [l.lease_start_date?new Date(l.lease_start_date).toLocaleDateString():null, l.lease_end_date?new Date(l.lease_end_date).toLocaleDateString():null].filter(Boolean).join(' - ');
+            if (dates) parts.push(dates);
+            if (l.lease_status) parts.push(String(l.lease_status));
+            return `• ${parts.join(' — ')}`;
+          });
+          return `Your leases:\n${blocks.join('\n')}`;
+        }
         const current = sorted.find(l => String(l.lease_status).toUpperCase() === 'ACTIVE')
           || sorted.find(l => String(l.lease_status).toUpperCase() === 'PENDING')
           || sorted[0]
@@ -234,23 +271,237 @@ async function handleParsedIntent(userId, role, intent, params = {}) {
         const lines = props.map(p => `• ${p.property_name}${p.city ? ` — ${p.city}` : ''}${p.base_rent ? ` (₱${p.base_rent})` : ''}`);
         return `Available properties:\n${lines.join('\n')}`;
       }
+      case "list_tenants": {
+        if (!isAdmin) return { raw: "This action requires an admin account." };
+        const rawStatus = (params?.status || '').toString().toUpperCase();
+        const status = ["ACTIVE","INACTIVE","ALL"].includes(rawStatus) ? rawStatus : undefined;
+        const wantFull = detailLevel === 'full' || /\ball\b/.test(originalUtterance.toLowerCase());
+        const limit = wantFull ? 250 : 10;
+        const res = await usersServices.getUsers({ status: status && status !== 'ALL' ? status : undefined, page: 1, limit });
+        const users = Array.isArray(res?.users) ? res.users : [];
+        if (!users.length) return { raw: "No tenants found." };
+        const lines = users.map(u => `${u.first_name || ''} ${u.last_name || ''}`.trim()).filter(Boolean);
+        const total = res?.pagination?.totalUsers || users.length;
+        const truncated = total > users.length;
+        const rawText = `Tenants${status?` [${status}]`:''}: ${lines.join(', ')}${truncated?` (and ${total - users.length} more)`:''}`;
+        const meta = truncated ? { followup: 'expand-list', target: 'tenants', params: { status } } : null;
+        return { raw: rawText, data: { total, returned: users.length, status, truncated, users }, meta };
+      }
+      case "count_tenants": {
+        if (!isAdmin) return { raw: "This action requires an admin account." };
+        const raw = (params?.status || '').toString().toUpperCase();
+        const status = ["ACTIVE","INACTIVE","ALL"].includes(raw) ? raw : undefined;
+        const res = await usersServices.getUsers({ status: status && status !== 'ALL' ? status : undefined, page: 1, limit: 1 });
+        const total = Number(res?.pagination?.totalUsers || 0);
+        return { raw: `${total} tenant${total === 1 ? '' : 's'}${status?` [${status}]`:''}.`, data: { total, status } };
+      }
+      case "count_properties": {
+        const wantAvailable = String(params?.status || '').toLowerCase() === 'available';
+        const q = { limit: 1, page: 1 };
+        if (wantAvailable) q.property_status = 'Available';
+        const res = await propertiesServices.getProperties(q);
+        const total = Number(res?.total || 0);
+        const rawText = wantAvailable ? `${total} available propert${total === 1 ? 'y' : 'ies'}.` : `${total} propert${total === 1 ? 'y' : 'ies'} in the system.`;
+        return { raw: rawText, data: { total, availableOnly: wantAvailable } };
+      }
+      case "search_properties": {
+        if (!isAdmin) return { raw: "This action requires an admin account." };
+        const query = (params?.query || '').toString().trim();
+        if (!query) return { raw: "Provide a property search query." };
+        const res = await propertiesServices.getProperties({ limit: 200, page: 1 });
+        const all = Array.isArray(res?.properties) ? res.properties : [];
+        if (!all.length) return { raw: "There are no properties in the system yet." };
+        // Use fuzzy search utilities from gemini service
+        const matches = gemini.fuzzyFilterProperties(query, all, { threshold: 0.5, limit: 5 });
+        if (matches.length === 0) return { raw: `No properties matched "${query}".` };
+        if (matches.length === 1) {
+          const p = matches[0].property;
+          const parts = [p.property_name, p.city, p.base_rent ? `₱${p.base_rent}` : null].filter(Boolean).join(' — ');
+          return { raw: `Found: ${parts}`, data: { match: p } };
+        }
+        const amb = { status: 'ambiguous', choices: matches };
+        const msg = gemini.generatePropertyDisambiguationMessage(amb) || `Multiple properties matched "${query}".`;
+        return { raw: msg, data: { ambiguous: true, choices: matches.map(m => m.property) }, meta: { followup: 'disambiguate', target: 'property', choices: matches.map((m,i)=>({ index: i+1, id: m.property.property_id, name: m.property.property_name, city: m.property.city, base_rent: m.property.base_rent })) } };
+      }
+      case "show_tenant": {
+        if (!isAdmin) return { raw: "This action requires an admin account." };
+        const query = (params?.query || '').toString().trim();
+        const requested = (params?.fields || '').toString().toLowerCase();
+        if (!query) return { raw: "Provide a tenant name to look up." };
+        const res = await usersServices.getUsers({ search: query, limit: 50, page: 1 });
+        const users = Array.isArray(res?.users) ? res.users : [];
+        if (!users.length) return { raw: `No tenant matched "${query}".` };
+        // fuzzy refine
+        const fuzzy = gemini.fuzzyFilterTenants(query, users, { threshold: 0.4, limit: 5 });
+        if (fuzzy.length === 0) return { raw: `No tenant matched "${query}".` };
+        if (fuzzy.length > 1 && detailLevel !== 'full') {
+          return { raw: gemini.generateDisambiguationMessage({ status: 'ambiguous', choices: fuzzy }), data: { ambiguous: true, choices: fuzzy.map(f => f.tenant) }, meta: { followup: 'disambiguate', target: 'tenant', choices: fuzzy.map((f,i)=>({ index: i+1, id: f.tenant.user_id, name: [f.tenant.first_name,f.tenant.middle_name,f.tenant.last_name].filter(Boolean).join(' '), email: f.tenant.email, phone: f.tenant.phone_number, status: f.tenant.status })) } };
+        }
+        const chosen = fuzzy[0].tenant;
+        const profile = {
+          name: [chosen.first_name, chosen.middle_name, chosen.last_name].filter(Boolean).join(' '),
+          email: chosen.email,
+          phone: chosen.phone_number,
+          status: chosen.status,
+        };
+        let fields = [];
+        if (!requested || requested === 'all' || requested === 'profile') {
+          fields = Object.entries(profile).filter(([,v]) => v).map(([k,v]) => `${k}: ${v}`);
+        } else {
+          if (/phone|number/.test(requested) && profile.phone) fields.push(`phone: ${profile.phone}`);
+          if (/email|contact/.test(requested) && profile.email) fields.push(`email: ${profile.email}`);
+          if (!fields.length) fields = Object.entries(profile).filter(([,v]) => v).map(([k,v]) => `${k}: ${v}`);
+        }
+        return { raw: `Tenant: ${profile.name}. ${fields.join('; ')}`, data: { profile } };
+      }
+      case "list_tenants_outstanding_charges": {
+        if (!isAdmin) return { raw: "This action requires an admin account." };
+        // Pull a wide set of unpaid/overdue charges
+        const overdue = await chargesServices.getAllCharges({ status: 'OVERDUE', limit: 500, page: 1 });
+        const unpaid = await chargesServices.getAllCharges({ status: 'UNPAID', limit: 500, page: 1 });
+        const rows = [...(Array.isArray(overdue?.data)?overdue.data:[]), ...(Array.isArray(unpaid?.data)?unpaid.data:[])];
+        if (!rows.length) return { raw: "No tenants have outstanding charges right now." };
+        const agg = {};
+        rows.forEach(r => {
+          const key = r.tenant_name || r.tenant_id || 'Tenant';
+          if (!agg[key]) agg[key] = { total: 0, count: 0, samples: [] };
+          const amt = Number(r.amount || r.original_amount || 0);
+          agg[key].total += amt;
+          agg[key].count += 1;
+          if (agg[key].samples.length < 3) agg[key].samples.push({ desc: r.description || r.charge_type, amount: amt, due: r.due_date || r.charge_date });
+        });
+        const entries = Object.entries(agg).sort((a,b) => b[1].total - a[1].total);
+        const wantFull = detailLevel === 'full' || /\ball\b/.test(originalUtterance.toLowerCase());
+        const max = wantFull ? entries.length : Math.min(entries.length, 15);
+        const lines = entries.slice(0,max).map(([name, info]) => `${name}: ₱${info.total.toLocaleString()} (${info.count} charge${info.count>1?'s':''})`);
+        const truncated = max < entries.length;
+        const rawText = `Outstanding charges by tenant: ${lines.join('; ')}${truncated?` (and ${entries.length - max} more)`:''}`;
+        const meta = truncated ? { followup: 'expand-list', target: 'tenant-charges' } : null;
+        return { raw: rawText, data: { tenants: entries.map(([n,i]) => ({ name: n, total: i.total, count: i.count })), truncated }, meta };
+      }
       case "company_info": {
         const rows = await companyDetailsServices.getCompanyDetails();
         const info = Array.isArray(rows) && rows.length ? rows[0] : null;
-        if (!info) return "Company details are not configured yet.";
+        if (!info) return { raw: "Company details are not configured yet." };
         const lines = [];
         if (info.company_name) lines.push(`Name: ${info.company_name}`);
         if (info.email) lines.push(`Email: ${info.email}`);
         if (info.phone_number) lines.push(`Phone: ${info.phone_number}`);
         const addr = [info.house_no, info.street_address, info.city, info.province, info.zip_code, info.country].filter(Boolean).join(', ');
         if (addr) lines.push(`Address: ${addr}`);
-        return lines.join('\n') || "Company details are not available.";
+        return { raw: lines.join('\n') || "Company details are not available.", data: { company: info } };
+      }
+      case "list_all_documents": {
+        if (!isAdmin) return { raw: "This action requires an admin account." };
+        const res = await documentsService.list('');
+        const files = Array.isArray(res?.files) ? res.files : [];
+        if (!files.length) return { raw: "No documents stored yet." };
+        const lines = files.slice(0, 50).map(f => `• ${f.filename} — ${f.folder || 'documents'} — ${new Date(f.created_at||Date.now()).toLocaleDateString()}`);
+        const suffix = files.length > 50 ? `\n…and ${files.length - 50} more.` : '';
+        return { raw: `All documents:\n${lines.join('\n')}${suffix}`, data: { total: files.length } };
+      }
+      // ---------------- Documents: tenant + admin ----------------
+      case "show_user_documents": {
+        // Tenant: list own documents across root/user folder
+        if (!isAdmin) {
+          const path = `users/${String(userId)}`;
+          const res = await documentsService.list(path);
+          const files = Array.isArray(res?.files) ? res.files : [];
+          if (!files.length) return { raw: "You don’t have any uploaded documents yet." };
+          const lines = files.slice(0, 12).map(f => `• ${f.filename} — ${new Date(f.created_at||Date.now()).toLocaleDateString()} — ${f.secure_url || ''}`);
+          const suffix = files.length > 12 ? `\n…and ${files.length - 12} more.` : '';
+          return { raw: `Your documents:\n${lines.join('\n')}${suffix}`, data: { total: files.length } };
+        }
+        // Admin: list system-wide (top level)
+        const res = await documentsService.list('');
+        const files = Array.isArray(res?.files) ? res.files : [];
+        const lines = files.slice(0, 20).map(f => `• ${f.filename} — ${f.folder || 'documents'} — ${new Date(f.created_at||Date.now()).toLocaleDateString()}`);
+        const suffix = files.length > 20 ? `\n…and ${files.length - 20} more.` : '';
+        return { raw: `All documents:\n${lines.join('\n')}${suffix}`, data: { total: files.length } };
+      }
+      case "show_lease_documents": {
+        const leaseId = String(params?.lease_id || '').trim();
+        if (leaseId) {
+          try {
+            const full = await leaseServices.getSingleLeaseById(String(leaseId));
+            const url = full && full.contract && full.contract.url ? full.contract.url : null;
+            if (!url) return { raw: `No contract file stored for lease ${leaseId}.` };
+            return { raw: `Lease ${leaseId} contract: ${url}`, data: { leaseId, contract_url: url } };
+          } catch (e) {
+            return { raw: `Failed to load lease ${leaseId} (${e?.message || e}).` };
+          }
+        }
+        // List all user leases with contract presence
+        const leases = await leaseServices.getLeaseByUserId(String(userId));
+        if (!Array.isArray(leases) || !leases.length) return { raw: 'You have no leases.' };
+        const lines = [];
+        for (const l of leases.slice(0, 25)) {
+          let contractUrl = null;
+          if (l.lease_id) {
+            try {
+              const full = await leaseServices.getSingleLeaseById(String(l.lease_id));
+              contractUrl = full && full.contract && full.contract.url ? full.contract.url : null;
+            } catch {}
+          }
+            lines.push(`• ${l.property_name || 'Property'} — ${l.lease_id}: ${contractUrl ? contractUrl : '(no contract)'}`);
+        }
+        const suffix = leases.length > 25 ? `\n…and ${leases.length - 25} more.` : '';
+        return { raw: `Leases & contracts:\n${lines.join('\n')}${suffix}`, data: { total: leases.length } };
+      }
+      case "show_ticket_documents": {
+        const ticketId = String(params?.ticket_id || '').trim();
+        if (!ticketId) return { raw: "Provide a ticket_id." };
+        try {
+          const t = await ticketsServices.getSingleTicketById(ticketId);
+          const atts = Array.isArray(t?.ticket?.attachments) ? t.ticket.attachments : [];
+          if (!atts.length) return { raw: `No attachments for ticket ${ticketId}.` };
+          const lines = atts.slice(0, 20).map(u => `• ${u}`);
+          const suffix = atts.length > 20 ? `\n…and ${atts.length - 20} more.` : '';
+          return { raw: `Ticket ${ticketId} attachments:\n${lines.join('\n')}${suffix}`, data: { ticketId, total: atts.length } };
+        } catch (e) {
+          return { raw: `Failed to load ticket ${ticketId} (${e?.message || e}).` };
+        }
+      }
+      case "show_invoice_documents": {
+        const id = String(params?.payment_id || params?.invoice_id || '').trim();
+        if (!id) return { raw: "Provide a payment_id or invoice_id." };
+        try {
+          const invSvc = (await import('./invoicesServices.js'));
+          const data = await invSvc.getInvoiceByPaymentId(id);
+          if (!data) return { raw: `No invoice found for payment ${id}.` };
+          const lines = [];
+          if (data.invoice?.id) lines.push(`Invoice: ${data.invoice.id} (${data.invoice.status || 'status?'})`);
+          if (data.invoice?.issueDate) lines.push(`Issued: ${new Date(data.invoice.issueDate).toLocaleDateString()}`);
+          if (data.payment?.id) lines.push(`Payment: ${data.payment.id} — ${data.payment.method || ''} on ${new Date(data.payment.date||Date.now()).toLocaleDateString()}`);
+          if (data.payment?.reference) lines.push(`Reference: ${data.payment.reference}`);
+          if (data.tenant?.name) lines.push(`Tenant: ${data.tenant.name}`);
+          if (data.lease?.id) lines.push(`Lease: ${data.lease.id}`);
+          if (data.property?.name) lines.push(`Property: ${data.property.name}${data.property.address?` — ${data.property.address}`:''}`);
+          if (Array.isArray(data.items) && data.items.length) {
+            lines.push('Items:');
+            lines.push(...data.items.map(it => `• ${it.description || it.type || 'Item'} — ${it.amount}`));
+          }
+          if (data.charge) {
+            const c = data.charge;
+            lines.push('Charge:');
+            if (c.description) lines.push(`• ${c.description}`);
+            if (c.dueDate) lines.push(`• Due: ${new Date(c.dueDate).toLocaleDateString()}`);
+            if (c.originalAmount !== null && c.originalAmount !== undefined) lines.push(`• Original: ${c.originalAmount}`);
+            if (c.lateFee) lines.push(`• Late fee: ${c.lateFee}`);
+            if (c.amount !== null && c.amount !== undefined) lines.push(`• Current: ${c.amount}`);
+          }
+          if (data.invoice?.total !== undefined) lines.push(`Total: ${data.invoice.total}`);
+          lines.push('(No stored PDF file — full details shown above)');
+          return { raw: lines.join('\n'), data: { id, hasItems: Array.isArray(data.items) && data.items.length } };
+        } catch (e) {
+          return { raw: `Failed to load invoice/payment ${id} (${e?.message || e}).` };
+        }
       }
       default:
         return null;
     }
   } catch (e) {
-    return `Sorry, I couldn't process that (${e?.message || e}).`;
+    return { raw: `Sorry, I couldn't process that (${e?.message || e}).`, data: { error: e?.message || String(e) } };
   }
 }
 
@@ -272,10 +523,12 @@ function commandsText(role) {
   ];
   const adminExtra = [
     "search tenants <name>",
+    "search properties <name/address>",
     "overdue charges",
     "how many overdue charges",
     "how many charges are due soon",
     "how many outstanding charges",
+    "how many properties exist",
     "pending payments",
     "confirm payment <id>",
     "reject payment <id>",
@@ -298,13 +551,21 @@ async function routeLocalIntent(userId, text, role) {
   const wantsClear = /^(\/)?clear( chat)?$/i.test((text||'').trim()) || /reset (the )?chat|start over|wipe chat/i.test(lc);
   const wantsProfile = /profile|account|my info|my information/.test(lc);
   const wantsLease = /lease|rent\s*agreement|contract/.test(lc);
-  const wantsPayments = /payment|invoice|bill|paid|pending|overdue/.test(lc);
+  const wantsPayments = /\bpayments?\b|\binvoices?\b|\bbills?\b|\bpaid\b/.test(lc); // do not match 'unpaid'
+  // More specific document intent variants (lease contract / invoice file) before generic handlers
+  const wantsLeaseContract = /\blease\s+(contract|agreement)\b/.test(lc) || /\brent\s+agreement\b/.test(lc);
+  // Broader invoice document intent – treat simple 'invoice' requests as wanting the actual invoice file if no status word (paid/pending/overdue)
+  const invoiceWord = /\binvoice\b/.test(lc);
+  const wantsInvoiceDoc = invoiceWord && !/\b(paid|pending|overdue|payments?)\b/.test(lc);
   const wantsFaqs = /\bfaqs?\b|help articles|common questions/.test(lc);
   const wantsTickets = /\btickets?\b|maintenance|repair request/.test(lc);
   const wantsCreateTicket = /create .*ticket|open .*ticket/.test(lc);
-  const wantsCharges = /\bcharges?\b|balance|due(\s|$)|overdue/.test(lc);
+  const wantsCharges = /\bcharges?\b|\bbalance\b|\bdue(\s|$)|\boverdue\b|\bunpaid\b/.test(lc);
+  const wantsDocuments = /\b(documents?|files?|photos?|images?|attachments?)\b/.test(lc);
+  const wantsTenantId = /(tenant\s*id|id\s*card|my\s*id|government\s*id|identification)/i.test(lc);
   const wantsCompany = /company info|contact|support|phone|email|address/.test(lc);
   const wantsAvailableProps = /(available properties|vacant|list properties|show available properties|list available properties)/i.test(lc);
+  const wantsListPropertiesGeneric = /(list( down)?|show|display)\s+(all\s+)?properties/i.test(lc);
   const wantsAbout = /\babout\s+us\b|our\s+story|mission|vision/.test(lc);
   const wantsInvoice = /^invoice\s+([a-z0-9-]+)/i.exec(text || "");
   const adminReportFinancial = /report\s+financial/i.test(lc);
@@ -313,13 +574,20 @@ async function routeLocalIntent(userId, text, role) {
   const adminReportMaintenance = /report\s+maintenance|report\s+tickets/i.test(lc);
   // Admin intents
   const adminSearchTenants = /^(search|find)\s+tenants?\s+(.+)/i.exec(text || "");
+  const adminTenantInfo = /(?:search|find|show|lookup)\s+tenant\s+(.+?)\s*(?:'s\s*)?(phone|email|contact|number|details)?$/i.exec(text || "");
+  const adminOutstandingTenantCharges = /(who\s+are\s+the\s+tenants|which\s+tenants|tenants?)\s+(with\s+)?(outstanding|unpaid|overdue)\s+charges/i.test(lc) || /who\s+owes|which\s+tenants\s+owe/i.test(lc);
   const adminOverdueCharges = /overdue\s+charges?/i.test(lc);
   const adminDueSoonCharges = /due\s+soon\s+charges?/i.test(lc);
   const adminPendingPayments = /pending\s+payments?/i.test(lc);
+  const adminListTenants = /^list\s+tenants?(?:\s+status\s*:\s*(active|inactive|all))?/i.exec(text || "");
+  const adminCountTenants = /(how\s+many|count)\s+tenants?(\s+are\s+there)?/i.exec(lc);
+  const adminListUnpaidCharges = /(list|show|display)\s+unpaid\s+charges?/i.test(lc);
   const adminCountOverdueCharges = /(how\s+many|count)\s+(overdue)\s+charges?/i.test(lc);
   const adminCountDueSoonCharges = /(how\s+many|count)\s+(due\s*soon)\s+charges?/i.test(lc);
   const adminCountOutstandingCharges = /(how\s+many|count)\s+(outstanding|unpaid)\s+charges?/i.test(lc);
   const countAvailablePropsMatch = /(how\s+many|count).*(available)\s+properties(?:\s+in\s+([a-z\s]+))?/i.exec(lc) || /(how\s+many|count)\s+properties\s+are\s+available(?:\s+in\s+([a-z\s]+))?/i.exec(lc);
+  const countAllPropsMatch = /(how\s+many|count).*(total\s+)?properties(\s+exist)?\??$/i.exec(lc);
+  const adminSearchProperties = /^(search|find)\s+propert(?:y|ies)\s+(.+)/i.exec(text || "");
   const adminConfirmPayment = /^confirm\s+payment\s+([a-z0-9-]+)/i.exec(text || "");
   const adminRejectPayment = /^reject\s+payment\s+([a-z0-9-]+)/i.exec(text || "");
   const adminListTickets = /^list\s+tickets(?:\s+status\s*:\s*(pending|assigned|in[_\s-]?progress|completed|all))?/i.exec(text || "");
@@ -343,8 +611,165 @@ async function routeLocalIntent(userId, text, role) {
     }
   }
 
+  // --- Targeted: Lease contract documents (tenant/admin) ---
+  if (wantsLeaseContract) {
+    try {
+      const leases = await leaseServices.getLeaseByUserId(String(userId));
+      const list = Array.isArray(leases) ? leases : [];
+      if (!list.length) return "I couldn't find a lease for you.";
+      // Attempt fuzzy match if user referenced a specific property after 'for'
+      let targetLease = null;
+      const propPhraseMatch = lc.match(/for\s+(?:the\s+)?(.+)$/);
+      if (propPhraseMatch) {
+        const phrase = propPhraseMatch[1].trim();
+        // Simple scoring: include substring match ignoring punctuation
+        const normPhrase = phrase.replace(/[^a-z0-9\s]/g,'').toLowerCase();
+        const scored = list.map(l => {
+          const name = (l.property_name || '').toLowerCase();
+          const score = name.includes(normPhrase) ? normPhrase.length : 0;
+          return { lease: l, score };
+        }).filter(r => r.score > 0).sort((a,b) => b.score - a.score);
+        if (scored.length) targetLease = scored[0].lease;
+      }
+      if (!targetLease) {
+        // Fallback: pick active or first
+        targetLease = list.find(l => String(l.lease_status).toUpperCase() === 'ACTIVE')
+          || list.find(l => String(l.lease_status).toUpperCase() === 'PENDING')
+          || list[0];
+      }
+      if (!targetLease) return "I couldn't find a lease for you.";
+      const leaseId = targetLease.lease_id || targetLease.id || null;
+      if (!leaseId) {
+        return "I found your lease but couldn't locate its contract document (missing lease ID).";
+      }
+      // Fetch full lease to get contract info (DB-backed)
+      const full = await leaseServices.getSingleLeaseById(String(leaseId));
+      const url = full && full.contract && full.contract.url ? full.contract.url : null;
+      if (!url) {
+        return `I didn't find a stored contract file for this lease. You can attach it via Admin > Leases or upload to your lease.`;
+      }
+      return `Lease contract: ${url}`;
+    } catch (e) {
+      return `Sorry, I couldn't load the lease contract (${e?.message || e}).`;
+    }
+  }
+
+  // --- Tenant ID files (from usersServices.tenant_id_files) ---
+  if (!isAdminLike(role) && wantsTenantId) {
+    try {
+      const u = await usersServices.getSingleUserById(String(userId));
+      const files = Array.isArray(u?.tenant_id_files) ? u.tenant_id_files : [];
+      const urls = files.map(f => f.id_url).filter(Boolean);
+      if (!urls.length) return "I couldn't find any ID files on your profile.";
+      const lines = urls.slice(0, 8).map(url => `• ${url}`);
+      const suffix = urls.length > 8 ? `\n…and ${urls.length - 8} more.` : '';
+      return `Your ID files:\n${lines.join('\n')}${suffix}`;
+    } catch (e) {
+      return `Sorry, I couldn't load your ID files (${e?.message || e}).`;
+    }
+  }
+
+  // --- Targeted: Invoice document retrieval (tenant/admin) ---
+  if (wantsInvoiceDoc) {
+    try {
+      // Try to extract an explicit ID if provided (e.g., invoice 123, payment abc)
+      const idMatch = lc.match(/(?:invoice|payment)\s+([a-z0-9-]+)/i);
+      let paymentId = idMatch ? idMatch[1] : null;
+      if (!paymentId) {
+        // Fallback: latest payment for user (or system if admin)
+        if (isAdminLike(role)) {
+          const all = await paymentsServices.getAllPayments({ page:1, limit:5 });
+          const rows = Array.isArray(all?.rows) ? all.rows : [];
+          if (rows.length) paymentId = rows[0].payment_id || rows[0].id;
+        } else {
+          const mine = await paymentsServices.getPaymentsByUserId(String(userId), { page:1, limit:5 });
+          const rows = Array.isArray(mine?.rows) ? mine.rows : [];
+          if (rows.length) paymentId = rows[0].payment_id || rows[0].id;
+        }
+      }
+      if (!paymentId) return "I couldn't find a payment to locate an invoice document. Try specifying an invoice or payment id (e.g., 'invoice ABC123').";
+      // Use DB-backed invoice lookup and surface a summary + reference
+      const invSvc = (await import('./invoicesServices.js'));
+      const data = await invSvc.getInvoiceByPaymentId(paymentId);
+      if (!data) return `No invoice found for payment ${paymentId}.`;
+      const parts = [];
+      if (data.invoice?.id) parts.push(`Invoice: ${data.invoice.id} (${data.invoice.status || 'status?'})`);
+      if (data.invoice?.issueDate) parts.push(`Issued: ${new Date(data.invoice.issueDate).toLocaleDateString()}`);
+      if (data.payment?.id) parts.push(`Payment: ${data.payment.id} — ${data.payment.method || ''} on ${new Date(data.payment.date||Date.now()).toLocaleDateString()}`);
+      if (data.payment?.reference) parts.push(`Reference: ${data.payment.reference}`);
+      if (data.tenant?.name) parts.push(`Tenant: ${data.tenant.name}`);
+      if (data.lease?.id) parts.push(`Lease: ${data.lease.id}`);
+      if (data.property?.name) parts.push(`Property: ${data.property.name}${data.property.address?` — ${data.property.address}`:''}`);
+      if (Array.isArray(data.items) && data.items.length) {
+        parts.push('Items:');
+        parts.push(...data.items.map(it => `• ${it.description || it.type || 'Item'} — ${it.amount}`));
+      }
+      if (data.charge) {
+        const c = data.charge;
+        parts.push('Charge:');
+        if (c.description) parts.push(`• ${c.description}`);
+        if (c.dueDate) parts.push(`• Due: ${new Date(c.dueDate).toLocaleDateString()}`);
+        if (c.originalAmount !== null && c.originalAmount !== undefined) parts.push(`• Original: ${c.originalAmount}`);
+        if (c.lateFee) parts.push(`• Late fee: ${c.lateFee}`);
+        if (c.amount !== null && c.amount !== undefined) parts.push(`• Current: ${c.amount}`);
+      }
+      if (data.invoice?.total !== undefined) parts.push(`Total: ${data.invoice.total}`);
+      return parts.join('\n');
+    } catch (e) {
+      return `Sorry, I couldn't load the invoice files (${e?.message || e}).`;
+    }
+  }
+
   // Admin-only handlers FIRST so admin phrases like "overdue" don't fall into tenant flows
   if (isAdminLike(role)) {
+    if (adminListTenants) {
+      try {
+        const raw = adminListTenants[1];
+        const status = raw ? raw.replace(/[_\s-]+/g,'_').toUpperCase() : undefined;
+        const res = await usersServices.getUsers({ status: status && status !== 'ALL' ? status : undefined, page: 1, limit: 10 });
+        const users = Array.isArray(res?.users) ? res.users : [];
+        if (!users.length) return "No tenants found.";
+        const lines = users.slice(0,10).map(u => `• ${u.first_name || ''} ${u.last_name || ''} — ${u.email || ''}`.trim());
+        const total = res?.pagination?.totalUsers || users.length;
+        const suffix = total > users.length ? `\n…and ${total - users.length} more.` : '';
+        return `Tenants${status?` [${status}]`:''}:\n${lines.join('\n')}${suffix}`;
+      } catch (e) { return `Failed to list tenants (${e?.message || e}).`; }
+    }
+    if (adminCountTenants) {
+      try {
+        const res = await usersServices.getUsers({ page: 1, limit: 1 });
+        const total = Number(res?.pagination?.totalUsers || 0);
+        return `${total} tenant${total === 1 ? '' : 's'}.`;
+      } catch (e) { return `Failed to count tenants (${e?.message || e}).`; }
+    }
+    if (adminListUnpaidCharges) {
+      try {
+        const res = await chargesServices.getAllCharges({ status: 'UNPAID', limit: 5, page: 1 });
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        if (!rows.length) return "No unpaid charges right now.";
+        const lines = rows.slice(0, 5).map(c => `• ${c.tenant_name || 'Tenant'} — ${c.description || c.charge_type || 'Charge'} ${c.amount} (due ${new Date(c.due_date || c.charge_date || Date.now()).toLocaleDateString()})`);
+        return `Unpaid charges:\n${lines.join('\n')}`;
+      } catch (e) { return `Failed to list unpaid charges (${e?.message || e}).`; }
+    }
+    if (adminSearchProperties) {
+      try {
+        const query = adminSearchProperties[2].trim();
+        const res = await propertiesServices.getProperties({ limit: 200, page: 1 });
+        const all = Array.isArray(res?.properties) ? res.properties : [];
+        if (!all.length) return "There are no properties in the system yet.";
+        const matches = gemini.fuzzyFilterProperties(query, all, { threshold: 0.5, limit: 5 });
+        if (matches.length === 0) return `No properties matched "${query}".`;
+        if (matches.length === 1) {
+          const p = matches[0].property;
+          const parts = [p.property_name, p.city, p.base_rent ? `₱${p.base_rent}` : null].filter(Boolean).join(' — ');
+          return `Found: ${parts}`;
+        }
+        const amb = { status: 'ambiguous', choices: matches };
+        return gemini.generatePropertyDisambiguationMessage(amb) || `Multiple properties matched "${query}".`;
+      } catch (e) {
+        return `Search failed (${e?.message || e}).`;
+      }
+    }
     if (adminSearchTenants) {
       try {
         const query = adminSearchTenants[2].trim();
@@ -355,6 +780,60 @@ async function routeLocalIntent(userId, text, role) {
         return `Top matches for "${query}":\n${lines.join('\n')}`;
       } catch (e) {
         return `Search failed (${e?.message || e}).`;
+      }
+    }
+    if (adminTenantInfo) {
+      try {
+        const nameQuery = adminTenantInfo[1].trim();
+        const fieldReq = (adminTenantInfo[2] || '').toLowerCase();
+        const res = await usersServices.getUsers({ search: nameQuery, limit: 50, page: 1 });
+        const users = Array.isArray(res?.users) ? res.users : [];
+        if (!users.length) return `No tenant matched "${nameQuery}".`;
+        const fuzzy = gemini.fuzzyFilterTenants(nameQuery, users, { threshold: 0.4, limit: 5 });
+        if (!fuzzy.length) return `No tenant matched "${nameQuery}".`;
+        if (fuzzy.length > 1) {
+          return gemini.generateDisambiguationMessage({ status: 'ambiguous', choices: fuzzy }) || `Multiple tenants matched "${nameQuery}".`;
+        }
+        const t = fuzzy[0].tenant;
+        const profile = {
+          name: [t.first_name, t.middle_name, t.last_name].filter(Boolean).join(' '),
+          email: t.email,
+          phone: t.phone_number,
+          status: t.status
+        };
+        let out = `Tenant: ${profile.name}`;
+        if (fieldReq) {
+          if (/phone|number/.test(fieldReq) && profile.phone) out += `\nPhone: ${profile.phone}`;
+          if (/email|contact/.test(fieldReq) && profile.email) out += `\nEmail: ${profile.email}`;
+          if (/details/.test(fieldReq)) {
+            out += `${profile.email?`\nEmail: ${profile.email}`:''}${profile.phone?`\nPhone: ${profile.phone}`:''}${profile.status?`\nStatus: ${profile.status}`:''}`;
+          }
+        } else {
+          out += `${profile.email?`\nEmail: ${profile.email}`:''}${profile.phone?`\nPhone: ${profile.phone}`:''}`;
+        }
+        return out.trim();
+      } catch (e) {
+        return `Lookup failed (${e?.message || e}).`;
+      }
+    }
+    if (adminOutstandingTenantCharges) {
+      try {
+        const overdue = await chargesServices.getAllCharges({ status: 'OVERDUE', limit: 500, page: 1 });
+        const unpaid = await chargesServices.getAllCharges({ status: 'UNPAID', limit: 500, page: 1 });
+        const rows = [...(Array.isArray(overdue?.data)?overdue.data:[]), ...(Array.isArray(unpaid?.data)?unpaid.data:[])];
+        if (!rows.length) return "No tenants have outstanding charges right now.";
+        const agg = {};
+        rows.forEach(r => {
+          const key = r.tenant_name || r.tenant_id || 'Tenant';
+          if (!agg[key]) agg[key] = { total: 0, count: 0 };
+          agg[key].total += Number(r.amount || r.original_amount || 0);
+          agg[key].count += 1;
+        });
+        const entries = Object.entries(agg).sort((a,b) => b[1].total - a[1].total).slice(0,15);
+        const lines = entries.map(([n,i]) => `${n}: ₱${i.total.toLocaleString()} (${i.count})`);
+        return `Outstanding charges by tenant:\n${lines.join('\n')}`;
+      } catch (e) {
+        return `Failed to aggregate outstanding charges (${e?.message || e}).`;
       }
     }
 
@@ -596,6 +1075,94 @@ async function routeLocalIntent(userId, text, role) {
     }
   }
 
+  if (wantsDocuments) {
+    try {
+      // Disambiguate context: if user mentions lease, ticket, invoice/payment
+      if (/lease/.test(lc)) {
+        const idMatch = lc.match(/lease\s+([a-z0-9-]+)/i);
+        const lease_id = idMatch ? idMatch[1] : undefined;
+        if (lease_id) {
+          try {
+            const full = await leaseServices.getSingleLeaseById(String(lease_id));
+            const url = full && full.contract && full.contract.url ? full.contract.url : null;
+            return url ? `Lease ${lease_id} contract: ${url}` : `No contract file stored for lease ${lease_id}.`;
+          } catch (e) { return `Failed to load lease ${lease_id} (${e?.message || e}).`; }
+        } else {
+          const leases = await leaseServices.getLeaseByUserId(String(userId));
+          if (!Array.isArray(leases) || !leases.length) return `No lease documents found.`;
+          const lines = [];
+          for (const l of leases.slice(0, 10)){
+            let contractUrl = null;
+            try {
+              const full = await leaseServices.getSingleLeaseById(String(l.lease_id));
+              contractUrl = full && full.contract && full.contract.url ? full.contract.url : null;
+            } catch {}
+            lines.push(`• ${l.property_name || 'Property'} — ${l.lease_id}: ${contractUrl || '(no contract)'}`);
+          }
+          const suffix = leases.length > 10 ? `\n…and ${leases.length - 10} more.` : '';
+          return `Leases & contracts:\n${lines.join('\n')}${suffix}`;
+        }
+      }
+      if (/ticket/.test(lc)) {
+        const idMatch = lc.match(/ticket\s+([a-z0-9-]+)/i);
+        const ticket_id = idMatch ? idMatch[1] : undefined;
+        if (!ticket_id) return "Provide a ticket id after 'ticket'.";
+        try {
+          const t = await ticketsServices.getSingleTicketById(ticket_id);
+          const atts = Array.isArray(t?.ticket?.attachments) ? t.ticket.attachments : [];
+          if (!atts.length) return `No attachments for ticket ${ticket_id}.`;
+          const lines = atts.slice(0, 12).map(u => `• ${u}`);
+          const suffix = atts.length > 12 ? `\n…and ${atts.length - 12} more.` : '';
+          return `Ticket ${ticket_id} attachments:\n${lines.join('\n')}${suffix}`;
+        } catch (e) {
+          return `Failed to load ticket ${ticket_id} (${e?.message || e}).`;
+        }
+      }
+      if (/invoice|payment/.test(lc)) {
+        const idMatch = lc.match(/(?:invoice|payment)\s+([a-z0-9-]+)/i);
+        const payment_id = idMatch ? idMatch[1] : undefined;
+        if (!payment_id) return "Provide an invoice or payment id.";
+        try {
+          const invSvc = (await import('./invoicesServices.js'));
+          const data = await invSvc.getInvoiceByPaymentId(payment_id);
+          if (!data) return `No invoice found for payment ${payment_id}.`;
+          const parts = [];
+          if (data.invoice?.id) parts.push(`Invoice: ${data.invoice.id} (${data.invoice.status || 'status?'})`);
+          if (data.invoice?.issueDate) parts.push(`Issued: ${new Date(data.invoice.issueDate).toLocaleDateString()}`);
+          if (data.payment?.id) parts.push(`Payment: ${data.payment.id} — ${data.payment.method || ''} on ${new Date(data.payment.date||Date.now()).toLocaleDateString()}`);
+          if (data.payment?.reference) parts.push(`Reference: ${data.payment.reference}`);
+          if (data.tenant?.name) parts.push(`Tenant: ${data.tenant.name}`);
+          if (data.lease?.id) parts.push(`Lease: ${data.lease.id}`);
+          if (data.property?.name) parts.push(`Property: ${data.property.name}${data.property.address?` — ${data.property.address}`:''}`);
+          if (Array.isArray(data.items) && data.items.length) {
+            parts.push('Items:');
+            parts.push(...data.items.map(it => `• ${it.description || it.type || 'Item'} — ${it.amount}`));
+          }
+          if (data.charge) {
+            const c = data.charge;
+            parts.push('Charge:');
+            if (c.description) parts.push(`• ${c.description}`);
+            if (c.dueDate) parts.push(`• Due: ${new Date(c.dueDate).toLocaleDateString()}`);
+            if (c.originalAmount !== null && c.originalAmount !== undefined) parts.push(`• Original: ${c.originalAmount}`);
+            if (c.lateFee) parts.push(`• Late fee: ${c.lateFee}`);
+            if (c.amount !== null && c.amount !== undefined) parts.push(`• Current: ${c.amount}`);
+          }
+          if (data.invoice?.total !== undefined) parts.push(`Total: ${data.invoice.total}`);
+          return parts.join('\n');
+        } catch (e) {
+          return `Failed to load invoice/payment ${payment_id} (${e?.message || e}).`;
+        }
+      }
+      // Default user documents or admin system-wide
+      // If nothing matched, provide guidance based on DB-backed locations
+      return isAdminLike(role)
+        ? "Try: 'show invoice <paymentId>' or 'show ticket <ticketId> attachments' or 'show lease <leaseId> contract'."
+        : "Try: 'invoice 123', 'ticket 123 attachments', or 'lease contract'.";
+    } catch (e) {
+      return `Sorry, I couldn't list documents (${e?.message || e}).`;
+    }
+  }
+
   if (wantsCharges) {
     try {
       const leases = await leaseServices.getLeaseByUserId(String(userId));
@@ -645,11 +1212,12 @@ async function routeLocalIntent(userId, text, role) {
     }
   }
 
-  if (wantsAvailableProps) {
+  if (wantsAvailableProps || wantsListPropertiesGeneric) {
     try {
       const cityMatch = lc.match(/\b(?:in|at)\s+([a-z\s]+)$/i);
       const rangeMatch = lc.match(/(?:between|from)\s+([\d,.]+)\s*(?:to|and)\s*([\d,.]+)/i);
-      const q = { property_status: 'Available', limit: 5, page: 1 };
+      const q = { limit: 5, page: 1 };
+      if (wantsAvailableProps) q.property_status = 'Available';
       if (cityMatch && cityMatch[1]) q.city = cityMatch[1].trim().replace(/\s+/g,' ');
       if (rangeMatch) {
         const min = Number(String(rangeMatch[1]).replace(/[,]/g,''));
@@ -659,10 +1227,16 @@ async function routeLocalIntent(userId, text, role) {
       }
       const res = await propertiesServices.getProperties(q);
       const props = Array.isArray(res?.properties) ? res.properties : [];
-      if (!props.length) return "No available properties found right now.";
+      if (!props.length) return wantsAvailableProps ? "No available properties found right now." : "No properties found right now.";
       const lines = props.map(p => `• ${p.property_name}${p.city ? ` — ${p.city}` : ''}${p.base_rent ? ` (₱${p.base_rent})` : ''}`);
-      const suffix = (typeof res.total === 'number' && res.total > props.length) ? `\n…and ${res.total - props.length} more.` : '';
-      return `Available properties${q.city ? ` in ${q.city}` : ''}${(q.min_rent||q.max_rent)?' (filtered)':''}:\n${lines.join('\n')}${suffix}`;
+      const truncated = (typeof res.total === 'number' && res.total > props.length);
+      const suffix = truncated ? `\n…and ${res.total - props.length} more.` : '';
+      const head = wantsAvailableProps ? `Available properties${q.city ? ` in ${q.city}` : ''}` : `Properties${q.city ? ` in ${q.city}` : ''}`;
+      const rawText = `${head}${(q.min_rent||q.max_rent)?' (filtered)':''}:\n${lines.join('\n')}${suffix}`;
+      if (truncated) {
+        return { raw: rawText, meta: { followup: 'expand-list', target: 'properties', params: q } };
+      }
+      return rawText;
     } catch (e) {
       return `Sorry, I couldn't list properties (${e?.message || e}).`;
     }
@@ -678,6 +1252,16 @@ async function routeLocalIntent(userId, text, role) {
       return `${total} available propert${total === 1 ? 'y' : 'ies'}${city?` in ${city}`:''}.`;
     } catch (e) {
       return `Sorry, I couldn't count available properties (${e?.message || e}).`;
+    }
+  }
+
+  if (isAdminLike(role) && countAllPropsMatch) {
+    try {
+      const res = await propertiesServices.getProperties({ limit: 1, page: 1 });
+      const total = Number(res?.total || 0);
+      return `${total} propert${total === 1 ? 'y' : 'ies'} in the system.`;
+    } catch (e) {
+      return `Sorry, I couldn't count properties (${e?.message || e}).`;
     }
   }
 
@@ -868,13 +1452,136 @@ export async function sendTextMessage(userId, conversationId, text, opts = {}) {
     payload: { type: "text", text: String(text) },
   });
 
+  // Check recent bot message for pending expand-list follow-up
+  const recent = await assistantMessages.listMessages(convId, 10);
+  const lastBot = Array.isArray(recent) ? [...recent].reverse().find(m => m?.direction === 'incoming' && m?.metadata?.sender === 'bot') : null;
+  const lastCtx = lastBot?.metadata?.context || lastBot?.metadata?.meta || null;
+  const lc = String(text || '').toLowerCase();
+  const isAffirmative = /\b(yes|yep|yeah|please)\b/i.test(text || '')
+    || /(show|give|provide)\s+.*\b(all|complete|full)\s+list\b/i.test(lc)
+    || /\bshow\s+all\b/i.test(lc)
+    || /\bcomplete\s+list\b/i.test(lc)
+    || /\beverything\b/i.test(lc)
+    || /\ball\s+of\s+them\b/i.test(lc);
+
+  // Numeric selection for disambiguation (e.g., "2", "2.", "2)", or words like "two")
+  function parseDisambigSelection(raw){
+    const s = String(raw||'').trim().toLowerCase();
+    if (!s) return null;
+    const m = /^\s*(\d{1,2})\s*(?:[\.).])?\s*$/.exec(s);
+    if (m) return Number(m[1]);
+    const words = {
+      one:1, two:2, three:3, four:4, five:5,
+      six:6, seven:7, eight:8, nine:9, ten:10
+    };
+    const w = s.replace(/[^a-z]/g,'');
+    if (words[w]) return words[w];
+    const m2 = /(?:option|number)\s+(\d{1,2})\b/.exec(s);
+    if (m2) return Number(m2[1]);
+    return null;
+  }
+  const numericSelection = parseDisambigSelection(text);
+
+  async function expandFollowUp(meta) {
+    if (!meta || meta.followup !== 'expand-list') return null;
+    try {
+      if (meta.target === 'properties') {
+        const q = { ...(meta.params || {}), limit: 500, page: 1 };
+        const res = await propertiesServices.getProperties(q);
+        const props = Array.isArray(res?.properties) ? res.properties : [];
+        const context = { intent: 'list_properties', detail_level: 'full', data: props };
+        const phrased = await gemini.generateText({ text: 'Provide the complete list of properties for the user request.', context, system: gemini.getSystemResponsePrompt() });
+        return { text: phrased || (props.map(p => `• ${p.property_name}${p.city?` — ${p.city}`:''}${p.base_rent?` (₱${p.base_rent})`:''}`).join('\n') || 'No properties found.'), meta: null };
+      }
+      if (meta.target === 'tenants') {
+        const status = meta.params?.status;
+        const res = await usersServices.getUsers({ status: status && status !== 'ALL' ? status : undefined, page: 1, limit: 500 });
+        const users = Array.isArray(res?.users) ? res.users : [];
+        const context = { intent: 'list_tenants', detail_level: 'full', data: users };
+        const phrased = await gemini.generateText({ text: 'Provide the complete list of tenants for the admin request.', context, system: gemini.getSystemResponsePrompt() });
+        return { text: phrased || (users.map(u => `• ${u.first_name || ''} ${u.last_name || ''}`.trim()).filter(Boolean).join('\n') || 'No tenants found.'), meta: null };
+      }
+      if (meta.target === 'tenant-charges') {
+        const overdue = await chargesServices.getAllCharges({ status: 'OVERDUE', limit: 2000, page: 1 });
+        const unpaid = await chargesServices.getAllCharges({ status: 'UNPAID', limit: 2000, page: 1 });
+        const rows = [...(Array.isArray(overdue?.data)?overdue.data:[]), ...(Array.isArray(unpaid?.data)?unpaid.data:[])];
+        const agg = {};
+        rows.forEach(r => {
+          const key = r.tenant_name || r.tenant_id || 'Tenant';
+          if (!agg[key]) agg[key] = { total: 0, count: 0 };
+          agg[key].total += Number(r.amount || r.original_amount || 0);
+          agg[key].count += 1;
+        });
+        const list = Object.entries(agg).sort((a,b) => b[1].total - a[1].total).map(([n,i]) => ({ name: n, total: i.total, count: i.count }));
+        const context = { intent: 'list_tenants_outstanding_charges', detail_level: 'full', data: list };
+        const phrased = await gemini.generateText({ text: 'Provide the complete list of tenants and their outstanding charges.', context, system: gemini.getSystemResponsePrompt() });
+        return { text: phrased || (list.map(it => `${it.name}: ₱${it.total.toLocaleString()} (${it.count})`).join('\n') || 'No outstanding charges.'), meta: null };
+      }
+    } catch (e) {
+      return { text: `Sorry, I couldn't complete that (${e?.message || e}).` };
+    }
+    return null;
+  }
+
   // Prefer precise local intents first; then use Gemini as fallback
   let usedGemini = false;
-  let reply = await routeLocalIntent(userId, text, role);
+  let reply = null;
+  if (isAffirmative && lastCtx && lastCtx.followup === 'expand-list') {
+    reply = await expandFollowUp(lastCtx);
+    usedGemini = Boolean(reply?.text);
+  }
+  // Handle disambiguation numeric reply
+  if (!reply && numericSelection && lastCtx && lastCtx.followup === 'disambiguate' && Array.isArray(lastCtx.choices)) {
+    const index = Number(numericSelection);
+    const choice = lastCtx.choices.find(c => c.index === index);
+    if (choice) {
+      try {
+        if (lastCtx.target === 'tenant') {
+          const tenant = await usersServices.getSingleUserById(String(choice.id));
+          if (tenant) {
+            const profile = {
+              name: [tenant.first_name, tenant.middle_name, tenant.last_name].filter(Boolean).join(' '),
+              email: tenant.email,
+              phone: tenant.phone_number,
+              status: tenant.status,
+            };
+            const lines = Object.entries(profile).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`);
+            const suggest = `\n\nNext: reply with 'outstanding charges', 'payments', or 'lease' for this tenant.`;
+            reply = { text: `Tenant: ${profile.name}\n${lines.join('\n')}${suggest}` };
+          }
+        } else if (lastCtx.target === 'property') {
+          const propRes = await propertiesServices.getProperties({ limit: 1, page: 1, property_id: choice.id });
+          const found = Array.isArray(propRes?.properties) ? propRes.properties[0] : null;
+          if (found) {
+            const parts = [found.property_name, found.city, found.base_rent?`₱${found.base_rent}`:null].filter(Boolean).join(' — ');
+            const suggest = `\n\nNext: reply 'available units' or 'contact info' for this property.`;
+            reply = { text: `Property: ${parts}${suggest}` };
+          }
+        }
+      } catch (e) {
+        reply = { text: `Sorry, I couldn't load that selection (${e?.message || e}).` };
+      }
+    } else {
+      // Out-of-range selection -> gentle nudge without losing context
+      reply = { text: `Please choose a valid number from the list (1-${lastCtx.choices.length}).` , meta: lastCtx };
+    }
+  }
+  if (!reply) {
+    reply = await routeLocalIntent(userId, text, role);
+  }
   if (!reply) {
     const context = { hints: ["profile", "lease", "payments", "properties", "counts"], userId: String(userId) };
     reply = await tryGeminiReply(text, context, role);
     usedGemini = Boolean(reply);
+  }
+  // Optional: always have Gemini polish the phrasing, even for local data replies
+  const wantPolish = String(process.env.ASSISTANT_POLISH_WITH_GEMINI || 'true').toLowerCase() === 'true';
+  if (reply && !usedGemini && wantPolish && gemini.isConfigured()) {
+    try {
+      const rawText = typeof reply === 'object' && reply !== null ? reply.text || reply.raw : reply;
+      const phrased = await gemini.generateText({ text: text, context: { raw_reply: rawText, role: role || 'TENANT' }, system: gemini.getSystemResponsePrompt() });
+      if (phrased) { reply = { text: phrased, meta: (reply && typeof reply === 'object') ? reply.meta : null }; usedGemini = true; }
+    } catch {}
   }
 
   // Final fallback
@@ -886,13 +1593,13 @@ export async function sendTextMessage(userId, conversationId, text, opts = {}) {
 
   // Record assistant reply (incoming)
   const tag = usedGemini && String(process.env.ASSISTANT_SHOW_MODEL_TAG || '').toLowerCase() === 'true' ? ' · via Gemini' : '';
-  const finalText = reply + tag;
+  const finalText = (typeof reply === 'object' && reply !== null ? (reply.text || reply.raw) : reply) + tag;
   if (usedGemini && process.env.NODE_ENV !== 'production') {
     console.info(`[localAssistant] Gemini used for conversation ${convId}`);
   }
   await pushMessage(convId, {
     direction: "incoming",
-    metadata: { sender: "bot", direction: "incoming" },
+    metadata: { sender: "bot", direction: "incoming", context: (typeof reply === 'object' && reply !== null) ? (reply.meta || null) : null },
     payload: { type: "text", text: finalText },
   });
 

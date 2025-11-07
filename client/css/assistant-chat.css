@@ -1,215 +1,481 @@
+/* Modern Assistant Chat Widget Styles */
 :root {
-  --primary-color: #3b82f6;
-  --primary-hover: #2563eb;
-  --secondary-color: #2c4a6b;
-  --secondary-hover: #3d5e86;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
-  --info-color: #06b6d4;
-  --light-gray: #f8fafc;
-  --medium-gray: #6b7280;
-  --dark-gray: #374151;
-  --border-color: #e5e7eb;
-  --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-medium: 0 4px 20px rgba(0, 0, 0, 0.1);
-  --shadow-heavy: 0 10px 40px rgba(0, 0, 0, 0.15);
-  --transition-fast: 0.2s ease;
-  --transition-medium: 0.3s ease;
-  --transition-slow: 0.5s ease;
-  --border-radius: 12px;
-  --border-radius-small: 8px;
-  --border-radius-large: 16px;
+  --aac-border-radius: 14px;
+  --aac-font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
+  --aac-bg: #ffffff;
+  --aac-bg-alt: #f7f9fb;
+  --aac-bg-dark: #1f2429;
+  --aac-bg-dark-alt: #2b3239;
+  --aac-border: #d9e2ec;
+  --aac-border-dark: #3a444d;
+  --aac-primary: #2563eb;
+  --aac-primary-accent: #1d4ed8;
+  --aac-danger: #dc2626;
+  --aac-success: #059669;
+  --aac-warning: #d97706;
+  --aac-text: #1e293b;
+  --aac-text-soft: #475569;
+  --aac-text-light: #cbd5e1;
+  --aac-scrollbar-bg: rgba(0,0,0,0.08);
+  --aac-scrollbar-thumb: rgba(0,0,0,0.28);
+  --aac-scrollbar-thumb-hover: rgba(0,0,0,0.45);
+  --aac-shadow-sm: 0 1px 2px rgba(0,0,0,0.08);
+  --aac-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  --aac-shadow-lg: 0 8px 32px rgba(0,0,0,0.22);
+  --aac-transition: 160ms cubic-bezier(.4,.0,.2,1);
 }
 
-/* Assistant API Chat (floating widget) */
+/* Dark theme overrides */
+.aac-dark {
+  --aac-bg: var(--aac-bg-dark);
+  --aac-bg-alt: var(--aac-bg-dark-alt);
+  --aac-border: var(--aac-border-dark);
+  --aac-text: #f1f5f9;
+  --aac-text-soft: #94a3b8;
+}
+
+/* Root container (hidden by default) */
+#aac-widget-root {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  font-family: var(--aac-font-family);
+}
+
+/* Root created by JS */
 .assistant-api-chat {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
-  z-index: 1000; /* above navbar and overlays */
-  isolation: isolate; /* ensure top stacking context */
-  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  font-family: var(--aac-font-family);
 }
 
-.aac-window {
-  width: 360px;
-  max-width: 94vw;
-  background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-heavy);
-  overflow: hidden;
-  display: none; /* hidden by default to avoid flash on load */
-  flex-direction: column;
-}
-
-.aac-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  color: #fff;
-}
-
-.aac-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 800;
-  letter-spacing: -0.2px;
-}
-
-.aac-brand img {
-  width: 24px;
-  height: 24px;
-  border-radius: 9999px;
-}
-
-.aac-title {
-  font-size: 14px;
-}
-
-.aac-min {
-  border: none;
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  width: 32px;
-  height: 28px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.aac-body {
-  height: 340px;
-  overflow: auto;
-  padding: 12px;
-  background: #ffffff;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.aac-input {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-top: 1px solid var(--border-color);
-  background: var(--light-gray);
-}
-
-.aac-input input[type="text"] {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 9999px;
-  outline: none;
-  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
-}
-
-.aac-input input[type="text"]:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.aac-input button[type="submit"] {
-  padding: 10px 14px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+/* Toggle Button */
+.aac-toggle-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--aac-primary);
   color: #fff;
   border: none;
-  border-radius: 12px;
-  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-}
-
-/* Floating Action Button (collapsed mode) */
-.aac-fab {
-  width: 56px;
-  height: 56px;
-  position: fixed; /* attach to viewport */
-  bottom: 16px;
-  right: 16px;
-  z-index: 1000; /* above assistant container */
-  border-radius: 9999px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  background: linear-gradient(135deg, var(--primary-color) 50%, var(--primary-dark) 100%);
-  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.35);
+  font-size: 26px;
+  box-shadow: var(--aac-shadow);
+  transition: var(--aac-transition);
+}
+.aac-toggle-btn:hover {
+  background: var(--aac-primary-accent);
+  box-shadow: var(--aac-shadow-lg);
+}
+
+/* Window */
+.aac-window {
+  width: 420px;
+  max-height: 640px;
+  display: flex;
+  flex-direction: column;
+  background: var(--aac-bg);
+  border: 1px solid var(--aac-border);
+  border-radius: var(--aac-border-radius);
+  box-shadow: var(--aac-shadow-lg);
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+  animation: aac-pop-in .35s cubic-bezier(.4,.0,.2,1);
+}
+@keyframes aac-pop-in { from { opacity:0; transform: translateY(12px) scale(.96);} to {opacity:1; transform: translateY(0) scale(1);} }
+
+/* Header */
+.aac-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, var(--aac-primary) 0%, var(--aac-primary-accent) 100%);
+  color: #fff;
+}
+.aac-header img.logo,
+.aac-header img.aac-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.25));
+}
+.aac-header .title,
+.aac-header .aac-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.aac-header .subtitle {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: .85;
+}
+.aac-header .aac-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.aac-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: none;
   cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: var(--aac-transition);
+}
+.aac-icon-btn:hover { background: rgba(255,255,255,0.3); }
+
+/* Messages Scroll Area */
+.aac-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 18px 16px;
+  background: var(--aac-bg-alt);
+  scroll-behavior: smooth;
+}
+.aac-messages::-webkit-scrollbar { width: 10px; }
+.aac-messages::-webkit-scrollbar-track { background: var(--aac-scrollbar-bg); border-radius: 10px; }
+.aac-messages::-webkit-scrollbar-thumb { background: var(--aac-scrollbar-thumb); border-radius: 10px; }
+.aac-messages::-webkit-scrollbar-thumb:hover { background: var(--aac-scrollbar-thumb-hover); }
+
+/* Message Bubble */
+.aac-msg {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  gap: 10px;
+  animation: aac-fade-in .3s ease;
+}
+@keyframes aac-fade-in { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform: translateY(0);} }
+.aac-msg .avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--aac-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: var(--aac-shadow-sm);
+}
+.aac-msg.user .avatar { background: var(--aac-success); }
+.aac-msg.error .avatar { background: var(--aac-danger); }
+
+.aac-msg .bubble {
+  position: relative;
+  max-width: 90%;
+  padding: 10px 14px 10px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--aac-text);
+  box-shadow: var(--aac-shadow-sm);
+  border: 1px solid var(--aac-border);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.aac-dark .aac-msg .bubble { background: var(--aac-bg-dark-alt); border-color: var(--aac-border-dark); color: var(--aac-text); }
+.aac-msg.user .bubble { background: var(--aac-primary); color: #fff; border-color: var(--aac-primary-accent); }
+.aac-msg.error .bubble { background: var(--aac-danger); color:#fff; border-color: #b91c1c; }
+
+/* Bubble meta tag (e.g., via Gemini) */
+.aac-msg .bubble .meta-tag {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  border-radius: 6px;
+  background: var(--aac-primary);
+  color: #fff;
+  opacity: .85;
+}
+.aac-msg.user .bubble .meta-tag { background: rgba(255,255,255,0.25); }
+.aac-msg.error .bubble .meta-tag { background: rgba(255,255,255,0.25); }
+
+/* Rich formatting inside bubble */
+.aac-msg .bubble p { margin: 0 0 6px; }
+.aac-msg .bubble p:last-child { margin-bottom: 0; }
+.aac-msg .bubble ul,
+.aac-msg .bubble ol {
+  margin: 4px 0 8px 18px;
+  padding: 0;
+}
+.aac-msg .bubble li { margin: 2px 0; padding-left: 4px; }
+.aac-msg .bubble strong { font-weight: 600; }
+.aac-msg .bubble code {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  background: rgba(0,0,0,0.06);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.aac-dark .aac-msg .bubble code { background: rgba(255,255,255,0.09); }
+
+/* Input Area */
+.aac-input-row {
+  padding: 10px 14px 12px;
+  background: var(--aac-bg);
+  border-top: 1px solid var(--aac-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.aac-input-row textarea {
+  width: 100%;
+  resize: none;
+  min-height: 58px;
+  max-height: 180px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid var(--aac-border);
+  border-radius: 10px;
+  background: var(--aac-bg-alt);
+  color: var(--aac-text);
+  font-family: var(--aac-font-family);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+  transition: var(--aac-transition);
+}
+.aac-input-row textarea:focus {
+  outline: none;
+  border-color: var(--aac-primary);
+  box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+}
+.aac-dark .aac-input-row textarea { background: var(--aac-bg-dark-alt); border-color: var(--aac-border-dark); color: var(--aac-text); }
+
+.aac-send-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.aac-send-btn {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  border-radius: 10px;
+  border: none;
+  background: var(--aac-primary);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--aac-shadow);
+  transition: var(--aac-transition);
+}
+.aac-send-btn:hover { background: var(--aac-primary-accent); box-shadow: var(--aac-shadow-lg); }
+.aac-send-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Theme toggle icon state */
+.aac-theme-toggle[data-theme="dark"]::after { content: '🌙'; }
+.aac-theme-toggle[data-theme="light"]::after { content: '☀️'; }
+
+/* Subtle separators */
+.aac-separator-text {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--aac-text-soft);
+  margin: 18px 0 14px;
+  position: relative;
+}
+.aac-separator-text:before,
+.aac-separator-text:after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 38%;
+  height: 1px;
+  background: var(--aac-border);
+}
+.aac-separator-text:before { left: 0; }
+.aac-separator-text:after { right: 0; }
+
+/* Responsive */
+@media (max-width: 520px) {
+  .aac-window { width: calc(100vw - 32px); max-height: 80vh; }
+  #aac-widget-root, .assistant-api-chat { bottom: 12px; right: 12px; }
+  .aac-header .title { font-size: 14px; }
+  .aac-header img.logo, .aac-header img.aac-logo { width:32px; height:32px; }
 }
 
-.aac-fab:hover {
-  transform: translateY(-1px) scale(1.03);
-  box-shadow: 0 14px 28px rgba(59, 130, 246, 0.45);
+/* Utility hidden class */
+.aac-hidden { display: none !important; }
+
+/* Optional pulse for unread indicator */
+.aac-pulse {
+  position: relative;
+}
+.aac-pulse:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(37,99,235,.5);
+  animation: aac-pulse 2.6s ease-in-out infinite;
+}
+.aac-brand { display:flex; align-items:center; gap:10px; }
+@keyframes aac-pulse { 0% { box-shadow:0 0 0 0 rgba(37,99,235,.55);} 70% { box-shadow:0 0 0 14px rgba(37,99,235,0);} 100% { box-shadow:0 0 0 0 rgba(37,99,235,0);} }
+
+/* Selection colors */
+.aac-window ::selection { background: rgba(37,99,235,.35); color:#fff; }
+.aac-dark .aac-window ::selection { background: rgba(255,255,255,.25); color:#fff; }
+
+/* Alias dark mode when documentElement gets assistant-dark class (JS toggles this) */
+html.assistant-dark, :root.assistant-dark {
+  --aac-bg: var(--aac-bg-dark);
+  --aac-bg-alt: var(--aac-bg-dark-alt);
+  --aac-border: var(--aac-border-dark);
+  line-height: 1;
+  --aac-text-soft: #94a3b8;
 }
 
-.aac-fab:disabled,
-.aac-fab[disabled] {
-  cursor: not-allowed;
-  opacity: 0.7;
-  filter: grayscale(0.1);
+/* Floating Action Button (JS uses .aac-fab) */
+.aac-fab {
+  width: 56px;
+  height: 56px;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  border: none;
+  border-radius: 50%;
+  background: var(--aac-primary);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  box-shadow: var(--aac-shadow);
+  transition: var(--aac-transition);
 }
+.aac-fab:hover { background: var(--aac-primary-accent); box-shadow: var(--aac-shadow-lg); }
+.aac-fab:disabled { opacity:.55; cursor:not-allowed; }
 
-/* Message bubbles */
+/* Body scroll area (JS uses .aac-body) */
+.aac-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px 18px;
+  background: var(--aac-bg-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.aac-body::-webkit-scrollbar { width: 10px; }
+.aac-body::-webkit-scrollbar-track { background: var(--aac-scrollbar-bg); border-radius: 10px; }
+.aac-body::-webkit-scrollbar-thumb { background: var(--aac-scrollbar-thumb); border-radius: 10px; }
+.aac-body::-webkit-scrollbar-thumb:hover { background: var(--aac-scrollbar-thumb-hover); }
+
+/* Input form (JS uses .aac-input + textarea + .aac-send button) */
+.aac-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  background: var(--aac-bg);
+  border-top: 1px solid var(--aac-border);
+}
+.aac-input textarea {
+  flex: 1;
+  resize: none;
+  min-height: 38px;
+  max-height: 160px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid var(--aac-border);
+  border-radius: 10px;
+  background: var(--aac-bg-alt);
+  color: var(--aac-text);
+  font-family: var(--aac-font-family);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+  transition: var(--aac-transition);
+}
+.aac-input textarea:focus { outline:none; border-color: var(--aac-primary); box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
+
+.aac-send {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  background: var(--aac-primary);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--aac-shadow);
+  transition: var(--aac-transition);
+}
+.aac-send:hover { background: var(--aac-primary-accent); box-shadow: var(--aac-shadow-lg); }
+.aac-send:disabled { opacity:.55; cursor:not-allowed; }
+
+/* Header action buttons used by JS (.aac-theme .aac-min) map to icon style */
+.aac-theme, .aac-min {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: var(--aac-transition);
+}
+.aac-theme:hover, .aac-min:hover { background: rgba(255,255,255,0.3); }
+
+/* Message container aliases (JS uses .aac-msg-user / .aac-msg-bot) */
 .aac-msg-user, .aac-msg-bot {
   display: block;
   max-width: 85%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.4;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.35;
+  border-radius: 12px;
   word-wrap: break-word;
   white-space: pre-wrap;
+  box-shadow: var(--aac-shadow-sm);
+  border: 1px solid var(--aac-border);
+  background: #fff;
+  color: var(--aac-text);
+  position: relative;
 }
+.aac-msg-user { align-self: flex-end; background: var(--aac-primary); color:#fff; border-color: var(--aac-primary-accent); }
+.aac-msg-bot { align-self: flex-start; background: #fff; }
+html.assistant-dark .aac-msg-bot { background: var(--aac-bg-dark-alt); }
+html.assistant-dark .aac-msg-user { background: var(--aac-primary); }
 
-.aac-msg-user {
-  align-self: flex-end;
-  background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(37,99,235,0.06) 100%);
-  color: #0f172a;
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  border-radius: 10px 10px 2px 10px;
-}
-
-.aac-msg-bot {
-  align-self: flex-start;
-  background: #f8fafc;
-  color: #0f172a;
-  border: 1px solid var(--border-color);
-  border-radius: 10px 10px 10px 2px;
-}
-
-/* Reduced width on small screens */
-@media (max-width: 480px) {
-  .assistant-api-chat { right: 12px; bottom: 12px; }
-  .aac-fab { right: 12px; bottom: 12px; }
-  .aac-window { width: 300px; }
-  .aac-body { height: 300px; }
-}
-
-/* Avoid overlap with mobile burger (right:24px, width:56px) */
-@media (max-width: 768px) {
-  .assistant-api-chat { right: 92px; } /* 24 + 56 + 12 spacing */
-  .aac-fab {right: 25px;bottom: 93px;}
-}
-
-/* When the sidebar is open on mobile, ensure the sidebar visually sits above the assistant.
-   This makes the assistant get obscured by the sidebar (preferred) instead of obstructing navigation. */
-.sidebar.open ~ .assistant-api-chat,
-.sidebar.mobile-open ~ .assistant-api-chat,
-.sidebar.open + .assistant-api-chat,
-.sidebar.mobile-open + .assistant-api-chat {
-  z-index: 1000; /* below sidebar (1001) and below mobile open button (1102) */
-}
-.sidebar.open ~ .assistant-api-chat .aac-fab,
-.sidebar.mobile-open ~ .assistant-api-chat .aac-fab,
-.sidebar.open + .assistant-api-chat .aac-fab,
-.sidebar.mobile-open + .assistant-api-chat .aac-fab {
-  z-index: 1000;
-}
+/* Rich formatting inside legacy message containers */
+.aac-msg-user p, .aac-msg-bot p { margin: 0 0 6px; }
+.aac-msg-user p:last-child, .aac-msg-bot p:last-child { margin-bottom:0; }
+.aac-msg-user ul, .aac-msg-bot ul { margin:4px 0 8px 18px; padding:0; }
+.aac-msg-user li, .aac-msg-bot li { margin:2px 0; }
+.aac-msg-user strong, .aac-msg-bot strong { font-weight:600; }
