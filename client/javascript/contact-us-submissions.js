@@ -1261,6 +1261,10 @@ function renderPagination() {
     if (totalForPaging <= pageLimit) {
         totalPages = 1;
     }
+    // Additional guard: if we're on page 1 and fewer than a full page is visible, we consider it a single page set
+    if (currentPage === 1 && filteredSubmissions.length > 0 && filteredSubmissions.length < pageLimit) {
+        totalPages = 1;
+    }
     // Clamp currentPage if it exceeds recalculated totalPages
     if (currentPage > totalPages) {
         currentPage = totalPages;
@@ -1308,7 +1312,7 @@ function renderPagination() {
     try {
         const infoEl = document.getElementById('pageInfo');
         if (infoEl) {
-            const effectiveTotal = totalForPaging || 0;
+            const effectiveTotal = (totalPages === 1) ? filteredSubmissions.length : (totalForPaging || 0);
             const startItem = effectiveTotal ? ((currentPage - 1) * pageLimit) + 1 : 0;
             const endItem = effectiveTotal ? Math.min(startItem + filteredSubmissions.length - 1, effectiveTotal) : 0;
             const label = (lastStatusFilter && lastStatusFilter.toLowerCase() === 'archived') ? 'archived' : 'active';
