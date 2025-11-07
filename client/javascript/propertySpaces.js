@@ -329,13 +329,14 @@ function formatArea(area) {
 }
 
 function getStatusBadge(status) {
-  if (status === "Available")
+  const s = String(status || "").toLowerCase();
+  if (s === "available")
     return `<div class="status-badge status-available">Available</div>`;
-  if (status === "Occupied")
+  if (s === "occupied")
     return `<div class="status-badge status-occupied">Occupied</div>`;
-  if (status === "Reserved")
+  if (s === "reserved")
     return `<div class="status-badge status-reserved">Reserved</div>`;
-  if (status === "Maintenance")
+  if (s === "maintenance")
     return `<div class="status-badge status-maintenance">Maintenance</div>`;
   return "";
 }
