@@ -113,8 +113,15 @@ async function loadFinancial() {
         const data = await API.financial({ from, to, propertyId, tenantId, groupBy });
         set('financialCollected', tableFrom(data.totalCollectedByPeriod || [], ['period', 'total']));
         setText('financialOutstanding', fmtCurrency(data.outstandingBalances || 0));
-        const dep = data.depositsSummary || { advance: 0, security: 0 };
-        set('financialDeposits', tableFrom([{ advance: dep.advance, security: dep.security }], ['advance', 'security']));
+        // Remove Security Deposits & Advance Payments section per request
+        try {
+            const depEl = document.getElementById('financialDeposits');
+            if (depEl) {
+                const container = depEl.closest('.card') || depEl.closest('.report-section') || depEl.parentElement;
+                if (container) container.style.display = 'none'; else depEl.style.display = 'none';
+                depEl.innerHTML = '';
+            }
+        } catch {}
     set('financialRevPerProperty', tableFrom(data.revenuePerProperty || [], ['property_id', 'property_name', 'total']));
         const r = data.recurringVsOneTime || { recurring: 0, oneTime: 0 };
         set('financialRecurring', tableFrom([{ recurring: r.recurring, one_time: r.oneTime }], ['recurring', 'one_time']));
@@ -278,7 +285,15 @@ function exportCsv() {
                 parts.push('');
                 return;
             }
-            const data = settledResult.value;
+            const data = settledResult.value || {};
+            // Omit deposits-related fields from Financial export
+            if (/^financial$/i.test(title) && data && typeof data === 'object') {
+                try {
+                    delete data.depositsSummary;
+                    delete data.securityDeposits;
+                    delete data.advanceDeposits;
+                } catch {}
+            }
             
             if (Array.isArray(data)) {
                 const block = arrayToCsv(data) || '(No data)';
