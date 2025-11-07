@@ -31,6 +31,18 @@ const createNotification = async (data = {}, io = null) => {
         meta = null,
     } = data || {};
     if (!user_id || !title) throw new Error("user_id and title are required");
+
+    try {
+        const [userRows] = await pool.query(
+            `SELECT user_id FROM users WHERE user_id = ? LIMIT 1`,
+            [user_id]
+        );
+        if (!userRows || userRows.length === 0) {
+            throw new Error(`Target user_id not found: ${user_id}`);
+        }
+    } catch (err) {
+        throw new Error(`Invalid notification recipient: ${err.message}`);
+    }
     const [result] = await pool.query(
         `INSERT INTO notifications (user_id, type, title, body, link, meta) VALUES (?, ?, ?, ?, ?, ?)`,
         [

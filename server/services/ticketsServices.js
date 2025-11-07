@@ -4,7 +4,11 @@ import notificationsServices from "./notificationsServices.js";
 
 const pool = await conn();
 
-const createTicket = async (ticketData = {}, currentUserId = null, io = null) => {
+const createTicket = async (
+  ticketData = {},
+  currentUserId = null,
+  io = null
+) => {
   const {
     ticket_title,
     description,
@@ -35,22 +39,22 @@ const createTicket = async (ticketData = {}, currentUserId = null, io = null) =>
     }
 
     const newTicket = {
-  ticket_id,
-  ticket_title,
-  description,
-  priority,
-  request_type,
-  assigned_to,
-  user_id: finalUserId,
-  lease_id,
-  phone_number,
-  ticket_status,
-  start_datetime,
-  end_datetime,
-  notes,
-  maintenance_costs,
-  created_at: now,
-  updated_at: now,
+      ticket_id,
+      ticket_title,
+      description,
+      priority,
+      request_type,
+      assigned_to,
+      user_id: finalUserId,
+      lease_id,
+      phone_number,
+      ticket_status,
+      start_datetime,
+      end_datetime,
+      notes,
+      maintenance_costs,
+      created_at: now,
+      updated_at: now,
     };
 
     Object.keys(newTicket).forEach(
@@ -68,24 +72,38 @@ const createTicket = async (ticketData = {}, currentUserId = null, io = null) =>
 
     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
       const attachQuery = `INSERT INTO ticket_attachments (ticket_id, url) VALUES ?`;
-      const attachValues = attachments.map(url => [ticket_id, url]);
+      const attachValues = attachments.map((url) => [ticket_id, url]);
       await pool.query(attachQuery, [attachValues]);
     }
 
-    
     try {
       if (assigned_to && String(assigned_to).trim() !== "") {
-        await notificationsServices.createNotification({
-          user_id: assigned_to,
-          type: 'TICKET',
-          title: 'New Ticket Assigned',
-          body: `Ticket: ${ticket_title || 'Maintenance Request'}`,
-          link: '/maintenance.html',
-          meta: { ticket_id }
-        }, io);
+        let recipient = finalUserId;
+        try {
+          const [rows] = await pool.query(
+            `SELECT user_id FROM users WHERE user_id = ? LIMIT 1`,
+            [assigned_to]
+          );
+          if (rows && rows.length) recipient = rows[0].user_id;
+        } catch (e) { }
+
+        await notificationsServices.createNotification(
+          {
+            user_id: recipient,
+            type: "TICKET",
+            title: "New Ticket Assigned",
+            body: `Ticket: ${ticket_title || "Maintenance Request"}`,
+            link: "/maintenance.html",
+            meta: { ticket_id },
+          },
+          io
+        );
       }
     } catch (notifyErr) {
-      console.warn('Failed to create ticket assignment notification', notifyErr);
+      console.warn(
+        "Failed to create ticket assignment notification",
+        notifyErr
+      );
     }
 
     return {
@@ -158,7 +176,6 @@ const updateTicketStatuses = async () => {
 
 const getTickets = async (queryObj = {}) => {
   try {
-    
     const {
       page = 1,
       limit = 10,
@@ -172,9 +189,6 @@ const getTickets = async (queryObj = {}) => {
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
-
-    
-    
 
     let query = `
       SELECT 
@@ -193,22 +207,33 @@ const getTickets = async (queryObj = {}) => {
     `;
     const params = [];
 
-    
-    if (status && String(status).trim() !== "" && String(status).toLowerCase() !== "all") {
+    if (
+      status &&
+      String(status).trim() !== "" &&
+      String(status).toLowerCase() !== "all"
+    ) {
       query += ` AND UPPER(t.ticket_status) = UPPER(?)`;
       params.push(status);
     }
-    
-    if (priority && String(priority).trim() !== "" && String(priority).toLowerCase() !== "all") {
+
+    if (
+      priority &&
+      String(priority).trim() !== "" &&
+      String(priority).toLowerCase() !== "all"
+    ) {
       query += ` AND UPPER(t.priority) = UPPER(?)`;
       params.push(priority);
     }
-    
-    if (request_type && String(request_type).trim() !== "" && String(request_type).toLowerCase() !== "all") {
+
+    if (
+      request_type &&
+      String(request_type).trim() !== "" &&
+      String(request_type).toLowerCase() !== "all"
+    ) {
       query += ` AND UPPER(t.request_type) = UPPER(?)`;
       params.push(request_type);
     }
-    
+
     if (from_date && to_date) {
       query += ` AND DATE(t.created_at) BETWEEN ? AND ?`;
       params.push(from_date, to_date);
@@ -219,7 +244,7 @@ const getTickets = async (queryObj = {}) => {
       query += ` AND DATE(t.created_at) <= ?`;
       params.push(to_date);
     }
-    
+
     if (search && search.trim() !== "") {
       query += ` AND (
         t.ticket_title LIKE ? OR
@@ -232,10 +257,9 @@ const getTickets = async (queryObj = {}) => {
     }
 
     query += " ORDER BY t.created_at DESC";
-  query += " LIMIT ? OFFSET ?";
-  params.push(limitNum, skip);
+    query += " LIMIT ? OFFSET ?";
+    params.push(limitNum, skip);
 
-    
     let countQuery = `
       SELECT COUNT(*) as total 
       FROM tickets t
@@ -245,15 +269,27 @@ const getTickets = async (queryObj = {}) => {
       WHERE 1=1
     `;
     const countParams = [];
-    if (status && String(status).trim() !== "" && String(status).toLowerCase() !== "all") {
+    if (
+      status &&
+      String(status).trim() !== "" &&
+      String(status).toLowerCase() !== "all"
+    ) {
       countQuery += ` AND UPPER(t.ticket_status) = UPPER(?)`;
       countParams.push(status);
     }
-    if (priority && String(priority).trim() !== "" && String(priority).toLowerCase() !== "all") {
+    if (
+      priority &&
+      String(priority).trim() !== "" &&
+      String(priority).toLowerCase() !== "all"
+    ) {
       countQuery += ` AND UPPER(t.priority) = UPPER(?)`;
       countParams.push(priority);
     }
-    if (request_type && String(request_type).trim() !== "" && String(request_type).toLowerCase() !== "all") {
+    if (
+      request_type &&
+      String(request_type).trim() !== "" &&
+      String(request_type).toLowerCase() !== "all"
+    ) {
       countQuery += ` AND UPPER(t.request_type) = UPPER(?)`;
       countParams.push(request_type);
     }
@@ -278,13 +314,9 @@ const getTickets = async (queryObj = {}) => {
       countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
 
-  
-  
-  
-  const [rows] = await pool.query(query, params);
-  
-  
-  const [countResult] = await pool.query(countQuery, countParams);
+    const [rows] = await pool.query(query, params);
+
+    const [countResult] = await pool.query(countQuery, countParams);
     const total = countResult[0].total;
 
     return {
@@ -413,7 +445,7 @@ const updateTicketById = async (ticket_id = "", ticketData = {}, io = null) => {
       "start_datetime",
       "end_datetime",
       "maintenance_costs",
-      "notes"
+      "notes",
     ];
 
     const filteredData = {};
@@ -427,32 +459,37 @@ const updateTicketById = async (ticket_id = "", ticketData = {}, io = null) => {
       throw new Error("No valid fields provided for update");
     }
 
-    
-    if (ticketData.attachments && Array.isArray(ticketData.attachments) && ticketData.attachments.length > 0) {
-      
+    if (
+      ticketData.attachments &&
+      Array.isArray(ticketData.attachments) &&
+      ticketData.attachments.length > 0
+    ) {
       const existingQuery = `SELECT url FROM ticket_attachments WHERE ticket_id = ?`;
-      const [existingAttachments] = await pool.query(existingQuery, [ticket_id]);
-      const existingUrls = existingAttachments.map(att => att.url);
-      
-      
+      const [existingAttachments] = await pool.query(existingQuery, [
+        ticket_id,
+      ]);
+      const existingUrls = existingAttachments.map((att) => att.url);
+
       const allAttachments = [...existingUrls, ...ticketData.attachments];
       const maxFiles = 5;
-      
+
       if (allAttachments.length > maxFiles) {
-        throw new Error(`Total attachments cannot exceed ${maxFiles} files. Current: ${existingUrls.length} existing + ${ticketData.attachments.length} new = ${allAttachments.length}`);
+        throw new Error(
+          `Total attachments cannot exceed ${maxFiles} files. Current: ${existingUrls.length} existing + ${ticketData.attachments.length} new = ${allAttachments.length}`
+        );
       }
-      
-      
-      await pool.query(`DELETE FROM ticket_attachments WHERE ticket_id = ?`, [ticket_id]);
-      
+
+      await pool.query(`DELETE FROM ticket_attachments WHERE ticket_id = ?`, [
+        ticket_id,
+      ]);
+
       if (allAttachments.length > 0) {
         const attachQuery = `INSERT INTO ticket_attachments (ticket_id, url) VALUES ?`;
-        const attachValues = allAttachments.map(url => [ticket_id, url]);
+        const attachValues = allAttachments.map((url) => [ticket_id, url]);
         await pool.query(attachQuery, [attachValues]);
       }
     }
 
-    
     let prevTicket = null;
     try {
       const [prevRows] = await pool.query(
@@ -460,7 +497,7 @@ const updateTicketById = async (ticket_id = "", ticketData = {}, io = null) => {
         [ticket_id]
       );
       prevTicket = prevRows && prevRows.length ? prevRows[0] : null;
-    } catch {}
+    } catch { }
 
     const updatedData = {
       ...filteredData,
@@ -485,43 +522,63 @@ const updateTicketById = async (ticket_id = "", ticketData = {}, io = null) => {
 
     const updatedTicket = await getSingleTicketById(ticket_id);
 
-    
     try {
       if (prevTicket) {
-        const newStatus = updatedTicket.ticket?.ticket_status || filteredData.ticket_status;
+        const newStatus =
+          updatedTicket.ticket?.ticket_status || filteredData.ticket_status;
         if (
           newStatus &&
-          String(newStatus).toUpperCase() !== String(prevTicket.ticket_status || '').toUpperCase()
+          String(newStatus).toUpperCase() !==
+          String(prevTicket.ticket_status || "").toUpperCase()
         ) {
-          
           if (prevTicket.user_id) {
-            await notificationsServices.createNotification({
-              user_id: prevTicket.user_id,
-              type: 'TICKET',
-              title: 'Ticket Status Updated',
-              body: `${prevTicket.ticket_title || 'Your ticket'} is now ${newStatus}.`,
-              link: '/maintenanceTenant.html',
-              meta: { ticket_id }
-            }, io);
+            await notificationsServices.createNotification(
+              {
+                user_id: prevTicket.user_id,
+                type: "TICKET",
+                title: "Ticket Status Updated",
+                body: `${prevTicket.ticket_title || "Your ticket"
+                  } is now ${newStatus}.`,
+                link: "/maintenanceTenant.html",
+                meta: { ticket_id },
+              },
+              io
+            );
           }
         }
-        const newAssignee = filteredData.assigned_to || updatedTicket.ticket?.assigned_to;
+        const newAssignee =
+          filteredData.assigned_to || updatedTicket.ticket?.assigned_to;
         if (
-          newAssignee && String(newAssignee).trim() !== '' &&
-          String(newAssignee) !== String(prevTicket.assigned_to || '')
+          newAssignee &&
+          String(newAssignee).trim() !== "" &&
+          String(newAssignee) !== String(prevTicket.assigned_to || "")
         ) {
-          await notificationsServices.createNotification({
-            user_id: newAssignee,
-            type: 'TICKET',
-            title: 'New Ticket Assigned',
-            body: `${prevTicket.ticket_title || 'A ticket'} has been assigned to you.`,
-            link: '/maintenance.html',
-            meta: { ticket_id }
-          }, io);
+          let recipient = prevTicket.user_id || null;
+          try {
+            const [rows] = await pool.query(
+              `SELECT user_id FROM users WHERE user_id = ? LIMIT 1`,
+              [newAssignee]
+            );
+            if (rows && rows.length) recipient = rows[0].user_id;
+          } catch (e) { }
+          if (recipient) {
+            await notificationsServices.createNotification(
+              {
+                user_id: recipient,
+                type: "TICKET",
+                title: "New Ticket Assigned",
+                body: `${prevTicket.ticket_title || "A ticket"
+                  } has been assigned.`,
+                link: "/maintenance.html",
+                meta: { ticket_id },
+              },
+              io
+            );
+          }
         }
       }
     } catch (notifyErr) {
-      console.warn('Failed to create ticket update notification', notifyErr);
+      console.warn("Failed to create ticket update notification", notifyErr);
     }
 
     return {
