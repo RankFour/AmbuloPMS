@@ -1352,3 +1352,6 @@ window.saveCompanyInfo = saveCompanyInfo;
 window.previewAbout = previewAbout;
 window.saveAboutContent = saveAboutContent;
 window.removeAltLogo = removeAltLogo;
+window.triggerAltLogoUpload = triggerAltLogoUpload;
+window.removeLogo = removeLogo;
+window.triggerLogoUpload = triggerLogoUpload;
