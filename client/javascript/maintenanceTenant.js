@@ -139,7 +139,7 @@ import formatDate from '../utils/formatDate.js';
                     const tenantNameInput = document.getElementById('tenantName');
                     const unitNumberInput = document.getElementById('unitNumber');
                     const selectedLease = this.leases.find(l => l.lease_id === e.target.value);
-                    console.log('Selected lease:', selectedLease);
+                    
                     let userPhones = { phone_number: '', alt_phone_number: '' };
                     if (selectedLease) {
                         let fullName = selectedLease.tenant_name;
@@ -276,39 +276,88 @@ import formatDate from '../utils/formatDate.js';
 
             async handleSubmit(e) {
                 e.preventDefault();
+                
                 this.clearErrors();
 
-                 
-                this.showConfirmationModal(e);
+                
+                try {
+                    await this.showConfirmationModal(e);
+                } catch (err) {
+                    console.warn('[Maintenance] showConfirmationModal failed, submitting directly', err);
+                    
+                    await this.submitTicket(e);
+                }
             }
 
-            showConfirmationModal(originalEvent) {
+            async showConfirmationModal(originalEvent) {
+                
+                const ticketTitle = document.getElementById('ticketTitle')?.value || '';
+                const leaseSelect = document.getElementById('leaseSelect');
+                const leaseText = leaseSelect ? (leaseSelect.options[leaseSelect.selectedIndex]?.text || leaseSelect.value) : '';
+                const category = document.getElementById('category')?.selectedOptions?.[0]?.text || document.getElementById('category')?.value || '';
+                const priority = document.querySelector('input[name="priority"]:checked')?.value || '';
+                const description = document.getElementById('description')?.value || '';
+
+                
+                const header = 'Submit this maintenance request?';
+                const detailLines = [
+                    `Title: ${ticketTitle}`,
+                    `Lease: ${leaseText}`,
+                    `Category: ${category}`,
+                    `Priority: ${priority}`,
+                    '',
+                    'Description:',
+                    description || ''
+                ];
+                const message = header + '\n\n' + detailLines.join('\n');
+
+                
+                try {
+                    if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
+                        const ok = await window.showConfirm(message, 'Confirm Maintenance Request');
+                        if (ok) await this.submitTicket(originalEvent);
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('[Maintenance] ModalHelpers.showConfirm failed, falling back to DOM modal', err);
+                }
+
+                
                 const modal = document.getElementById('confirmationModal');
                 const confirmBtn = document.getElementById('confirmSubmit');
                 const cancelBtn = document.getElementById('cancelSubmit');
 
-                 
+                if (!modal) {
+                    console.warn('[Maintenance] confirmationModal element not found — proceeding to submit without modal');
+                    
+                    await this.submitTicket(originalEvent);
+                    return;
+                }
+
                 modal.style.display = 'flex';
                 setTimeout(() => modal.classList.add('show'), 10);
 
-                 
                 const handleCancel = () => {
                     this.hideConfirmationModal();
-                    confirmBtn.removeEventListener('click', handleConfirm);
-                    cancelBtn.removeEventListener('click', handleCancel);
+                    if (confirmBtn) confirmBtn.removeEventListener('click', handleConfirm);
+                    if (cancelBtn) cancelBtn.removeEventListener('click', handleCancel);
                 };
 
-                 
-                const handleConfirm = () => {
-                    this.submitTicket(originalEvent);
-                    confirmBtn.removeEventListener('click', handleConfirm);
-                    cancelBtn.removeEventListener('click', handleCancel);
+                const handleConfirm = async () => {
+                    await this.submitTicket(originalEvent);
+                    if (confirmBtn) confirmBtn.removeEventListener('click', handleConfirm);
+                    if (cancelBtn) cancelBtn.removeEventListener('click', handleCancel);
                 };
 
-                confirmBtn.addEventListener('click', handleConfirm);
-                cancelBtn.addEventListener('click', handleCancel);
+                if (confirmBtn && cancelBtn) {
+                    confirmBtn.addEventListener('click', handleConfirm);
+                    cancelBtn.addEventListener('click', handleCancel);
+                } else {
+                    console.warn('[Maintenance] confirm or cancel button not found on modal — submitting directly');
+                    await this.submitTicket(originalEvent);
+                    return;
+                }
 
-                 
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
                         handleCancel();
@@ -325,14 +374,17 @@ import formatDate from '../utils/formatDate.js';
             }
 
             async submitTicket(originalEvent) {
+                
                 const confirmBtn = document.getElementById('confirmSubmit');
-                const btnText = confirmBtn.querySelector('.btn-text');
-                const btnLoading = confirmBtn.querySelector('.btn-loading');
-
-                 
-                confirmBtn.disabled = true;
-                btnText.style.display = 'none';
-                btnLoading.style.display = 'flex';
+                let btnText = null;
+                let btnLoading = null;
+                if (confirmBtn) {
+                    btnText = confirmBtn.querySelector('.btn-text');
+                    btnLoading = confirmBtn.querySelector('.btn-loading');
+                    confirmBtn.disabled = true;
+                    if (btnText) btnText.style.display = 'none';
+                    if (btnLoading) btnLoading.style.display = 'flex';
+                }
 
                 const formData = new FormData();
                  
@@ -761,7 +813,7 @@ import formatDate from '../utils/formatDate.js';
 
             saveRequests() {
                  
-                console.log('Saving requests:', this.requests);
+                
             }
         }
 
