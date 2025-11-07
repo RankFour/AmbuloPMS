@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="/css/fonts.css" />
+  <link rel="stylesheet" href="/css/contact-us-submissions.css" />
+  <link rel="stylesheet" href="/css/navigation.css" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
+  <title>Ambulo PMS - Archived Submissions</title>
+  <script src="/javascript/utils/loader.js"></script>
+</head>
+<body>
+  <div class="overlay" id="overlay"></div>
+  <div id="sidebarContainer"></div>
+  <div id="navbarContainer"></div>
+
+  <div class="main-content">
+    <div class="contact-container">
+      <div class="breadcrumb-container">
+        <nav class="breadcrumb-nav">
+          <a href="/dashboard.html"><i class="fas fa-home"></i> Dashboard</a>
+          <span class="breadcrumb-separator">></span>
+          <a href="/contact-us-submissions.html">Contact Submissions</a>
+          <span class="breadcrumb-separator">></span>
+          <span class="breadcrumb-current">Archived</span>
+        </nav>
+      </div>
+
+      <div class="header-controls">
+        <div class="controls-row">
+          <div class="search-container">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-input" placeholder="Search archived submissions..." id="archSearchInput" />
+          </div>
+          <a href="/contact-us-submissions.html" class="btn" style="margin-left:auto; text-decoration:none; background:#e2e8f0; color:#0f172a; padding:8px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:8px;">
+            <i class="fas fa-inbox"></i>
+            Back to Active
+          </a>
+        </div>
+      </div>
+
+      <div class="contact-table">
+        <table id="archivedTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Subject</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="archNoResults" class="no-results" style="display:none;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:48px 0;">
+            <i class="fas fa-inbox" style="font-size: 2.5rem; color: #94a3b8;"></i>
+            <div style="color: #64748b; font-size: 1.25rem;">No archived submissions</div>
+            <div style="font-size: 1rem; color: #94a3b8;">You're all caught up!</div>
+          </div>
+        </div>
+        <div id="archPagination" class="pagination-container" aria-label="Archived submissions pagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="notification" class="notification">
+    <span id="notificationText"></span>
+  </div>
+  <script type="module" src="/javascript/contact-us-archived.js"></script>
+  <script src="/javascript/navigations.js"></script>
+</body>
+</html>

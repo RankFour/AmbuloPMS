@@ -669,6 +669,7 @@
         "lease-terms-cms": "Manage Content",
         "contact-us-submissions.html": "Contact Submissions",
         "contact-us-submissions": "Contact Submissions",
+  "contact-us-archived.html": "Archived Submissions",
         contactUs: "Contact Submissions",
         "account-profile.html": "Account Settings",
         "account-profile": "Account Settings",
@@ -718,6 +719,7 @@
         "lease-terms-cms": "fas fa-gears",
         "contact-us-submissions.html": "fas fa-comment-dots",
         "contact-us-submissions": "fas fa-comment-dots",
+  "contact-us-archived.html": "fas fa-box-archive",
         contactUs: "fas fa-comment-dots",
         "account-profile.html": "fas fa-user-cog",
         "account-profile": "fas fa-user-cog",
@@ -794,6 +796,8 @@
           "View and manage messages submitted via the Contact Us form",
         "contact-us-submissions":
           "View and manage messages submitted via the Contact Us form",
+        "contact-us-archived.html":
+          "Browse, restore, or permanently delete archived contact submissions",
         contactUs: "View and manage messages submitted via the Contact Us form",
         "account-profile.html":
           "Manage your account details, password, notifications, and verification",
@@ -1332,6 +1336,34 @@
       return (list || []).filter(n => set.has(String(n.type || 'INFO').toUpperCase()));
     }
 
+    _resolveNotificationUrl(n = {}) {
+      try {
+        if (!n || typeof n !== 'object') return null;
+        const direct = n.link && String(n.link).trim();
+        if (direct) return direct;
+        const type = String(n.type || 'INFO').toUpperCase();
+        const typeMap = {
+          PAYMENT: '/paymentAdmin.html',
+          TICKET: '/maintenance.html',
+          INQUIRY: '/contact-us-submissions.html',
+          MESSAGE: '/messages.html',
+          LEASE: '/leaseAdmin.html',
+          INFO: null,
+        };
+        let url = typeMap[type] || null;
+        if (!url) return null;
+        const params = new URLSearchParams();
+        const m = n.meta || {};
+        if (m.payment_id) params.set('payment_id', m.payment_id);
+        if (m.submission_id) params.set('submission_id', m.submission_id);
+        if (m.ticket_id) params.set('ticket_id', m.ticket_id);
+        if ([...params.keys()].length) {
+          url += (url.includes('?') ? '&' : '?') + params.toString();
+        }
+        return url;
+      } catch (_) { return null; }
+    }
+
     async fetchNotifications({ unreadOnly = false } = {}) {
       try {
         const res = await fetch(`/api/${(window.API_VERSION||'v1')}/notifications?unreadOnly=${unreadOnly}`, { credentials: 'include' });
@@ -1419,6 +1451,8 @@
       menu.querySelectorAll('.notification-item').forEach(el => {
         el.addEventListener('click', async () => {
           const id = el.getAttribute('data-id');
+          const notif = (this._notifCache || []).find(x => String(x.notification_id) === String(id));
+          const targetUrl = this._resolveNotificationUrl ? this._resolveNotificationUrl(notif || {}) : null;
           try {
             await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
             el.classList.remove('unread');
@@ -1427,6 +1461,9 @@
               this.notificationBadge.textContent = String(Math.max(0, current - 1));
             }
           } catch {}
+          if (targetUrl) {
+            try { window.location.href = targetUrl; } catch (_) {}
+          }
         });
       });
       const markAll = menu.querySelector('#markAllNotificationsRead');
@@ -1679,6 +1716,8 @@
       menu.querySelectorAll('.notification-item').forEach(el => {
         el.addEventListener('click', async () => {
           const id = el.getAttribute('data-id');
+          const notif = (this._notifCache || []).find(x => String(x.notification_id) === String(id));
+          const targetUrl = this._resolveNotificationUrl ? this._resolveNotificationUrl(notif || {}) : null;
           try {
             await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
             el.classList.remove('unread');
@@ -1689,6 +1728,9 @@
               this.notificationBadge.style.display = next > 0 ? 'flex' : 'none';
             }
           } catch {}
+          if (targetUrl) {
+            try { window.location.href = targetUrl; } catch (_) {}
+          }
         });
       });
       const markAll = menu.querySelector('#markAllNotificationsRead');

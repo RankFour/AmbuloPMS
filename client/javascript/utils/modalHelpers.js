@@ -47,9 +47,7 @@
             if (
                 typeof Modal !== "undefined" &&
                 Modal &&
-                typeof Modal.open === "function" &&
-                typeof document !== "undefined" &&
-                document.getElementById("globalModal")
+                typeof Modal.open === "function"
             ) {
                 const titleMap = {
                     success: "Success",
@@ -97,15 +95,11 @@
                 if (
                     typeof Modal !== "undefined" &&
                     Modal &&
-                    typeof Modal.open === "function" &&
-                    typeof document !== "undefined" &&
-                    document.getElementById("globalModal")
+                    typeof Modal.open === "function"
                 ) {
                     Modal.open({
                         title,
-                        body: `<div style="white-space:pre-wrap;">${escapeHtml(
-                            String(message)
-                        )}</div>`,
+                        body: `<div style="white-space:pre-wrap;">${escapeHtml(String(message))}</div>`,
                         showFooter: true,
                         showCancel: true,
                         confirmText: "Yes",
@@ -122,17 +116,36 @@
                 );
             }
 
+            // Fallback lightweight overlay
             try {
                 const overlay = document.createElement("div");
                 overlay.className = "modal-overlay";
                 overlay.classList.add("active");
-                overlay.style.zIndex = 12000;
+                overlay.style.position = "fixed";
+                overlay.style.inset = "0";
+                overlay.style.display = "flex";
+                overlay.style.alignItems = "center";
+                overlay.style.justifyContent = "center";
+                overlay.style.background = "rgba(0,0,0,0.45)";
+                overlay.style.backdropFilter = "blur(2px)";
+                overlay.style.zIndex = 140000;
+                overlay.style.pointerEvents = "auto";
 
                 const container = document.createElement("div");
                 container.className = "modal-container";
+                container.style.background = "#fff";
+                container.style.borderRadius = "12px";
+                container.style.minWidth = "360px";
+                container.style.maxWidth = "90%";
+                container.style.boxShadow = "0 10px 30px rgba(0,0,0,0.2)";
+                container.style.overflow = "hidden";
+                container.style.pointerEvents = "auto";
+                container.addEventListener('click', function(e){ e.stopPropagation(); });
 
                 const header = document.createElement("div");
                 header.className = "modal-header";
+                header.style.padding = "14px 18px";
+                header.style.borderBottom = "1px solid #e5e7eb";
                 const titleNode = document.createElement("div");
                 titleNode.className = "modal-title";
                 const titleText = document.createElement("span");
@@ -148,10 +161,20 @@
 
                 const footer = document.createElement("div");
                 footer.className = "modal-footer";
+                footer.style.display = "flex";
+                footer.style.justifyContent = "flex-end";
+                footer.style.gap = "10px";
+                footer.style.padding = "12px 16px";
+                footer.style.borderTop = "1px solid #e5e7eb";
 
                 const cancelBtn = document.createElement("button");
                 cancelBtn.className = "btn-cancel";
                 cancelBtn.textContent = "Cancel";
+                cancelBtn.style.cursor = "pointer";
+                cancelBtn.style.background = "#f3f4f6";
+                cancelBtn.style.border = "1px solid #e5e7eb";
+                cancelBtn.style.borderRadius = "8px";
+                cancelBtn.style.padding = "8px 14px";
                 cancelBtn.onclick = () => {
                     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
                     resolve(false);
@@ -160,6 +183,12 @@
                 const okBtn = document.createElement("button");
                 okBtn.className = "btn-confirm";
                 okBtn.textContent = "OK";
+                okBtn.style.cursor = "pointer";
+                okBtn.style.background = "#3b82f6";
+                okBtn.style.color = "#fff";
+                okBtn.style.border = "1px solid #2563eb";
+                okBtn.style.borderRadius = "8px";
+                okBtn.style.padding = "8px 14px";
                 okBtn.onclick = () => {
                     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
                     resolve(true);
@@ -171,11 +200,15 @@
                 container.appendChild(body);
                 container.appendChild(footer);
                 overlay.appendChild(container);
+
+                overlay.addEventListener('click', function(){
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    resolve(false);
+                });
+
                 (document.body || document.documentElement).appendChild(overlay);
                 setTimeout(() => {
-                    try {
-                        okBtn.focus();
-                    } catch (e) { }
+                    try { okBtn.focus(); } catch (e) { }
                 }, 20);
                 return;
             } catch (e) {
@@ -199,9 +232,7 @@
                 if (
                     typeof Modal !== "undefined" &&
                     Modal &&
-                    typeof Modal.open === "function" &&
-                    typeof document !== "undefined" &&
-                    document.getElementById("globalModal")
+                    typeof Modal.open === "function"
                 ) {
                     const inputId = `modal-prompt-${Date.now()}`;
 
@@ -241,7 +272,8 @@
                 overlay.style.display = "flex";
                 overlay.style.alignItems = "center";
                 overlay.style.justifyContent = "center";
-                overlay.style.zIndex = 12000;
+                overlay.style.zIndex = 120000;
+                overlay.style.pointerEvents = "auto";
 
                 const box = document.createElement("div");
                 box.style.background = "#fff";
@@ -299,6 +331,12 @@
                 box.appendChild(input);
                 box.appendChild(actions);
                 overlay.appendChild(box);
+                // clicking outside cancels
+                overlay.addEventListener('click', function(){
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    resolve(null);
+                });
+
                 document.body.appendChild(overlay);
                 setTimeout(() => {
                     try {

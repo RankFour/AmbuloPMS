@@ -47,6 +47,10 @@ async function loadDynamicCompanyInfo() {
 var currentPage = 1;
 var pageLimit = 10;
 var totalItems = 0;
+// Tracks total items excluding archived (for active view pagination)
+var activeTotalItems = 0;
+// Remember last raw status filter value user selected (to know if viewing archived)
+var lastStatusFilter = "";
 
 var serverStats = null;
 
@@ -60,6 +64,7 @@ async function fetchSubmissions(page = 1) {
         const statusRaw = document.getElementById("statusFilter")
             ? document.getElementById("statusFilter").value
             : "";
+        lastStatusFilter = statusRaw || "";
         const type = document.getElementById("typeFilter")
             ? document.getElementById("typeFilter").value
             : "";
@@ -107,6 +112,79 @@ async function fetchSubmissions(page = 1) {
         } else {
             filteredSubmissions = [...submissions];
         }
+        // Exclude archived items from active view (only when not explicitly filtering for Archived)
+        let viewingArchived = statusRaw && String(statusRaw).toLowerCase() === 'archived';
+        if (!viewingArchived) {
+            filteredSubmissions = filteredSubmissions.filter(function (s) {
+                return String(s.status || '').toLowerCase() !== 'archived';
+            });
+        }
+
+        // If archiving removed items from the current page, attempt to backfill from subsequent pages
+        // so the page remains "full" (up to pageLimit) for a smoother UX.
+        if (!viewingArchived && filteredSubmissions.length < pageLimit) {
+            const needed = pageLimit - filteredSubmissions.length;
+            // We will fetch subsequent pages until we fill or run out.
+            // Safeguard against excessive loops: cap at 8 extra pages.
+            let nextPage = currentPage + 1;
+            let safety = 0;
+            while (filteredSubmissions.length < pageLimit && safety < 8) {
+                const totalPagesApprox = Math.max(1, Math.ceil((totalItems || 0) / pageLimit));
+                if (nextPage > totalPagesApprox) break;
+                try {
+                    const extraParams = new URLSearchParams();
+                    extraParams.set('page', String(nextPage));
+                    extraParams.set('limit', String(pageLimit));
+                    if (search) extraParams.set('search', search);
+                    if (type) extraParams.set('type', type);
+                    if (fromDate) extraParams.set('fromDate', fromDate);
+                    if (toDate) extraParams.set('toDate', toDate);
+                    // Do NOT pass status 'archived' because we want only active here.
+                    const extraUrl = `${API_BASE_URL}/contact-us?${extraParams.toString()}`;
+                    const extraRes = await fetch(extraUrl);
+                    if (!extraRes.ok) break;
+                    const extraData = await extraRes.json();
+                    const extraSubs = Array.isArray(extraData.submissions)
+                        ? extraData.submissions
+                        : Array.isArray(extraData)
+                            ? extraData
+                            : extraData.submissions || [];
+                    // Filter out archived again
+                    const activeExtras = extraSubs.filter(s => String(s.status || '').toLowerCase() !== 'archived');
+                    // Append until we fill
+                    for (let i = 0; i < activeExtras.length && filteredSubmissions.length < pageLimit; i++) {
+                        // De-duplicate by id if already present
+                        const candidate = activeExtras[i];
+                        if (!filteredSubmissions.some(r => r.id === candidate.id)) {
+                            filteredSubmissions.push(candidate);
+                        }
+                    }
+                } catch (e) {
+                    break; // stop attempting further pages on error
+                }
+                nextPage++;
+                safety++;
+            }
+        }
+        // Derive an "active" total using server stats if available
+        try {
+            let archivedCount = 0;
+            if (serverStats) {
+                archivedCount =
+                    serverStats.archived ||
+                    serverStats.archivedCount ||
+                    (serverStats.statusCounts && (serverStats.statusCounts.archived || serverStats.statusCounts.Archived)) ||
+                    0;
+            }
+            if (!viewingArchived) {
+                activeTotalItems = Math.max(0, (totalItems || 0) - archivedCount);
+            } else {
+                // When viewing archived explicitly, active total becomes archived total for clarity
+                activeTotalItems = archivedCount || filteredSubmissions.length;
+            }
+        } catch (e) {
+            activeTotalItems = (!viewingArchived) ? totalItems : filteredSubmissions.length;
+        }
         updateStats();
         loadSubmissions();
         renderPagination();
@@ -115,6 +193,7 @@ async function fetchSubmissions(page = 1) {
         submissions = [];
         filteredSubmissions = [];
         totalItems = 0;
+        activeTotalItems = 0;
         updateStats();
         loadSubmissions();
         renderPagination();
@@ -926,7 +1005,10 @@ function updateStats() {
     var pageResponseRate =
         pageTotal > 0 ? Math.round((pageResponded / pageTotal) * 100) : 0;
 
-    document.getElementById("totalCount").textContent = pageTotal;
+    // If we are hiding archived locally, show active page slice count instead of raw page total
+    var showingArchived = lastStatusFilter && lastStatusFilter.toLowerCase() === 'archived';
+    var visiblePageCount = showingArchived ? submissions.filter(s => String(s.status || '').toLowerCase() === 'archived').length : submissions.filter(s => String(s.status || '').toLowerCase() !== 'archived').length;
+    document.getElementById("totalCount").textContent = showingArchived ? pageTotal : visiblePageCount;
     document.getElementById("pendingCount").textContent = pagePending;
     document.getElementById("respondedCount").textContent = pageResponded;
     document.getElementById("responseRate").textContent = pageResponseRate + "%";
@@ -937,7 +1019,10 @@ function updateStats() {
             typeof serverStats.pending === "number" ||
             typeof serverStats.responded === "number")
     ) {
-        var sTotal = serverStats.total || totalItems || pageTotal;
+        // Prefer activeTotalItems for total when not explicitly viewing archived
+        var sTotal = (showingArchived
+            ? (serverStats.archived || serverStats.archivedCount || (serverStats.statusCounts && serverStats.statusCounts.archived) || pageTotal)
+            : (activeTotalItems || serverStats.total || totalItems || pageTotal));
         var sPending =
             serverStats.pending ||
             serverStats.pendingCount ||
@@ -949,7 +1034,7 @@ function updateStats() {
             serverStats.respondedCount ||
             (serverStats.statusCounts && serverStats.statusCounts.responded) ||
             pageResponded;
-        document.getElementById("totalCount").textContent = sTotal;
+    document.getElementById("totalCount").textContent = sTotal;
         document.getElementById("pendingCount").textContent = sPending;
         document.getElementById("respondedCount").textContent = sResponded;
         var sRate = sTotal > 0 ? Math.round((sResponded / sTotal) * 100) : 0;
@@ -958,7 +1043,7 @@ function updateStats() {
     }
 
     var total =
-        typeof totalItems === "number" && totalItems >= 0 ? totalItems : pageTotal;
+        typeof (showingArchived ? totalItems : activeTotalItems || totalItems) === "number" && (showingArchived ? totalItems : activeTotalItems || totalItems) >= 0 ? (showingArchived ? totalItems : activeTotalItems || totalItems) : pageTotal;
     if (!total || total <= pageTotal) {
         return;
     }
@@ -1153,10 +1238,16 @@ function loadSubmissions() {
             '">' +
             statusText +
             "</span></td>" +
-            '<td><button class="view-btn" onclick="openModal(' +
-            submission.id +
-            ')"><i class="fas fa-eye"></i> View</button></td>';
+                        '<td>' +
+                        '<button class="view-btn" onclick="openModal(' + submission.id + ')"><i class="fas fa-eye"></i> View</button>' +
+                        (String(submission.status || '').toLowerCase() !== 'archived'
+                            ? ' <button class="archive-btn" onclick="archiveSubmission(' + submission.id + ')"><i class="fas fa-box-archive"></i> Archive</button>'
+                            : '') +
+                        '</td>';
+                try { row.setAttribute('data-submission-id', submission.id); } catch(e) {}
     });
+            // Apply highlight if query param present
+            try { applySubmissionHighlight && applySubmissionHighlight(); } catch(e) {}
 }
 
 function renderPagination() {
@@ -1164,14 +1255,26 @@ function renderPagination() {
     if (!container) return;
 
     container.innerHTML = "";
-    const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageLimit));
+    const totalForPaging = (lastStatusFilter && lastStatusFilter.toLowerCase() === 'archived') ? (activeTotalItems || totalItems || 0) : (activeTotalItems || totalItems || 0);
+    let totalPages = Math.max(1, Math.ceil((totalForPaging || 0) / pageLimit));
+    // If after backfill we actually have only enough items for a single page, collapse to 1
+    if (totalForPaging <= pageLimit) {
+        totalPages = 1;
+    }
+    // Clamp currentPage if it exceeds recalculated totalPages
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
+    }
 
-    const prev = document.createElement("button");
-    prev.textContent = "‹ Prev";
-    prev.className = "btn";
-    prev.disabled = currentPage <= 1;
-    prev.onclick = () => changePage(currentPage - 1);
-    container.appendChild(prev);
+    // Only show Prev when there's more than 1 page
+    if (totalPages > 1) {
+        const prev = document.createElement("button");
+        prev.textContent = "‹ Prev";
+        prev.className = "btn";
+        prev.disabled = currentPage <= 1;
+        prev.onclick = () => changePage(currentPage - 1);
+        container.appendChild(prev);
+    }
 
     const maxButtons = 7;
     let start = Math.max(1, currentPage - Math.floor(maxButtons / 2));
@@ -1191,19 +1294,58 @@ function renderPagination() {
         container.appendChild(btn);
     }
 
-    const next = document.createElement("button");
-    next.textContent = "Next ›";
-    next.className = "btn";
-    next.disabled = currentPage >= totalPages;
-    next.onclick = () => changePage(currentPage + 1);
-    container.appendChild(next);
+    // Only show Next when there's more than 1 page
+    if (totalPages > 1) {
+        const next = document.createElement("button");
+        next.textContent = "Next ›";
+        next.className = "btn";
+        next.disabled = currentPage >= totalPages;
+        next.onclick = () => changePage(currentPage + 1);
+        container.appendChild(next);
+    }
+
+    // Page info summary (Showing X–Y of Z Active / Archived)
+    try {
+        const infoEl = document.getElementById('pageInfo');
+        if (infoEl) {
+            const effectiveTotal = totalForPaging || 0;
+            const startItem = effectiveTotal ? ((currentPage - 1) * pageLimit) + 1 : 0;
+            const endItem = effectiveTotal ? Math.min(startItem + filteredSubmissions.length - 1, effectiveTotal) : 0;
+            const label = (lastStatusFilter && lastStatusFilter.toLowerCase() === 'archived') ? 'archived' : 'active';
+            infoEl.textContent = filteredSubmissions.length
+                ? `Showing ${startItem}-${endItem} of ${effectiveTotal} ${label}`
+                : `No ${label} submissions to display`;
+        }
+    } catch (e) { /* noop */ }
 }
 
 function changePage(page) {
     if (page < 1) page = 1;
-    const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageLimit));
+    const totalForPaging = (lastStatusFilter && lastStatusFilter.toLowerCase() === 'archived') ? (activeTotalItems || totalItems || 0) : (activeTotalItems || totalItems || 0);
+    let totalPages = Math.max(1, Math.ceil((totalForPaging || 0) / pageLimit));
+    if (totalForPaging <= pageLimit) totalPages = 1;
     if (page > totalPages) page = totalPages;
     fetchSubmissions(page);
+}
+
+async function archiveSubmission(id) {
+    try {
+        const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function') ? window.showConfirm : (msg => Promise.resolve(confirm(String(msg))));
+        const ok = await confirmFn('Archive this submission? You can restore it later from Archived.', 'Archive Submission');
+        if (!ok) return;
+        const res = await fetch(`${API_BASE_URL}/contact-us/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ status: 'archived' })
+        });
+        if (!res.ok) throw new Error('Failed to archive');
+        showNotification && showNotification('Submission archived', 'success');
+        fetchSubmissions(currentPage || 1);
+    } catch (e) {
+        console.warn('archiveSubmission error', e);
+        showNotification && showNotification('Failed to archive submission', 'error');
+    }
 }
 
 async function openModal(id) {
@@ -1588,6 +1730,17 @@ async function openModal(id) {
     document.getElementById("templateInfo").style.display = "none";
 
     document.getElementById("submissionModal").classList.add("show");
+    // Ensure any global page loader overlay does not block modal interaction
+    try {
+        if (window.PageLoader && typeof PageLoader.hide === 'function') {
+            PageLoader.hide();
+        }
+        var pl = document.getElementById('page-loader');
+        if (pl) {
+            pl.classList.add('hide');
+            setTimeout(function(){ try { pl.remove(); } catch(_){} }, 800);
+        }
+    } catch(_) { }
 }
 
 function closeModal() {
@@ -2071,6 +2224,17 @@ async function openPropertyModal(propertyId, submissionId) {
             }
         );
         document.getElementById("propertyDetailModal").classList.add("show");
+        // Safety: hide loader if still present so property modal is clickable
+        try {
+            if (window.PageLoader && typeof PageLoader.hide === 'function') {
+                PageLoader.hide();
+            }
+            var pl = document.getElementById('page-loader');
+            if (pl) {
+                pl.classList.add('hide');
+                setTimeout(function(){ try { pl.remove(); } catch(_){} }, 800);
+            }
+        } catch(_) { }
     } catch (err) {
         console.warn("Failed to open property modal", err);
         showNotification("Could not load property details", "error");
@@ -2307,3 +2471,18 @@ window.sendResponse = sendResponse;
 window.previewResponse = previewResponse;
 window.openPropertyModal = openPropertyModal;
 window.closePropertyModal = closePropertyModal;
+window.archiveSubmission = archiveSubmission;
+window.applySubmissionHighlight = applySubmissionHighlight;
+
+function applySubmissionHighlight() {
+    try {
+        const params = new URLSearchParams(window.location.search || '');
+        const targetId = params.get('submission_id') || params.get('id');
+        if (!targetId) return;
+        const row = document.querySelector(`tr[data-submission-id='${CSS.escape(targetId)}']`);
+        if (!row) return;
+        row.classList.add('highlight-pulse');
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => { row && row.classList.remove('highlight-pulse'); }, 3200);
+    } catch (e) { /* noop */ }
+}

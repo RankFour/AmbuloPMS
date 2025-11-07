@@ -770,9 +770,73 @@ body:has(.sidebar.collapsed) .main-content,
 }
 
 .view-btn:hover {
-  background: var(--primary-dark);
+  background: var(--primary-color);
   transform: translateY(-1px);
 }
+/* Archive button styling */
+.archive-btn {
+  background: #64748b;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background .2s ease, box-shadow .2s ease;
+}
+.archive-btn i { font-size: 0.75rem; }
+.archive-btn:hover { background:#475569; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+.archive-btn:active { background:#334155; }
+
+/* Restore & Delete buttons for archived page */
+.restore-btn {
+  background:#10b981;
+  color:#fff;
+  border:none;
+  padding:6px 12px;
+  border-radius:6px;
+  font-size:0.75rem;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  transition:background .2s ease, box-shadow .2s ease;
+}
+.restore-btn:hover { background:#059669; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+.restore-btn:active { background:#047857; }
+
+.delete-btn {
+  background:#ef4444;
+  color:#fff;
+  border:none;
+  padding:6px 12px;
+  border-radius:6px;
+  font-size:0.75rem;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  transition:background .2s ease, box-shadow .2s ease;
+}
+.delete-btn:hover { background:#dc2626; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+.delete-btn:active { background:#b91c1c; }
+
+/* Highlight animation for deep-linked submission */
+.highlight-pulse {
+  position: relative;
+  animation: highlightPulse 2.4s ease-in-out forwards;
+}
+@keyframes highlightPulse {
+  0% { background: rgba(16, 185, 129, 0.15); box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  40% { background: rgba(16, 185, 129, 0.25); box-shadow: 0 0 0 6px rgba(16,185,129,0.15); }
+  70% { background: rgba(16, 185, 129, 0.18); box-shadow: 0 0 0 3px rgba(16,185,129,0.08); }
+  100% { background: transparent; box-shadow: none; }
+}
+tr.highlight-pulse td { transition: background .6s ease; }
+
 
 /* Pagination styles */
 .pagination-container {
@@ -836,9 +900,10 @@ body:has(.sidebar.collapsed) .main-content,
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 2000;
+  z-index: 15000; /* Raised above page-loader (9999) and navigation overlays */
   backdrop-filter: blur(8px);
   animation: fadeIn 0.4s ease;
+  pointer-events: auto; /* Ensure modal overlay can receive clicks */
 }
 
 .modal.show {
@@ -849,7 +914,7 @@ body:has(.sidebar.collapsed) .main-content,
 
 /* Ensure the property detail modal appears above the submission modal */
 #propertyDetailModal {
-  z-index: 2100;
+  z-index: 15100; /* Keep property detail modal above standard submission modal */
 }
 
 @keyframes fadeIn {
@@ -947,7 +1012,7 @@ body:has(.sidebar.collapsed) .main-content,
 .modal-body {
   padding: 32px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 32px;
   align-items: start;
 }
@@ -1375,7 +1440,7 @@ body:has(.sidebar.collapsed) .main-content,
 /* Mobile responsive design for modal */
 @media (max-width: 768px) {
   .modal {
-    z-index: 2500;
+    z-index: 15200; /* Maintain elevated z-index on mobile */
     padding: 10px;
   }
 
@@ -1616,7 +1681,7 @@ body:has(.sidebar.collapsed) .main-content,
 
   /* Ultra-small screens: full-screen modal */
   .modal {
-    z-index: 3000;
+    z-index: 15300; /* Highest on very small screens */
     padding: 0;
   }
 

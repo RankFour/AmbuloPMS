@@ -107,6 +107,7 @@ const Modal = {
         const cancelBtn = document.createElement("button");
         cancelBtn.className = "btn-cancel";
         cancelBtn.textContent = cancelText;
+        cancelBtn.style.cursor = "pointer";
         cancelBtn.onclick = () => this.cancel();
         this.footerEl.appendChild(cancelBtn);
       }
@@ -115,6 +116,7 @@ const Modal = {
       confirmBtn.className =
         variant === "delete" ? "btn-delete" : "btn-confirm";
       confirmBtn.textContent = confirmText;
+      confirmBtn.style.cursor = "pointer";
       confirmBtn.onclick = () => this.confirm();
       this.footerEl.appendChild(confirmBtn);
     } else if (this.footerEl) {
@@ -335,23 +337,25 @@ const Modal = {
       overlay.style.display = "flex";
       overlay.style.alignItems = "center";
       overlay.style.justifyContent = "center";
-      overlay.style.background = "rgba(0,0,0,0.45)";
-      overlay.style.zIndex = 10000;
+  overlay.style.background = "rgba(0,0,0,0.45)";
+  overlay.style.zIndex = 160000;
       overlay.style.opacity = "0";
       overlay.style.transition = "opacity 150ms ease";
 
       overlay.style.pointerEvents = "none";
 
-      const container = document.createElement("div");
-      container.className = "modal-container";
-      container.style.background = "#fff";
-      container.style.borderRadius = "8px";
-      container.style.padding = "18px";
-      container.style.minWidth = "320px";
-      container.style.maxWidth = "90%";
-      container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
-      container.style.maxHeight = "80vh";
-      container.style.overflow = "auto";
+    const container = document.createElement("div");
+    container.className = "modal-container";
+    container.style.background = "#fff";
+    container.style.borderRadius = "12px"; /* slightly smaller radius */
+    container.style.padding = "16px"; /* reduce padding */
+    container.style.minWidth = "300px";
+    container.style.width = "min(420px, 90%)"; /* constrain overall width */
+    container.style.maxWidth = "420px"; /* hard cap for typical confirm dialogs */
+    container.style.boxShadow = "0 6px 20px rgba(0,0,0,0.18)"; /* subtler shadow */
+    container.style.maxHeight = "75vh"; /* slightly shorter */
+    container.style.overflow = "auto";
+    container.style.pointerEvents = "auto";
 
       const title = document.createElement("div");
       title.id = "modalTitle";
