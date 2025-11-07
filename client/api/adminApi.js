@@ -158,16 +158,10 @@ export async function getMonthlyExpectedIncome(date = new Date()) {
   const data = await fetchJson(`/api/v1/charges?${qs.toString()}`);
   const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
   const sum = list.reduce((acc, c) => {
-    const type = String(c?.charge_type || '').toLowerCase();
-    const isRecurring = !!(c?.is_recurring === 1 || c?.is_recurring === true || c?.is_recurring === '1' || c?.is_recurring === 'true');
-    const isRent = type === 'rent';
-    const waived = String(c?.status || '').toLowerCase() === 'waived' || String(c?.canonical_status || '').toUpperCase() === 'WAIVED';
-    if (waived) return acc;
-    if (isRent || isRecurring) {
-      const orig = Number(c?.original_amount ?? c?.amount ?? 0) || 0;
-      return acc + orig;
-    }
-    return acc;
+    const canon = String(c?.canonical_status || c?.status || '').toUpperCase();
+    if (canon === 'WAIVED' || canon === 'CANCELLED' || canon === 'CANCELED') return acc;
+    const orig = Number(c?.original_amount ?? c?.amount ?? 0) || 0;
+    return acc + orig;
   }, 0);
   return sum;
 }
