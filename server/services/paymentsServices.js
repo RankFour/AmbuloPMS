@@ -61,7 +61,8 @@ const computeAndSetChargeStatus = async (
     }
 };
 
-const createPayment = async (paymentData = {}, performedBy = null) => {
+
+const createPayment = async (paymentData = {}, performedBy = null, io = null) => {
     const {
         chargeId,
         paymentDate,
@@ -126,6 +127,31 @@ const createPayment = async (paymentData = {}, performedBy = null) => {
 
         await computeAndSetChargeStatus(connHandle, chargeId, performedBy);
         await connHandle.commit();
+        
+        try {
+            const [adminRows] = await pool.execute(
+                `SELECT user_id FROM users WHERE UPPER(role) IN ('ADMIN','MANAGER','STAFF') AND (status IS NULL OR status <> 'inactive')`
+            );
+            if (adminRows && adminRows.length) {
+                for (const a of adminRows) {
+                    try {
+                        await notificationsServices.createNotification({
+                            user_id: a.user_id,
+                            type: 'PAYMENT',
+                            title: 'Payment Submitted',
+                            body: `Payment ${paymentId} has been submitted.`,
+                            link: '/paymentAdmin.html',
+                            meta: { payment_id: paymentId, status }
+                        }, io);
+                    } catch (e) {
+                        console.warn('Failed to notify admin about new payment', a && a.user_id, e && e.message);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to query admin users for payment notifications', e && e.message);
+        }
+
         return { message: "Payment created successfully", payment_id: paymentId };
     } catch (error) {
         await connHandle.rollback();
@@ -680,6 +706,30 @@ const updatePaymentById = async (id, payment = {}, performedBy = null, io = null
                                 link: '/paymentTenant.html',
                                 meta: { payment_id: id, status: 'Confirmed' }
                             }, io);
+                            
+                            try {
+                                const [adminRows] = await pool.execute(
+                                    `SELECT user_id FROM users WHERE UPPER(role) IN ('ADMIN','MANAGER','STAFF') AND (status IS NULL OR status <> 'inactive')`
+                                );
+                                if (adminRows && adminRows.length) {
+                                    for (const a of adminRows) {
+                                        try {
+                                            await notificationsServices.createNotification({
+                                                user_id: a.user_id,
+                                                type: 'PAYMENT',
+                                                title: 'Payment Confirmed',
+                                                body: `Payment ${id} has been confirmed.`,
+                                                link: '/paymentAdmin.html',
+                                                meta: { payment_id: id, status: 'Confirmed' }
+                                            }, io);
+                                        } catch(e) {
+                                            console.warn('Failed to notify admin about payment confirmation', a && a.user_id, e && e.message);
+                                        }
+                                    }
+                                }
+                            } catch(e) {
+                                console.warn('Failed to query admin users for payment confirmation notifications', e && e.message);
+                            }
                         }
                     } catch (notifyErr) {
                         console.warn('Failed to create payment confirmation notification', notifyErr);
@@ -913,6 +963,30 @@ const updatePaymentById = async (id, payment = {}, performedBy = null, io = null
                             link: '/paymentTenant.html',
                             meta: { payment_id: id, status: 'Confirmed' }
                         }, io);
+                        
+                        try {
+                            const [adminRows2] = await pool.execute(
+                                `SELECT user_id FROM users WHERE UPPER(role) IN ('ADMIN','MANAGER','STAFF') AND (status IS NULL OR status <> 'inactive')`
+                            );
+                            if (adminRows2 && adminRows2.length) {
+                                for (const a of adminRows2) {
+                                    try {
+                                        await notificationsServices.createNotification({
+                                            user_id: a.user_id,
+                                            type: 'PAYMENT',
+                                            title: 'Payment Confirmed',
+                                            body: `Payment ${id} has been confirmed.`,
+                                            link: '/paymentAdmin.html',
+                                            meta: { payment_id: id, status: 'Confirmed' }
+                                        }, io);
+                                    } catch(e) {
+                                        console.warn('Failed to notify admin about payment confirmation', a && a.user_id, e && e.message);
+                                    }
+                                }
+                            }
+                        } catch(e) {
+                            console.warn('Failed to query admin users for payment confirmation notifications', e && e.message);
+                        }
                     }
                 } catch (notifyErr) {
                     console.warn('Failed to create payment confirmation notification', notifyErr);
@@ -1018,7 +1092,8 @@ const deletePaymentById = async (id, performedBy = null) => {
 
 export default {
     createPayment,
-    async createConsolidatedPayment(paymentData = {}, performedBy = null) {
+    
+    async createConsolidatedPayment(paymentData = {}, performedBy = null, io = null) {
         const { paymentDate, amountPaid, paymentMethod, notes, user_id, proofs = [], allocations = [] } = paymentData || {};
         if (!Array.isArray(allocations) || allocations.length === 0) throw new Error('allocations required');
         const totalAlloc = allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0);
@@ -1077,6 +1152,32 @@ export default {
             
 
             await connHandle.commit();
+
+            
+            try {
+                const [adminRows] = await pool.execute(
+                    `SELECT user_id FROM users WHERE UPPER(role) IN ('ADMIN','MANAGER','STAFF') AND (status IS NULL OR status <> 'inactive')`
+                );
+                if (adminRows && adminRows.length) {
+                    for (const a of adminRows) {
+                        try {
+                            await notificationsServices.createNotification({
+                                user_id: a.user_id,
+                                type: 'PAYMENT',
+                                title: 'Consolidated Payment Submitted',
+                                body: `Consolidated payment ${paymentId} has been submitted (${allocations.length} allocations).`,
+                                link: '/paymentAdmin.html',
+                                meta: { payment_id: paymentId, consolidated: true, allocation_count: allocations.length }
+                            }, io);
+                        } catch (e) {
+                            console.warn('Failed to notify admin about consolidated payment', a && a.user_id, e && e.message);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to query admin users for consolidated payment notifications', e && e.message);
+            }
+
             return { message: 'Payment created successfully', payment_id: paymentId };
         } catch (err) {
             await connHandle.rollback();

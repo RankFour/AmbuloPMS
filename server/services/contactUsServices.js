@@ -1,4 +1,5 @@
 import conn from "../config/db.js";
+import notificationsServices from "./notificationsServices.js";
 
 const pool = await conn();
 
@@ -18,7 +19,7 @@ const allowedFields = new Set([
 
 const allowedStatuses = new Set(["pending", "responded", "archived"]);
 
-const createContactUsEntry = async (contactData = {}) => {
+const createContactUsEntry = async (contactData = {}, io = null) => {
     try {
         const columns = [];
         const placeholders = [];
@@ -48,7 +49,34 @@ const createContactUsEntry = async (contactData = {}) => {
             "SELECT * FROM contact_submissions WHERE id = ?",
             [insertId]
         );
-        return rows[0] || { id: insertId };
+        const inserted = rows[0] || { id: insertId };
+
+        
+        try {
+            const [adminRows] = await pool.query(
+                `SELECT user_id FROM users WHERE UPPER(role) IN ('ADMIN','MANAGER','STAFF') AND (status IS NULL OR status <> 'inactive')`
+            );
+            if (adminRows && adminRows.length) {
+                for (const a of adminRows) {
+                    try {
+                        await notificationsServices.createNotification({
+                            user_id: a.user_id,
+                            type: 'INQUIRY',
+                            title: 'New Contact Submission',
+                            body: `${contactData.subject || 'New inquiry'} from ${contactData.first_name || ''} ${contactData.last_name || ''}`,
+                            link: '/contact-us-submissions.html',
+                            meta: { submission_id: inserted.id }
+                        }, io);
+                    } catch (e) {
+                        console.warn('Failed to notify admin about contact submission', a && a.user_id, e && e.message);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to query admin users for contact submission notifications', e && e.message);
+        }
+
+        return inserted;
     } catch (error) {
         throw new Error(error.message || "Failed to create contact us entry");
     }

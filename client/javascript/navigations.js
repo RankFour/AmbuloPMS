@@ -1348,7 +1348,7 @@
       const menu = this.notificationMenu;
       if (!menu) return;
       const filter = this._ensureNotifFilter();
-      const chips = ['MESSAGE','PAYMENT','TICKET','LEASE','INFO'];
+  const chips = ['INQUIRY','MESSAGE','PAYMENT','TICKET','LEASE','INFO'];
       const headerHtml = `
         <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
           <span>Notifications</span>
@@ -1520,6 +1520,23 @@
             this.refreshNotifications();
           this.toggleDropdown(this.notificationMenu, this.notificationBtn);
         });
+      }
+      if (!this._notifDelegated) {
+        this._notifDelegated = function delegatedNotifHandler(e) {
+          try {
+            const btn = e.target.closest && e.target.closest('#notificationBtn');
+            if (!btn) return;
+            e.stopPropagation();
+            try { (this.refreshNotifications && this.refreshNotifications()); } catch(_) {}
+            const menu = document.getElementById('notificationMenu');
+            if (menu) {
+              this.toggleDropdown(menu, btn);
+            }
+          } catch (err) {
+            
+          }
+        }.bind(this);
+        document.addEventListener('click', this._notifDelegated);
       }
       if (this.inboxBtn && this.inboxDropdown) {
         this.inboxBtn.addEventListener("click", async (e) => {
@@ -2892,6 +2909,20 @@
           try { await this.refreshNotifications(); } catch(_) {}
           this.toggleDropdown(this.notificationMenu, this.notificationBtn);
         });
+      }
+      
+      if (!this._notifDelegated) {
+        this._notifDelegated = function delegatedNotifHandler(e) {
+          try {
+            const btn = e.target.closest && e.target.closest('#notificationBtn');
+            if (!btn) return;
+            e.stopPropagation();
+            try { (this.refreshNotifications && this.refreshNotifications()); } catch(_) {}
+            const menu = document.getElementById('notificationMenu');
+            if (menu) this.toggleDropdown(menu, btn);
+          } catch (err) {}
+        }.bind(this);
+        document.addEventListener('click', this._notifDelegated);
       }
       if (this.inboxBtn && this.inboxDropdown) {
         this.inboxBtn.addEventListener("click", async (e) => {

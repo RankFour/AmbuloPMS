@@ -7,6 +7,7 @@ import { buildBrandedEmail } from "../utils/emailTemplates.js";
 const createContactUsEntry = expressAsync(async (req, res) => {
   try {
     const payload = { ...req.body };
+    try { console.info('[ContactUs] createContactUsEntry received', { keys: Object.keys(payload || {}) }); } catch(_) {}
 
     if (!payload || Object.keys(payload).length === 0) {
       res
@@ -17,7 +18,10 @@ const createContactUsEntry = expressAsync(async (req, res) => {
         });
       return;
     }
-    const response = await contactUsServices.createContactUsEntry(payload);
+  
+  const io = req.app && req.app.get ? req.app.get('io') : null;
+    const response = await contactUsServices.createContactUsEntry(payload, io);
+    try { console.info('[ContactUs] created submission', { id: response && response.id }); } catch(_) {}
     res.json(response);
   } catch (error) {
     console.error("Error creating contact us entry:", error);

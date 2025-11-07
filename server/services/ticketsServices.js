@@ -99,6 +99,35 @@ const createTicket = async (
           io
         );
       }
+      else {
+        
+        try {
+          const [adminRows] = await pool.query(
+            `SELECT user_id FROM users WHERE UPPER(role) IN ('ADMIN','MANAGER','STAFF') AND (status IS NULL OR status <> 'inactive')`
+          );
+          if (adminRows && adminRows.length) {
+            for (const ar of adminRows) {
+              try {
+                await notificationsServices.createNotification(
+                  {
+                    user_id: ar.user_id,
+                    type: "TICKET",
+                    title: "New Ticket Submitted",
+                    body: `Ticket: ${ticket_title || "Maintenance Request"}`,
+                    link: "/maintenance.html",
+                    meta: { ticket_id },
+                  },
+                  io
+                );
+              } catch (e) {
+                console.warn('Failed to notify admin for new ticket', ar && ar.user_id, e && e.message);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to query admin users for ticket notifications', e && e.message);
+        }
+      }
     } catch (notifyErr) {
       console.warn(
         "Failed to create ticket assignment notification",

@@ -41,6 +41,8 @@ const createPayment = expressAsync(async (req, res) => {
     };
 
     
+    const io = req.app && req.app.get ? req.app.get('io') : null;
+
     if (!allocations.length) {
         const payment = { ...base, chargeId: raw.chargeId || raw.charge_id || null };
         if (!payment.chargeId) {
@@ -48,13 +50,13 @@ const createPayment = expressAsync(async (req, res) => {
         }
         if (payment.amountPaid !== null) payment.amountPaid = Number(payment.amountPaid);
         const performedBy = req.user ? (`${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email || req.user.user_id) : null;
-        const result = await paymentsServices.createPayment(payment, performedBy);
+        const result = await paymentsServices.createPayment(payment, performedBy, io);
         return res.status(201).json(result);
     }
 
     
     const performedBy = req.user ? (`${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email || req.user.user_id) : null;
-    const result = await paymentsServices.createConsolidatedPayment(base, performedBy);
+    const result = await paymentsServices.createConsolidatedPayment(base, performedBy, io);
     return res.status(201).json(result);
 });
 

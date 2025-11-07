@@ -59,7 +59,16 @@ const createNotification = async (data = {}, io = null) => {
         [result.insertId]
     );
     const notification = shapeNotification(rows[0]);
-    if (io) emitToUser(io, user_id, "notification", notification);
+    if (io) {
+        try {
+            emitToUser(io, user_id, "notification", notification);
+            try { console.info('[NotifSvc] Emitted notification to user', { user_id, notification_id: notification.notification_id }); } catch(_) {}
+        } catch (e) {
+            console.warn('[NotifSvc] Failed to emit notification', e && e.message);
+        }
+    } else {
+        try { console.info('[NotifSvc] No IO instance provided; notification stored only', { user_id, notification_id: notification.notification_id }); } catch(_) {}
+    }
     return { message: "Notification created", data: notification };
 };
 

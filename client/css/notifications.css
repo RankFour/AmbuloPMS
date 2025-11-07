@@ -18,6 +18,7 @@
   --notif-chip-payment: #0ea5e9;
   --notif-chip-ticket: #d97706;
   --notif-chip-lease: #7c3aed;
+  --notif-chip-inquiry: #0d9488;
   --notif-chip-info: #6b7280;
 }
 
@@ -79,6 +80,7 @@
 #notificationMenu .notification-type.type-ticket { background: var(--notif-chip-ticket); }
 #notificationMenu .notification-type.type-lease { background: var(--notif-chip-lease); }
 #notificationMenu .notification-type.type-info { background: var(--notif-info); }
+#notificationMenu .notification-type.type-inquiry { background: var(--notif-chip-inquiry); }
 
 #notificationMenu .dropdown-footer {
   border-top: 1px solid var(--notif-border);
@@ -116,6 +118,7 @@
 #notificationMenu .notif-filters .chip-ticket.selected { background: var(--notif-chip-ticket); border-color: var(--notif-chip-ticket); }
 #notificationMenu .notif-filters .chip-lease.selected { background: var(--notif-chip-lease); border-color: var(--notif-chip-lease); }
 #notificationMenu .notif-filters .chip-info.selected { background: var(--notif-chip-info); border-color: var(--notif-chip-info); }
+#notificationMenu .notif-filters .chip-inquiry.selected { background: var(--notif-chip-inquiry); border-color: var(--notif-chip-inquiry); }
 
 /* Inbox dropdown / messages (blue theme) */
 #inboxDropdown, .inbox-dropdown-menu {
