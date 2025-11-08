@@ -39,10 +39,10 @@
         <div class="content-wrapper">
             <div class="content-section active" id="profile">
                 <h2 class="section-title">Profile Settings</h2>
-                
+
                 <div class="profile-section">
                     <div class="avatar-container">
-                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop" alt="Profile" class="avatar" id="avatarImg">
+                        <img src="assets/meandtheboys.jpg" alt="Profile" class="avatar" id="avatarImg">
                         <div class="camera-icon" onclick="document.getElementById('fileInput').click()">
                             <svg viewBox="0 0 24 24">
                                 <path d="M12 15.2l-3.5-3.5 1.4-1.4 1.6 1.6V8h2v3.9l1.6-1.6 1.4 1.4-3.5 3.5zM19 20H5c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2h2.5l2-2h5l2 2H19c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2z"/>
@@ -64,12 +64,12 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>First Name <span class="required">*</span></label>
-                            <input type="text" id="firstName" placeholder="First name" required>
+                            <input type="text" id="firstName" placeholder="admin" required>
                             <span class="error-message" id="firstNameError"></span>
                         </div>
                         <div class="form-group">
                             <label>Last Name <span class="required">*</span></label>
-                            <input type="text" id="lastName" placeholder="Last name" required>
+                            <input type="text" id="lastName" placeholder="1234" required>
                             <span class="error-message" id="lastNameError"></span>
                         </div>
                     </div>
@@ -77,26 +77,14 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Email <span class="required">*</span></label>
-                            <input type="email" id="email" placeholder="example@gmail.com" required>
+                            <input type="email" id="email" placeholder="admin1234@gmail.com" required>
                             <span class="error-message" id="emailError"></span>
                         </div>
                         <div class="form-group">
                             <label>Mobile Number <span class="required">*</span></label>
                             <div class="phone-input">
                                 <select id="phoneCountryCode">
-                                    <option value="+1">+1 (US/CA)</option>
-                                    <option value="+44">+44 (UK)</option>
                                     <option value="+63">+63 (PH)</option>
-                                    <option value="+81">+81 (JP)</option>
-                                    <option value="+82">+82 (KR)</option>
-                                    <option value="+86">+86 (CN)</option>
-                                    <option value="+91">+91 (IN)</option>
-                                    <option value="+65">+65 (SG)</option>
-                                    <option value="+60">+60 (MY)</option>
-                                    <option value="+66">+66 (TH)</option>
-                                    <option value="+84">+84 (VN)</option>
-                                    <option value="+62">+62 (ID)</option>
-                                    <option value="+61">+61 (AU)</option>
                                 </select>
                                 <input type="tel" id="phone" placeholder="917 123 4567" required>
                             </div>
@@ -109,7 +97,7 @@
                             <label>Gender</label>
                             <div class="radio-group">
                                 <label class="radio-option">
-                                    <input type="radio" name="gender" value="male">
+                                    <input type="radio" name="gender" value="male" checked>
                                     <span>Male</span>
                                 </label>
                                 <label class="radio-option">
@@ -117,21 +105,6 @@
                                     <span>Female</span>
                                 </label>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Tenant ID</label>
-                            <input type="text" id="tenantId" value="" readonly placeholder="Tenant ID">
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>TIN (Tax Identification Number)</label>
-                            <input type="text" id="tin" placeholder="123-456-789-000">
-                        </div>
-                        <div class="form-group">
-                            <label>Tax Identification Country</label>
-                            <input type="text" id="taxCountry" placeholder="Country" value="Philippines" readonly>
                         </div>
                     </div>
 
@@ -142,23 +115,23 @@
                         </div>
                         <div class="form-group">
                             <label>Street Address <span class="required">*</span></label>
-                            <input type="text" id="streetAddress" placeholder="Street Address" required>
+                            <input type="text" id="streetAddress" placeholder="Kapt. Sayas St." required>
                         </div>
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
                             <label>City <span class="required">*</span></label>
-                            <input type="text" id="city" placeholder="City" required>
+                            <input type="text" id="city" placeholder="Silang" required>
                         </div>
                         <div class="form-group">
                             <label>Province</label>
-                            <input type="text" id="province" placeholder="Province/State">
+                            <input type="text" id="province" placeholder="Cavite">
                         </div>
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
                             <label>ZIP Code</label>
-                            <input type="text" id="zipCode" placeholder="Zip Code">
+                            <input type="text" id="zipCode" placeholder="4118">
                         </div>
                         <div class="form-group">
                             <label>Country</label>
@@ -167,20 +140,6 @@
                     </div>
 
                     <div class="section-divider"></div>
-
-                    <div class="form-group full-width">
-                        <label>Emergency Contacts</label>
-                        <div id="emergencyContactsList" class="list-block">
-                            <div class="empty">No emergency contacts</div>
-                        </div>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label>Tenant ID Files</label>
-                        <div id="tenantIdFilesList" class="list-block">
-                            <div class="empty">No ID files uploaded</div>
-                        </div>
-                    </div>
 
                     <button type="submit" class="btn btn-primary save-button">
                         <i class="fas fa-save"></i> Save Changes
@@ -195,7 +154,7 @@
                     <div class="form-group">
                         <label>Current Password <span class="required">*</span></label>
                         <div class="password-input-wrapper">
-                            <input type="password" id="currentPassword" placeholder="Enter current password" required>
+                            <input type="password" id="currentPassword" placeholder="************" required>
                             <button type="button" class="password-toggle" onclick="togglePassword('currentPassword')">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -209,7 +168,7 @@
                     <div class="form-group">
                         <label>New Password <span class="required">*</span></label>
                         <div class="password-input-wrapper">
-                            <input type="password" id="newPassword" placeholder="Enter new password" required>
+                            <input type="password" id="newPassword" placeholder="************" required>
                             <button type="button" class="password-toggle" onclick="togglePassword('newPassword')">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>

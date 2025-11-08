@@ -91,10 +91,6 @@
                     if (img) img.src = data.avatar;
                 }
 
-                // Tenant ID display
-                const tenantIdInput = document.getElementById('tenantId');
-                if (tenantIdInput) tenantIdInput.value = data.user_id || '';
-
                 // Address (compose simple string if address object exists)
                 let addressString = '';
                 if (data.address) {
