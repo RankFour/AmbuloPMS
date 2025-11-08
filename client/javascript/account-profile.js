@@ -1,3 +1,117 @@
+        // Inline cookie + JWT helpers (removed external module dependency)
+        function getCookie(name) {
+            if (!document || !document.cookie) return null;
+            const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return match ? match[2] : null;
+        }
+        function getJwtToken() {
+            const token = getCookie('token');
+            if (!token) {
+                // redirect to login if missing
+                window.location.href = '/login.html';
+                return null;
+            }
+            return token;
+        }
+
+        // Helpers to decode JWT
+        function decodeJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+                const json = atob(padded);
+                return JSON.parse(json);
+            } catch (_) { return null; }
+        }
+
+        async function loadProfileFromServer() {
+            try {
+                const token = getJwtToken();
+                if (!token) return;
+                const payload = decodeJwt(token);
+                const userId = payload && payload.user_id;
+                if (!userId) return;
+
+                const res = await fetch(`/api/users/${userId}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Failed to load profile');
+
+                // Persist current user snapshot locally for later update calls
+                try { localStorage.setItem('currentUser', JSON.stringify({
+                    user_id: data.user_id,
+                    first_name: data.first_name,
+                    last_name: data.last_name,
+                    email: data.email,
+                    phone_number: data.phone_number,
+                    gender: data.gender,
+                    avatar: data.avatar
+                })); } catch(_) {}
+
+                // Populate fields
+                const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+                setVal('firstName', data.first_name || '');
+                setVal('lastName', data.last_name || '');
+                setVal('email', data.email || '');
+
+                // Phone: split country code if possible
+                const rawPhone = (data.phone_number || '').trim();
+                const ccSelect = document.getElementById('phoneCountryCode');
+                const phoneInput = document.getElementById('phone');
+                if (rawPhone.startsWith('+')) {
+                    const match = rawPhone.match(/^(\+\d{1,3})\s*(.*)$/);
+                    if (match) {
+                        if (ccSelect) ccSelect.value = match[1];
+                        if (phoneInput) phoneInput.value = match[2] || '';
+                    } else {
+                        // Try to infer PH +63
+                        if (rawPhone.startsWith('+63')) {
+                            if (ccSelect) ccSelect.value = '+63';
+                            if (phoneInput) phoneInput.value = rawPhone.replace('+63', '').trim();
+                        } else {
+                            if (phoneInput) phoneInput.value = rawPhone.replace(/^\+\d{1,3}/,'').trim();
+                        }
+                    }
+                } else {
+                    if (phoneInput) phoneInput.value = rawPhone;
+                }
+
+                // Gender
+                if (data.gender) {
+                    const g = String(data.gender).toLowerCase();
+                    const male = document.querySelector('input[name="gender"][value="male"]');
+                    const female = document.querySelector('input[name="gender"][value="female"]');
+                    if (g === 'male' && male) male.checked = true;
+                    if (g === 'female' && female) female.checked = true;
+                }
+
+                // Avatar
+                if (data.avatar) {
+                    const img = document.getElementById('avatarImg');
+                    if (img) img.src = data.avatar;
+                }
+
+                // Tenant ID display
+                const tenantIdInput = document.getElementById('tenantId');
+                if (tenantIdInput) tenantIdInput.value = data.user_id || '';
+
+                // Address (compose simple string if address object exists)
+                let addressString = '';
+                if (data.address) {
+                    const a = data.address;
+                    addressString = [a.house_no, a.street_address, a.city, a.province, a.zip_code, a.country]
+                        .filter(Boolean)
+                        .join(', ');
+                }
+                setVal('address', addressString);
+
+            } catch (e) {
+                console.error('Failed to load profile', e);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadProfileFromServer);
+
         // Tab switching functionality
         const tabs = document.querySelectorAll('.tab-item');
         const sections = document.querySelectorAll('.content-section');
@@ -166,26 +280,54 @@
             }
         });
 
-        function confirmSaveProfile() {
+        async function confirmSaveProfile() {
             const firstName = document.getElementById('firstName');
             const lastName = document.getElementById('lastName');
             const email = document.getElementById('email');
             const phone = document.getElementById('phone');
             const address = document.getElementById('address');
-            
+            const tin = document.getElementById('tin');
+            const gender = document.querySelector('input[name="gender"]:checked');
+
             closeDialog('saveDialog');
-            showToast('Profile updated successfully!');
-            
-            // Here you would typically send data to server
-            console.log('Form data:', {
-                firstName: firstName.value,
-                lastName: lastName.value,
-                email: email.value,
-                phone: document.getElementById('phoneCountryCode').value + phone.value,
-                gender: document.querySelector('input[name="gender"]:checked').value,
-                tin: document.getElementById('tin').value,
-                address: address.value
-            });
+
+            // Assume current logged in user id stored in localStorage after auth
+            const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (!user.user_id) {
+                showToast('No user session found', 'error');
+                return;
+            }
+
+            const payload = {
+                first_name: firstName.value.trim(),
+                last_name: lastName.value.trim(),
+                email: email.value.trim(),
+                phone_number: document.getElementById('phoneCountryCode').value + phone.value.trim(),
+                gender: gender ? gender.value : null,
+                tin: tin.value.trim() || undefined, // if not in backend will be ignored
+                address: {
+                    street_address: address.value.trim(),
+                    city: '',
+                    province: '',
+                    country: 'Philippines'
+                }
+            };
+
+            try {
+                const res = await fetch(`/api/users/${user.user_id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Failed to update');
+                showToast('Profile updated successfully!');
+                // Update local cached user
+                localStorage.setItem('currentUser', JSON.stringify({ ...user, first_name: payload.first_name, last_name: payload.last_name, email: payload.email, phone_number: payload.phone_number }));
+            } catch (e) {
+                console.error('Profile update error', e);
+                showToast(e.message || 'Update failed', 'error');
+            }
         }
 
         // Password form validation and submission
@@ -238,40 +380,52 @@
             }
         });
 
-        function confirmPasswordChange() {
+        async function confirmPasswordChange() {
             const currentPassword = document.getElementById('currentPassword');
             const newPassword = document.getElementById('newPassword');
             const confirmPassword = document.getElementById('confirmPassword');
-            
             closeDialog('passwordDialog');
-            showToast('Password updated successfully!');
-            
-            // Clear form
-            currentPassword.value = '';
-            newPassword.value = '';
-            confirmPassword.value = '';
-            
-            // Here you would typically send data to server
-            console.log('Password change requested');
+
+            const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (!user.user_id) {
+                showToast('No user session found', 'error');
+                return;
+            }
+
+            // Verify current password first (optional flow)
+            try {
+                const verifyRes = await fetch('/api/admin/verify-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: currentPassword.value })
+                });
+                const verifyData = await verifyRes.json();
+                if (!verifyRes.ok) throw new Error(verifyData.message || 'Invalid current password');
+            } catch (e) {
+                showToast(e.message || 'Current password incorrect', 'error');
+                return;
+            }
+
+            try {
+                const payload = { password: newPassword.value };
+                const res = await fetch(`/api/users/${user.user_id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Failed to update password');
+                showToast('Password updated successfully!');
+                currentPassword.value = '';
+                newPassword.value = '';
+                confirmPassword.value = '';
+            } catch (e) {
+                console.error('Password update error', e);
+                showToast(e.message || 'Password update failed', 'error');
+            }
         }
 
-        // Notification toggle functionality
-        function toggleNotification(element) {
-            element.classList.toggle('active');
-            const isActive = element.classList.contains('active');
-            const notificationName = element.previousElementSibling.querySelector('h4').textContent;
-            showToast(isActive ? `${notificationName} enabled` : `${notificationName} disabled`);
-            
-            // Here you would typically save preference to server
-            console.log('Notification toggled:', notificationName, isActive);
-        }
-
-        // 2FA enable functionality
-        function enable2FA() {
-            showToast('2FA setup initiated. Check your email for instructions.');
-            // Here you would typically initiate 2FA setup process
-            console.log('2FA setup initiated');
-        }
+        // Removed notification and 2FA functions (tabs/features deprecated)
 
         // Toast notification
         function showToast(message, type = 'success') {

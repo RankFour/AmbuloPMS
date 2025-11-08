@@ -32,18 +32,7 @@
                     </svg>
                     <span>Password</span>
                 </div>
-                <div class="tab-item" data-section="notifications">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                    </svg>
-                    <span>Notifications</span>
-                </div>
-                <div class="tab-item" data-section="verification">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
-                    </svg>
-                    <span>Verification</span>
-                </div>
+                <!-- Notifications and Verification tabs removed -->
             </div>
         </div>
 
@@ -75,12 +64,12 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>First Name <span class="required">*</span></label>
-                            <input type="text" id="firstName" placeholder="First name" value="Maria" required>
+                            <input type="text" id="firstName" placeholder="First name" required>
                             <span class="error-message" id="firstNameError"></span>
                         </div>
                         <div class="form-group">
                             <label>Last Name <span class="required">*</span></label>
-                            <input type="text" id="lastName" placeholder="Last name" value="Santos" required>
+                            <input type="text" id="lastName" placeholder="Last name" required>
                             <span class="error-message" id="lastNameError"></span>
                         </div>
                     </div>
@@ -88,7 +77,7 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Email <span class="required">*</span></label>
-                            <input type="email" id="email" placeholder="example@gmail.com" value="maria.santos@gmail.com" required>
+                            <input type="email" id="email" placeholder="example@gmail.com" required>
                             <span class="error-message" id="emailError"></span>
                         </div>
                         <div class="form-group">
@@ -97,7 +86,7 @@
                                 <select id="phoneCountryCode">
                                     <option value="+1">+1 (US/CA)</option>
                                     <option value="+44">+44 (UK)</option>
-                                    <option value="+63" selected>+63 (PH)</option>
+                                    <option value="+63">+63 (PH)</option>
                                     <option value="+81">+81 (JP)</option>
                                     <option value="+82">+82 (KR)</option>
                                     <option value="+86">+86 (CN)</option>
@@ -109,7 +98,7 @@
                                     <option value="+62">+62 (ID)</option>
                                     <option value="+61">+61 (AU)</option>
                                 </select>
-                                <input type="tel" id="phone" placeholder="917 123 4567" value="917 123 4567" required>
+                                <input type="tel" id="phone" placeholder="917 123 4567" required>
                             </div>
                             <span class="error-message" id="phoneError"></span>
                         </div>
@@ -124,32 +113,73 @@
                                     <span>Male</span>
                                 </label>
                                 <label class="radio-option">
-                                    <input type="radio" name="gender" value="female" checked>
+                                    <input type="radio" name="gender" value="female">
                                     <span>Female</span>
                                 </label>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>Tenant ID</label>
-                            <input type="text" value="TNT-2024-00157" readonly>
+                            <input type="text" id="tenantId" value="" readonly placeholder="Tenant ID">
                         </div>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
                             <label>TIN (Tax Identification Number)</label>
-                            <input type="text" id="tin" placeholder="123-456-789-000" value="123-456-789-000">
+                            <input type="text" id="tin" placeholder="123-456-789-000">
                         </div>
                         <div class="form-group">
                             <label>Tax Identification Country</label>
-                            <input type="text" value="Philippines" readonly>
+                            <input type="text" id="taxCountry" placeholder="Country" value="Philippines" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>House No.</label>
+                            <input type="text" id="houseNo" placeholder="Unit/House No.">
+                        </div>
+                        <div class="form-group">
+                            <label>Street Address <span class="required">*</span></label>
+                            <input type="text" id="streetAddress" placeholder="Street Address" required>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>City <span class="required">*</span></label>
+                            <input type="text" id="city" placeholder="City" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Province</label>
+                            <input type="text" id="province" placeholder="Province/State">
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>ZIP Code</label>
+                            <input type="text" id="zipCode" placeholder="Zip Code">
+                        </div>
+                        <div class="form-group">
+                            <label>Country</label>
+                            <input type="text" id="country" placeholder="Country" value="Philippines">
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <div class="form-group full-width">
+                        <label>Emergency Contacts</label>
+                        <div id="emergencyContactsList" class="list-block">
+                            <div class="empty">No emergency contacts</div>
                         </div>
                     </div>
 
                     <div class="form-group full-width">
-                        <label>Current Rental Address <span class="required">*</span></label>
-                        <input type="text" id="address" placeholder="Unit 201, Makati Ave, Makati City" value="Unit 3B, 123 Rizal Street, Quezon City, Metro Manila" required>
-                        <span class="error-message" id="addressError"></span>
+                        <label>Tenant ID Files</label>
+                        <div id="tenantIdFilesList" class="list-block">
+                            <div class="empty">No ID files uploaded</div>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary save-button">
@@ -211,103 +241,7 @@
                 </form>
             </div>
 
-            <div class="content-section" id="notifications">
-                <h2 class="section-title">Notification Preferences</h2>
-                
-                <div class="notification-item">
-                    <div class="notification-info">
-                        <h4>Email Notifications</h4>
-                        <p>Receive email updates about your account activity</p>
-                    </div>
-                    <div class="toggle-switch active" onclick="toggleNotification(this)"></div>
-                </div>
-
-                <div class="notification-item">
-                    <div class="notification-info">
-                        <h4>Rent Payment Reminders</h4>
-                        <p>Get notified before your rent payment is due</p>
-                    </div>
-                    <div class="toggle-switch active" onclick="toggleNotification(this)"></div>
-                </div>
-
-                <div class="notification-item">
-                    <div class="notification-info">
-                        <h4>Maintenance Updates</h4>
-                        <p>Receive updates about maintenance requests and schedules</p>
-                    </div>
-                    <div class="toggle-switch active" onclick="toggleNotification(this)"></div>
-                </div>
-
-                <div class="notification-item">
-                    <div class="notification-info">
-                        <h4>Property Announcements</h4>
-                        <p>Stay informed about property-wide announcements</p>
-                    </div>
-                    <div class="toggle-switch" onclick="toggleNotification(this)"></div>
-                </div>
-
-                <div class="notification-item">
-                    <div class="notification-info">
-                        <h4>SMS Notifications</h4>
-                        <p>Receive important alerts via text message</p>
-                    </div>
-                    <div class="toggle-switch" onclick="toggleNotification(this)"></div>
-                </div>
-
-                <div class="notification-item">
-                    <div class="notification-info">
-                        <h4>Marketing Communications</h4>
-                        <p>Receive promotional offers and updates</p>
-                    </div>
-                    <div class="toggle-switch" onclick="toggleNotification(this)"></div>
-                </div>
-            </div>
-
-            <div class="content-section" id="verification">
-                <h2 class="section-title">Account Verification</h2>
-                
-                <div class="verification-card">
-                    <h4>Email Verification</h4>
-                    <p>Verify your email address to secure your account</p>
-                    <span class="verification-status status-verified">
-                        <i class="fas fa-check-circle"></i> Verified
-                    </span>
-                </div>
-
-                <div class="verification-card">
-                    <h4>Phone Number Verification</h4>
-                    <p>Verify your phone number for additional security</p>
-                    <span class="verification-status status-verified">
-                        <i class="fas fa-check-circle"></i> Verified
-                    </span>
-                </div>
-
-                <div class="verification-card">
-                    <h4>Identity Verification</h4>
-                    <p>Upload a valid government-issued ID for identity verification</p>
-                    <span class="verification-status status-pending">
-                        <i class="fas fa-clock"></i> Pending Review
-                    </span>
-                    <div style="margin-top: 16px;">
-                        <button class="btn btn-secondary">
-                            <i class="fas fa-upload"></i> Upload ID Document
-                        </button>
-                    </div>
-                </div>
-
-                <div class="verification-card">
-                    <h4>Two-Factor Authentication (2FA)</h4>
-                    <p>Add an extra layer of security to your account</p>
-                    <span class="verification-status status-unverified">
-                        <i class="fas fa-times-circle"></i> Not Enabled
-                    </span>
-                    <div style="margin-top: 16px;">
-                        <button class="btn btn-primary" onclick="enable2FA()">
-                            <i class="fas fa-shield-alt"></i> Enable 2FA
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <!-- Notifications and Verification sections removed; only Profile and Password sections remain -->
         </div>
     </div>
     </div>
@@ -369,61 +303,7 @@
         </div>
     </div>
 
-    <div class="dialog-overlay" id="notificationDialog">
-        <div class="dialog">
-            <div class="dialog-header">
-                <div class="dialog-icon save">
-                    <i class="fas fa-bell"></i>
-                </div>
-                <h3 class="dialog-title" id="notificationDialogTitle">Change Notification Setting?</h3>
-            </div>
-            <p class="dialog-message" id="notificationDialogMessage">
-                Are you sure you want to change this notification preference?
-            </p>
-            <div class="dialog-actions">
-                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('notificationDialog')">Cancel</button>
-                <button class="dialog-btn dialog-btn-confirm" onclick="confirmNotificationToggle()">Confirm</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="dialog-overlay" id="enable2FADialog">
-        <div class="dialog">
-            <div class="dialog-header">
-                <div class="dialog-icon save">
-                    <i class="fas fa-shield-alt"></i>
-                </div>
-                <h3 class="dialog-title">Enable Two-Factor Authentication?</h3>
-            </div>
-            <p class="dialog-message">
-                Two-Factor Authentication adds an extra layer of security to your account. You'll receive a verification code via email whenever you log in. Do you want to proceed?
-            </p>
-            <div class="dialog-actions">
-                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('enable2FADialog')">Cancel</button>
-                <button class="dialog-btn dialog-btn-confirm" onclick="confirmEnable2FA()">Enable 2FA</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="dialog-overlay" id="uploadIDDialog">
-        <div class="dialog">
-            <div class="dialog-header">
-                <div class="dialog-icon save">
-                    <i class="fas fa-id-card"></i>
-                </div>
-                <h3 class="dialog-title">Upload ID Document</h3>
-            </div>
-            <p class="dialog-message">
-                Please upload a clear photo of your government-issued ID. Accepted formats: JPG, PNG, PDF. Maximum size: 5MB. Your document will be reviewed within 1-2 business days.
-            </p>
-            <div class="dialog-actions">
-                <button class="dialog-btn dialog-btn-cancel" onclick="closeDialog('uploadIDDialog')">Cancel</button>
-                <button class="dialog-btn dialog-btn-confirm" onclick="triggerIDUpload()">Choose File</button>
-            </div>
-        </div>
-    </div>
-
-    <input type="file" id="idFileInput" accept="image/*,.pdf" style="display: none;">
+    <!-- Removed deprecated dialogs: notificationDialog, enable2FADialog, uploadIDDialog -->
 
     <div class="toast" id="toast"></div>
 
