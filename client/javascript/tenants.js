@@ -91,7 +91,7 @@ document.addEventListener("DOMContentLoaded", function () {
       sortBtn.classList.remove("active");
     });
   }
-  // Default initial view: List
+
   try {
     const gridView = document.getElementById("gridView");
     const listView = document.getElementById("listView");
@@ -103,17 +103,15 @@ document.addEventListener("DOMContentLoaded", function () {
     buttons.forEach((btn) => btn.classList.remove("active"));
     const listBtn = document.querySelector('.view-btn[data-view="list"]');
     if (listBtn) listBtn.classList.add("active");
-  } catch (_) {}
+  } catch (_) { }
 
-  // Default status filter: ACTIVE
   try {
     const statusFilterInput = document.getElementById("statusFilter");
     const statusLabel = document.getElementById("statusFilterLabel");
     if (statusFilterInput) statusFilterInput.value = "ACTIVE";
     if (statusLabel) statusLabel.textContent = "Active";
-  } catch (_) {}
+  } catch (_) { }
 
-  // Initial load with default filters
   loadTenants(1, { status: "ACTIVE" });
   updateSelectAllButton();
   setupEventListeners();
@@ -367,13 +365,16 @@ function renderListView() {
             ${formatDate ? formatDate(tenant.created_at) : tenant.created_at}
           </div>
           <div class="list-col list-col-actions">
-            <button class="action-btn" onclick="viewTenantDetails('${tenant.user_id}')" title="View Details">
+            <button class="action-btn" onclick="viewTenantDetails('${tenant.user_id
+        }')" title="View Details">
               <i class="fas fa-eye"></i>
             </button>
-            <button class="action-btn" onclick="openTenantDetailsInEditMode('${tenant.user_id}')" title="Edit">
+            <button class="action-btn" onclick="openTenantDetailsInEditMode('${tenant.user_id
+        }')" title="Edit">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="action-btn" onclick="deleteTenant('${tenant.user_id}')" title="Delete">
+            <button class="action-btn" onclick="deleteTenant('${tenant.user_id
+        }')" title="Delete">
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -438,7 +439,10 @@ function clearSelection() {
 
 function messageSelected() {
   if (selectedTenants.size === 0) {
-    if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.showAlert === "function"
+    ) {
       window.showAlert("Please select tenants to message.", "warning");
     } else {
       alert("Please select tenants to message.");
@@ -448,7 +452,10 @@ function messageSelected() {
 
   const selectedIds = Array.from(selectedTenants);
   if (typeof window !== "undefined" && typeof window.showAlert === "function") {
-    window.showAlert(`Messaging ${selectedTenants.size} selected tenant(s)`, "info");
+    window.showAlert(
+      `Messaging ${selectedTenants.size} selected tenant(s)`,
+      "info"
+    );
   } else {
     alert(`Messaging ${selectedTenants.size} selected tenant(s)`);
   }
@@ -456,7 +463,10 @@ function messageSelected() {
 
 function exportSelected() {
   if (selectedTenants.size === 0) {
-    if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.showAlert === "function"
+    ) {
       window.showAlert("Please select tenants to export.", "warning");
     } else {
       alert("Please select tenants to export.");
@@ -466,7 +476,10 @@ function exportSelected() {
 
   const selectedIds = Array.from(selectedTenants);
   if (typeof window !== "undefined" && typeof window.showAlert === "function") {
-    window.showAlert(`Exporting ${selectedTenants.size} selected tenant(s)`, "info");
+    window.showAlert(
+      `Exporting ${selectedTenants.size} selected tenant(s)`,
+      "info"
+    );
   } else {
     alert(`Exporting ${selectedTenants.size} selected tenant(s)`);
   }
@@ -846,14 +859,17 @@ async function deleteTenant(tenantId) {
       ? (msg, title) => window.showConfirm(msg, title)
       : (msg) => Promise.resolve(confirm(String(msg)));
 
-  const ok = await confirmFn("Are you sure you want to delete this tenant?", "Delete tenant");
+  const ok = await confirmFn(
+    "Are you sure you want to delete this tenant?",
+    "Delete tenant"
+  );
   if (!ok) return;
 
-  // Build current filters so refresh respects search/status
   const searchInput = document.getElementById("searchInput");
   const statusFilter = document.getElementById("statusFilter");
   const filters = {};
-  if (searchInput && searchInput.value.trim()) filters.search = searchInput.value.trim();
+  if (searchInput && searchInput.value.trim())
+    filters.search = searchInput.value.trim();
   if (statusFilter && statusFilter.value) filters.status = statusFilter.value;
 
   try {
@@ -867,20 +883,20 @@ async function deleteTenant(tenantId) {
       try {
         const data = await resp.json();
         if (data && data.message) msg = data.message;
-      } catch (_) {}
+      } catch (_) { }
       showTenantSnackbar(msg, "error");
       return;
     }
 
     showTenantSnackbar("Tenant deleted successfully.", "success");
 
-    // If details view is open, close it
     const details = document.getElementById("tenantDetailsInlineForm");
     if (details && details.style.display !== "none") {
-      try { closeTenantDetailsInlineForm(); } catch (_) {}
+      try {
+        closeTenantDetailsInlineForm();
+      } catch (_) { }
     }
 
-    // Refresh current page; if empty and not first, go back a page
     await loadTenants(currentPage, filters);
     if (tenants.length === 0 && currentPage > 1) {
       await loadTenants(currentPage - 1, filters);
