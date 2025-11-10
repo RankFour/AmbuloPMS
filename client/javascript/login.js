@@ -1,38 +1,33 @@
 import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 
-
 const API_BASE_URL = "/api/v1/users";
 
 document.addEventListener("DOMContentLoaded", function () {
-  
   try {
-    const token = (document.cookie.match('(^|;)\\s*token\\s*=\\s*([^;]+)')||[])[2];
+    const token = (document.cookie.match("(^|;)\\s*token\\s*=\\s*([^;]+)") ||
+      [])[2];
     if (token) {
-      
-      const stored = localStorage.getItem('user');
+      const stored = localStorage.getItem("user");
       if (stored) {
         try {
           const user = JSON.parse(stored);
-          if (user && user.role === 'ADMIN') {
-            window.location.href = 'dashboard.html';
+          if (user && user.role === "ADMIN") {
+            window.location.href = "dashboard.html";
             return;
           }
-          
-          window.location.href = 'dashboard.html';
+
+          window.location.href = "dashboard.html";
           return;
         } catch (e) {
-          
-          window.location.href = 'dashboard.html';
+          window.location.href = "dashboard.html";
           return;
         }
       }
-      
-      window.location.href = 'dashboard.html';
+
+      window.location.href = "dashboard.html";
       return;
     }
-  } catch (e) {
-    
-  }
+  } catch (e) { }
   const loginForm = document.getElementById("loginForm");
   const passwordField = document.getElementById("passwordField");
   const toggleButton = document.getElementById("toggleButton");
@@ -69,8 +64,11 @@ document.addEventListener("DOMContentLoaded", function () {
         data = await response.json();
       } catch (jsonError) {
         console.error("Response is not JSON:", await response.text());
-        if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
-          window.showAlert("Server error - please try again", 'error');
+        if (
+          typeof window !== "undefined" &&
+          typeof window.showAlert === "function"
+        ) {
+          window.showAlert("Server error - please try again", "error");
         } else {
           alert("Server error - please try again");
         }
@@ -83,20 +81,30 @@ document.addEventListener("DOMContentLoaded", function () {
         if (data.user.role === "ADMIN") {
           window.location.href = "dashboard.html";
         } else {
-          
           window.location.href = "dashboard.html";
         }
       } else {
-        if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
-          window.showAlert(data.message || "Login failed", 'error');
+        if (response.status === 403 && data && data.require_password_change) {
+          const params = new URLSearchParams({ email });
+          window.location.href = `set-password.html?${params.toString()}`;
+          return;
+        }
+        if (
+          typeof window !== "undefined" &&
+          typeof window.showAlert === "function"
+        ) {
+          window.showAlert(data.message || "Login failed", "error");
         } else {
           alert(data.message || "Login failed");
         }
       }
     } catch (error) {
       console.error("Login error:", error);
-      if (typeof window !== 'undefined' && typeof window.showAlert === 'function') {
-        window.showAlert("An error occurred during login", 'error');
+      if (
+        typeof window !== "undefined" &&
+        typeof window.showAlert === "function"
+      ) {
+        window.showAlert("An error occurred during login", "error");
       } else {
         alert("An error occurred during login");
       }
@@ -106,28 +114,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
 async function setDynamicCompanyDetails() {
   const data = await fetchCompanyDetails();
-  if(!data || !data[0]) return;
+  if (!data || !data[0]) return;
   const companyDetails = data[0];
 
-  
   const brandName = document.getElementById("dynamic-company-name");
-  if (brandName) brandName.textContent = companyDetails.company_name || "Your Company";
+  if (brandName)
+    brandName.textContent = companyDetails.company_name || "Your Company";
 
-  
   const brandDesc = document.getElementById("dynamic-company-desc");
-  if (brandDesc) brandDesc.textContent = companyDetails.business_desc || "Your trusted partner in property management.";
+  if (brandDesc)
+    brandDesc.textContent =
+      companyDetails.business_desc ||
+      "Your trusted partner in property management.";
 
-  
   const logoImg = document.getElementById("dynamic-logo");
-  if (logoImg) logoImg.src = companyDetails.icon_logo_url || "/assets/logo-property.png";
+  if (logoImg)
+    logoImg.src = companyDetails.icon_logo_url || "/assets/logo-property.png";
 
-  
   const favicon = document.getElementById("dynamic-favicon");
-  if (favicon) favicon.href = companyDetails.icon_logo_url || "/assets/logo-property.png";
+  if (favicon)
+    favicon.href = companyDetails.icon_logo_url || "/assets/logo-property.png";
 
-  
-  document.title = `${companyDetails.company_name || "Ambulo Properties"} Login`;
-
+  document.title = `${companyDetails.company_name || "Ambulo Properties"
+    } Login`;
 }
 
 document.addEventListener("DOMContentLoaded", setDynamicCompanyDetails);

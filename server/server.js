@@ -153,7 +153,8 @@ const prettyRoutes = {
     '/manage-lease-terms' : 'lease-terms-cms.html',
     '/edit-payment-info' : 'edit-payments-details.html',
     '/forgot-password': 'forgotPassword.html',
-    '/inquiries': 'contact-us-submissions.html'
+    '/inquiries': 'contact-us-submissions.html',
+    '/set-password': 'set-password.html'
     
 };
 

@@ -8,7 +8,6 @@ import { buildBrandedEmail } from "../utils/emailTemplates.js";
 
 const pool = await conn();
 
-
 const generateTempPassword = (length = 12) => {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const lower = "abcdefghijklmnopqrstuvwxyz";
@@ -19,7 +18,7 @@ const generateTempPassword = (length = 12) => {
   const pick = (chars) => chars[Math.floor(Math.random() * chars.length)];
   let pwd = [pick(upper), pick(lower), pick(digits), pick(specials)];
   for (let i = pwd.length; i < length; i++) pwd.push(pick(all));
-  
+
   for (let i = pwd.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
@@ -157,14 +156,17 @@ const createUser = async (userData = {}) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const forceFirstLoginReset = process.env.FORCE_FIRST_LOGIN_RESET === 'true';
+    const forceFirstLoginReset = process.env.FORCE_FIRST_LOGIN_RESET === "true";
     let password_setup_token = null;
     let password_setup_expires = null;
     if (forceFirstLoginReset) {
       password_setup_token = uuidv4();
       const expires = new Date();
       expires.setHours(expires.getHours() + 24);
-      password_setup_expires = expires.toISOString().slice(0, 19).replace('T', ' ');
+      password_setup_expires = expires
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
     }
     const newUser = {
       user_id,
@@ -257,46 +259,59 @@ const createUser = async (userData = {}) => {
 
     conn.release();
 
-    const sendCredentialsEmail = process.env.SEND_CREDENTIALS_EMAIL !== 'false';
+    const sendCredentialsEmail = process.env.SEND_CREDENTIALS_EMAIL !== "false";
     const forceReset = forceFirstLoginReset;
-    
-    
+
     const includePlaintextPassword = true;
 
     try {
       if (sendCredentialsEmail && email) {
-        
         let company = null;
         try {
           const rows = await companyDetailsServices.getCompanyDetails();
           company = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-        } catch (_) { /* non-fatal */ }
+        } catch (_) {
+          /* non-fatal */
+        }
 
-        const escapeHtml = (str = "") => String(str)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#39;");
+        const escapeHtml = (str = "") =>
+          String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
 
         const baseDomain = (() => {
-          const candidate = (company && (company.email || company.support_email)) || "";
-          const domainPart = candidate.includes("@") ? candidate.split("@")[1] : null;
+          const candidate =
+            (company && (company.email || company.support_email)) || "";
+          const domainPart = candidate.includes("@")
+            ? candidate.split("@")[1]
+            : null;
           return domainPart || "ambulo.local";
         })();
         const noReply = process.env.NO_REPLY_EMAIL || `no-reply@${baseDomain}`;
-        const loginBase = process.env.NODE_ENV === 'production' ? (process.env.API_BASE || "").replace(/\/+$/, "") : (process.env.API_BASE_LOCAL || "").replace(/\/+$/, "");
+        const loginBase =
+          process.env.NODE_ENV === "production"
+            ? (process.env.API_BASE || "").replace(/\/+$/, "")
+            : (process.env.API_BASE_LOCAL || "").replace(/\/+$/, "");
         const loginUrl = loginBase ? `${loginBase}/login` : "/login";
         const setPwdUrl = (() => {
-          const base = loginBase ? `${loginBase}/set-password` : `/set-password`;
-          const emailQS = `email=${encodeURIComponent(email || '')}`;
-          const tokenQS = password_setup_token ? `&token=${encodeURIComponent(password_setup_token)}` : '';
+          const base = loginBase
+            ? `${loginBase}/set-password`
+            : `/set-password`;
+          const emailQS = `email=${encodeURIComponent(email || "")}`;
+          const tokenQS = password_setup_token
+            ? `&token=${encodeURIComponent(password_setup_token)}`
+            : "";
           return `${base}?${emailQS}${tokenQS}`;
         })();
         const companyName = company?.company_name || "AmbuloPMS";
 
         const pwdLineHtml = includePlaintextPassword
-          ? `<p style=\"margin:0 0 12px\"><strong>Temporary Password:</strong> ${escapeHtml(password || '')}</p>`
+          ? `<p style=\"margin:0 0 12px\"><strong>Temporary Password:</strong> ${escapeHtml(
+            password || ""
+          )}</p>`
           : `<p style=\"margin:0 0 12px\"><strong>Password Setup Required:</strong> You'll be prompted to change/set your password on first login.</p>`;
         const pwdLineText = includePlaintextPassword
           ? `Temporary Password: ${password}`
@@ -310,34 +325,47 @@ const createUser = async (userData = {}) => {
           : `For security, please change your password after logging in.`;
 
         const bodyHtml = `
-          <p style="margin:0 0 12px">Hi ${escapeHtml(first_name || '')},</p>
-          <p style="margin:0 0 12px">Welcome to ${escapeHtml(companyName)}! Your tenant account has been created.</p>
-          <p style="margin:0 0 12px"><strong>Login Email:</strong> ${escapeHtml(email)}</p>
+          <p style="margin:0 0 12px">Hi ${escapeHtml(first_name || "")},</p>
+          <p style="margin:0 0 12px">Welcome to ${escapeHtml(
+          companyName
+        )}! Your tenant account has been created.</p>
+          <p style="margin:0 0 12px"><strong>Login Email:</strong> ${escapeHtml(
+          email
+        )}</p>
           ${pwdLineHtml}
           <p style="margin:0 0 12px">Set your password here: <a href="${setPwdUrl}" target="_blank" style="color:#2563eb;text-decoration:none">${setPwdUrl}</a></p>
-          ${password_setup_token ? `<p style=\"margin:0 0 12px\"><em>This setup link expires in 24 hours.</em></p>` : ''}
+          ${password_setup_token
+            ? `<p style=\"margin:0 0 12px\"><em>This setup link expires in 24 hours.</em></p>`
+            : ""
+          }
           <p style="margin:0 0 12px">Or login here: <a href="${loginUrl}" target="_blank" style="color:#2563eb;text-decoration:none">${loginUrl}</a></p>
           ${securityLineHtml}
-          <p style="margin:0 0 12px" data-no-reply>This is an automated notification from the ${escapeHtml(companyName)} system. Replies to this address are not monitored.</p>
-          <p style="margin:0 0 12px">Best regards,<br/>${escapeHtml(companyName)} Team</p>
+          <p style="margin:0 0 12px" data-no-reply>This is an automated notification from the ${escapeHtml(
+            companyName
+          )} system. Replies to this address are not monitored.</p>
+          <p style="margin:0 0 12px">Best regards,<br/>${escapeHtml(
+            companyName
+          )} Team</p>
         `;
         const bodyText = [
-          `Hi ${first_name || ''},`,
+          `Hi ${first_name || ""},`,
           `Welcome to ${companyName}! Your tenant account has been created.`,
           `Login Email: ${email}`,
           pwdLineText,
-          `Set Password URL${password_setup_token ? ' (expires in 24h)' : ''}: ${setPwdUrl}`,
+          `Set Password URL${password_setup_token ? " (expires in 24h)" : ""
+          }: ${setPwdUrl}`,
           `Alternate Login URL: ${loginUrl}`,
           securityLineText,
           `This is an automated notification. Replies are not monitored.`,
           `Best regards,`,
           `${companyName} Team`,
-        ].join('\n\n');
+        ].join("\n\n");
 
-        const { html: wrappedHtml, text: wrappedText, attachments } = buildBrandedEmail(
-          { bodyHtml, bodyText },
-          company || {}
-        );
+        const {
+          html: wrappedHtml,
+          text: wrappedText,
+          attachments,
+        } = buildBrandedEmail({ bodyHtml, bodyText }, company || {});
 
         await mailer.sendMail({
           to: email,
@@ -347,16 +375,17 @@ const createUser = async (userData = {}) => {
           replyTo: noReply,
           from: noReply,
           headers: {
-            'Auto-Submitted': 'auto-generated',
-            'X-Auto-Response-Suppress': 'All',
+            "Auto-Submitted": "auto-generated",
+            "X-Auto-Response-Suppress": "All",
           },
           attachments,
         });
-        try { console.info('[Users] Credentials email sent', { to: email }); } catch (_) {}
+        try {
+          console.info("[Users] Credentials email sent", { to: email });
+        } catch (_) { }
       }
     } catch (e) {
-      console.error('[Users] Failed to send credentials email', e);
-      
+      console.error("[Users] Failed to send credentials email", e);
     }
 
     return {
@@ -387,7 +416,7 @@ const getUsers = async (queryObj = {}) => {
     const skip = (page - 1) * limit;
 
     let query =
-      'SELECT user_id, first_name, last_name, avatar, email, phone_number, role, created_at, status, must_change_password, password_setup_expires FROM users WHERE role = ?';
+      "SELECT user_id, first_name, last_name, avatar, email, phone_number, role, created_at, status, must_change_password, password_setup_expires FROM users WHERE role = ?";
     const params = ["TENANT"];
 
     if (search && search.trim() !== "") {
@@ -417,7 +446,7 @@ const getUsers = async (queryObj = {}) => {
       query += " AND " + otherFilterConditions.join(" AND ");
     }
 
-    let orderBy = "created_at DESC"; 
+    let orderBy = "created_at DESC";
     switch (sort) {
       case "name_asc":
         orderBy = "first_name ASC, last_name ASC";
@@ -425,18 +454,7 @@ const getUsers = async (queryObj = {}) => {
       case "name_desc":
         orderBy = "first_name DESC, last_name DESC";
         break;
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
+
       case "date_added_asc":
         orderBy = "created_at ASC";
         break;
@@ -450,7 +468,7 @@ const getUsers = async (queryObj = {}) => {
     query += " LIMIT ? OFFSET ?";
     params.push(parseInt(limit), parseInt(skip));
 
-    let countQuery = 'SELECT COUNT(*) as total FROM users WHERE role = ?';
+    let countQuery = "SELECT COUNT(*) as total FROM users WHERE role = ?";
     const countParams = ["TENANT"];
 
     if (search && search.trim() !== "") {
@@ -764,7 +782,6 @@ const deleteUserById = async (user_id = "") => {
   }
 };
 
-
 const verifyUserPassword = async (user_id = "", password = "") => {
   try {
     if (!user_id) throw new Error("User ID is required");
@@ -784,33 +801,43 @@ const verifyUserPassword = async (user_id = "", password = "") => {
   }
 };
 
+const setInitialPassword = async ({
+  email,
+  token,
+  current_password,
+  new_password,
+}) => {
+  if (!email) throw new Error("Email is required");
+  if (!new_password) throw new Error("New password is required");
 
-const setInitialPassword = async ({ email, token, current_password, new_password }) => {
-  if (!email) throw new Error('Email is required');
-  if (!new_password) throw new Error('New password is required');
-
-  const [rows] = await pool.query(`SELECT * FROM users WHERE email = ?`, [email]);
-  if (!rows || rows.length === 0) throw new Error('User not found');
+  const [rows] = await pool.query(`SELECT * FROM users WHERE email = ?`, [
+    email,
+  ]);
+  if (!rows || rows.length === 0) throw new Error("User not found");
   const user = rows[0];
-  if (!user.must_change_password) throw new Error('Password setup not required');
+  if (!user.must_change_password)
+    throw new Error("Password setup not required");
 
-  
   let validated = false;
   if (token) {
     if (!user.password_setup_token || token !== user.password_setup_token) {
-      throw new Error('Invalid setup token');
+      throw new Error("Invalid setup token");
     }
-    if (user.password_setup_expires && new Date(user.password_setup_expires) < new Date()) {
-      throw new Error('Setup token expired');
+    if (
+      user.password_setup_expires &&
+      new Date(user.password_setup_expires) < new Date()
+    ) {
+      throw new Error("Setup token expired");
     }
     validated = true;
   }
   if (!validated && current_password) {
     const match = await bcrypt.compare(current_password, user.password_hash);
-    if (!match) throw new Error('Invalid current password');
+    if (!match) throw new Error("Invalid current password");
     validated = true;
   }
-  if (!validated) throw new Error('Missing validation (token or current_password)');
+  if (!validated)
+    throw new Error("Missing validation (token or current_password)");
 
   const salt = await bcrypt.genSalt(10);
   const newHash = await bcrypt.hash(new_password, salt);
@@ -819,65 +846,73 @@ const setInitialPassword = async ({ email, token, current_password, new_password
     [newHash, user.user_id]
   );
 
-  
-  const tokenJwt = jwt.sign({
-    user_id: user.user_id,
-    email: user.email,
-    role: user.role,
-    first_name: user.first_name,
-    last_name: user.last_name,
-  }, process.env.JWT_SECRET, { expiresIn: '1d' });
+  const tokenJwt = jwt.sign(
+    {
+      user_id: user.user_id,
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
 
-  const { password_hash, password_setup_token, password_setup_expires, ...cleanUser } = { ...user, must_change_password: 0 };
+  const {
+    password_hash,
+    password_setup_token,
+    password_setup_expires,
+    ...cleanUser
+  } = { ...user, must_change_password: 0 };
   return {
-    message: 'Password set successfully',
+    message: "Password set successfully",
     token: tokenJwt,
     user: cleanUser,
   };
 };
 
-
 const resendSetupEmail = async (user_id = "") => {
   if (!user_id) throw new Error("User ID is required");
 
-  
-  const [rows] = await pool.query(`SELECT * FROM users WHERE user_id = ?`, [user_id]);
-  if (!rows || rows.length === 0) throw new Error('User not found');
+  const [rows] = await pool.query(`SELECT * FROM users WHERE user_id = ?`, [
+    user_id,
+  ]);
+  if (!rows || rows.length === 0) throw new Error("User not found");
   const user = rows[0];
 
-  
   const newToken = uuidv4();
   const expires = new Date();
   expires.setHours(expires.getHours() + 24);
-  const expiresSql = expires.toISOString().slice(0, 19).replace('T', ' ');
+  const expiresSql = expires.toISOString().slice(0, 19).replace("T", " ");
 
-  
   const tempPassword = generateTempPassword(12);
   const salt = await bcrypt.genSalt(10);
   const newHash = await bcrypt.hash(tempPassword, salt);
 
-  
   await pool.query(
     `UPDATE users SET password_hash = ?, must_change_password = 1, password_setup_token = ?, password_setup_expires = ?, updated_at = NOW() WHERE user_id = ?`,
     [newHash, newToken, expiresSql, user_id]
   );
 
-  
   let company = null;
   try {
     const rows = await companyDetailsServices.getCompanyDetails();
     company = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-  } catch (_) { /* non-fatal */ }
+  } catch (_) {
+    /* non-fatal */
+  }
 
-  const escapeHtml = (str = "") => String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  const escapeHtml = (str = "") =>
+    String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
 
   const baseDomain = (() => {
-    const candidate = (company && (company.email || company.support_email)) || "";
+    const candidate =
+      (company && (company.email || company.support_email)) || "";
     const domainPart = candidate.includes("@") ? candidate.split("@")[1] : null;
     return domainPart || "ambulo.local";
   })();
@@ -887,26 +922,36 @@ const resendSetupEmail = async (user_id = "") => {
   const loginUrl = loginBase ? `${loginBase}/login` : "/login";
   const setPwdUrl = (() => {
     const base = loginBase ? `${loginBase}/set-password` : `/set-password`;
-    const emailQS = `email=${encodeURIComponent(user.email || '')}`;
+    const emailQS = `email=${encodeURIComponent(user.email || "")}`;
     const tokenQS = `&token=${encodeURIComponent(newToken)}`;
     return `${base}?${emailQS}${tokenQS}`;
   })();
   const companyName = company?.company_name || "AmbuloPMS";
 
   const bodyHtml = `
-    <p style="margin:0 0 12px">Hi ${escapeHtml(user.first_name || '')},</p>
-    <p style="margin:0 0 12px">We're resending your ${escapeHtml(companyName)} account setup details.</p>
-    <p style="margin:0 0 12px"><strong>Login Email:</strong> ${escapeHtml(user.email)}</p>
-    <p style=\"margin:0 0 12px\"><strong>Temporary Password:</strong> ${escapeHtml(tempPassword)}</p>
+    <p style="margin:0 0 12px">Hi ${escapeHtml(user.first_name || "")},</p>
+    <p style="margin:0 0 12px">We're resending your ${escapeHtml(
+    companyName
+  )} account setup details.</p>
+    <p style="margin:0 0 12px"><strong>Login Email:</strong> ${escapeHtml(
+    user.email
+  )}</p>
+    <p style=\"margin:0 0 12px\"><strong>Temporary Password:</strong> ${escapeHtml(
+    tempPassword
+  )}</p>
     <p style="margin:0 0 12px">Set your password here: <a href="${setPwdUrl}" target="_blank" style="color:#2563eb;text-decoration:none">${setPwdUrl}</a></p>
     <p style=\"margin:0 0 12px\"><em>This setup link expires in 24 hours.</em></p>
     <p style="margin:0 0 12px">Or login here: <a href="${loginUrl}" target="_blank" style="color:#2563eb;text-decoration:none">${loginUrl}</a></p>
     <p style="margin:0 0 12px">For security, you'll need to set a new password immediately after logging in.</p>
-    <p style="margin:0 0 12px" data-no-reply>This is an automated notification from the ${escapeHtml(companyName)} system. Replies to this address are not monitored.</p>
-    <p style="margin:0 0 12px">Best regards,<br/>${escapeHtml(companyName)} Team</p>
+    <p style="margin:0 0 12px" data-no-reply>This is an automated notification from the ${escapeHtml(
+    companyName
+  )} system. Replies to this address are not monitored.</p>
+    <p style="margin:0 0 12px">Best regards,<br/>${escapeHtml(
+    companyName
+  )} Team</p>
   `;
   const bodyText = [
-    `Hi ${user.first_name || ''},`,
+    `Hi ${user.first_name || ""},`,
     `We're resending your ${companyName} account setup details.`,
     `Login Email: ${user.email}`,
     `Temporary Password: ${tempPassword}`,
@@ -916,28 +961,29 @@ const resendSetupEmail = async (user_id = "") => {
     `This is an automated notification. Replies are not monitored.`,
     `Best regards,`,
     `${companyName} Team`,
-  ].join('\n\n');
+  ].join("\n\n");
 
-  const { html: wrappedHtml, text: wrappedText, attachments } = buildBrandedEmail(
-    { bodyHtml, bodyText },
-    company || {}
-  );
+  const {
+    html: wrappedHtml,
+    text: wrappedText,
+    attachments,
+  } = buildBrandedEmail({ bodyHtml, bodyText }, company || {});
 
   await mailer.sendMail({
     to: user.email,
-    subject: `Your ${companyName} Account Setup` ,
+    subject: `Your ${companyName} Account Setup`,
     html: wrappedHtml,
     text: wrappedText,
     replyTo: noReply,
     from: noReply,
     headers: {
-      'Auto-Submitted': 'auto-generated',
-      'X-Auto-Response-Suppress': 'All',
+      "Auto-Submitted": "auto-generated",
+      "X-Auto-Response-Suppress": "All",
     },
     attachments,
   });
 
-  return { message: 'Setup email resent', password_setup_expires: expiresSql };
+  return { message: "Setup email resent", password_setup_expires: expiresSql };
 };
 
 export default {

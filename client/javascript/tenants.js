@@ -261,8 +261,9 @@ function renderGridView() {
                 ${avatarHTML}
               </div>
               <div class="tenant-details">
-                <h4 title="${fullName || "No Name"}">${fullName || "No Name"
-        }</h4>
+                <h4 title="${fullName || "No Name"}">${fullName || "No Name"}
+                  ${tenant.must_change_password ? `<span class="status-badge" title="Password setup required" style="margin-left:8px;background:#f59e0b1a;color:#92400e;border:1px solid #f59e0b;font-size:11px;padding:3px 6px;border-radius:9999px;vertical-align:middle;">Setup Pending</span>` : ""}
+                </h4>
                 <div class="tenant-business">
                   ${tenant.business_name || "N/A"}
                 </div>
@@ -296,6 +297,10 @@ function renderGridView() {
         }')">
               <i class="fas fa-edit"></i>
               </button>
+              ${tenant.must_change_password ? `
+              <button class="action-btn" title="Resend Setup Email" onclick="event.stopPropagation();resendSetupEmail('${tenant.user_id}')">
+                <i class=\"fas fa-paper-plane\"></i>
+              </button>` : ""}
             </div>
           </div>
         </div>
@@ -340,7 +345,9 @@ function renderListView() {
                 ${avatarHTML}
               </div>
               <div style="margin-left: 0.5rem;">
-                <div style="font-weight: 500;">${fullName || "No Name"}</div>
+                <div style="font-weight: 500;">${fullName || "No Name"}
+                  ${tenant.must_change_password ? `<span class="status-badge" title="Password setup required" style="margin-left:8px;background:#f59e0b1a;color:#92400e;border:1px solid #f59e0b;font-size:11px;padding:3px 6px;border-radius:9999px;vertical-align:middle;">Setup Pending</span>` : ""}
+                </div>
                 <div style="font-size: 0.75rem; color: #6b7280;">
                   ${tenant.business_name || ""}
                 </div>
@@ -373,6 +380,10 @@ function renderListView() {
         }')" title="Edit">
               <i class="fas fa-edit"></i>
             </button>
+            ${tenant.must_change_password ? `
+            <button class="action-btn" onclick="resendSetupEmail('${tenant.user_id}')" title="Resend Setup Email">
+              <i class=\"fas fa-paper-plane\"></i>
+            </button>` : ""}
             <button class="action-btn" onclick="deleteTenant('${tenant.user_id
         }')" title="Delete">
               <i class="fas fa-trash"></i>
@@ -904,6 +915,43 @@ async function deleteTenant(tenantId) {
   } catch (err) {
     console.error("Delete tenant error:", err);
     showTenantSnackbar("An error occurred while deleting the tenant.", "error");
+  }
+}
+
+async function resendSetupEmail(tenantId) {
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? (msg, title) => window.showConfirm(msg, title)
+      : (msg) => Promise.resolve(confirm(String(msg)));
+
+  const ok = await confirmFn(
+    "Resend the setup email and generate a new temporary password?",
+    "Resend setup email"
+  );
+  if (!ok) return;
+
+  try {
+    const resp = await fetch(`${API_BASE_URL}/users/${tenantId}/resend-setup-email`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.message || "Failed to resend setup email");
+    }
+    showTenantSnackbar("Setup email resent successfully.", "success");
+    
+    const searchInput = document.getElementById("searchInput");
+    const statusFilter = document.getElementById("statusFilter");
+    const filters = {};
+    if (searchInput && searchInput.value.trim())
+      filters.search = searchInput.value.trim();
+    if (statusFilter && statusFilter.value) filters.status = statusFilter.value;
+    await loadTenants(currentPage, filters);
+  } catch (err) {
+    console.error("Resend setup email error:", err);
+    showTenantSnackbar(err.message || "An error occurred while resending.", "error");
   }
 }
 
@@ -2420,3 +2468,4 @@ window.openTenantDetailsInlineForm = openTenantDetailsInlineForm;
 window.closeTenantDetailsInlineForm = closeTenantDetailsInlineForm;
 window.toggleEditTenantForm = toggleEditTenantForm;
 window.openTenantDetailsInEditMode = openTenantDetailsInEditMode;
+window.resendSetupEmail = resendSetupEmail;
