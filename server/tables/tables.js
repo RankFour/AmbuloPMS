@@ -93,18 +93,24 @@ const tables = async (dbConnection) => {
     //messages
     messagesTable,
     messageAttachmentsTable,
-  notificationsTable,
+    notificationsTable,
 
-  // assistant analytics & chat persistence
-  assistantLogsTable,
-  assistantConversationsTable,
-  assistantMessagesTable
+    // assistant analytics & chat persistence
+    assistantLogsTable,
+    assistantConversationsTable,
+    assistantMessagesTable
 
   ];
 
   for (const query of queries) {
     try {
-      await dbConnection.query(query);
+      if (typeof query === 'string') {
+        await dbConnection.query(query);
+      } else if (typeof query === 'function') {
+        await query(dbConnection);
+      } else {
+        console.warn('[Tables] Unknown query type; skipping');
+      }
     } catch (error) {
       console.error("Error creating table:", error);
     }
