@@ -17,6 +17,19 @@ const authUser = expressAsync(async (req, res) => {
 
     const response = await usersServices.authUser(email, password);
 
+    if (response && response.require_password_change) {
+      return res.status(403).json({
+        message: "Password change required",
+        require_password_change: true,
+        user: {
+          user_id: response.user?.user_id,
+          email: response.user?.email,
+          first_name: response.user?.first_name,
+          last_name: response.user?.last_name,
+        },
+      });
+    }
+
     res.cookie("token", response.token, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -29,6 +42,31 @@ const authUser = expressAsync(async (req, res) => {
   } catch (error) {
     console.error("Error in login controller:", error);
     res.status(401).json({ message: error.message });
+  }
+});
+
+const setInitialPassword = expressAsync(async (req, res) => {
+  try {
+    const { email, token, current_password, new_password } = req.body || {};
+    const result = await usersServices.setInitialPassword({
+      email,
+      token,
+      current_password,
+      new_password,
+    });
+    res.cookie("token", result.token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+    res.json(result);
+  } catch (error) {
+    console.error("Error setting initial password:", error);
+    res
+      .status(400)
+      .json({ message: error.message || "Failed to set password" });
   }
 });
 
@@ -52,7 +90,11 @@ const createUser = expressAsync(async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error("Error creating user:", error);
-    throw new Error(error.message || "Failed to create user");
+    const msg = error.message || "Failed to create user";
+    if (/email already in use/i.test(msg)) {
+      return res.status(409).json({ message: msg });
+    }
+    res.status(400).json({ message: msg });
   }
 });
 
@@ -142,7 +184,7 @@ const deleteUserById = expressAsync(async (req, res) => {
 
 const logoutUser = (req, res) => {
   const cookieDomain =
-    process.NODE_ENV === "production"
+    process.env.NODE_ENV === "production"
       ? process.env.COOKIE_DOMAIN
       : process.env.COOKIE_DOMAIN_LOCAL;
   res.clearCookie("token", {
@@ -155,6 +197,19 @@ const logoutUser = (req, res) => {
   res.json({ message: "Logged out successfully" });
 };
 
+const resendSetupEmail = expressAsync(async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const result = await usersServices.resendSetupEmail(user_id);
+    res.json(result);
+  } catch (error) {
+    console.error("Error resending setup email:", error);
+    res
+      .status(400)
+      .json({ message: error.message || "Failed to resend setup email" });
+  }
+});
+
 export {
   authUser,
   createUser,
@@ -163,4 +218,6 @@ export {
   updateSingleUserById,
   deleteUserById,
   logoutUser,
+  setInitialPassword,
+  resendSetupEmail,
 };
