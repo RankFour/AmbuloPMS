@@ -70,7 +70,7 @@
         </div>
         <div class="filter-actions">
           <button id="applyFiltersBtn" class="btn btn-primary"><i class="fas fa-filter me-1"></i> Apply</button>
-          <button id="exportCsvBtn" class="btn btn-outline-secondary"><i class="fas fa-file-csv me-1"></i> Export CSV</button>
+          <button id="exportCsvBtn" class="btn btn-outline-secondary"><i class="fas fa-file-export me-1"></i> Export</button>
         </div>
       </div>
     </div>
@@ -126,8 +126,8 @@
           <div class="card-body kpi" id="tenantUpcomingExp">—</div>
         </div>
         <div class="card">
-          <div class="card-header"><h3 class="card-title"><i class="fas fa-building"></i>Tenants by Property</h3></div>
-          <div class="card-body" id="tenantByProperty"></div>
+          <div class="card-header"><h3 class="card-title"><i class="fas fa-clock"></i>Tenants with Late Payments</h3></div>
+          <div class="card-body" id="tenantLatePayments"></div>
         </div>
       </div>
     </div>
@@ -200,6 +200,9 @@
 
   <script src="/javascript/dialog-modal.js"></script>
   <script src="/javascript/utils/modalHelpers.js"></script>
+  <!-- PDF generation libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="/constants/constants.js"></script>
   <script type="module" src="/javascript/reports.js"></script>
   <script src="/javascript/navigations.js"></script>
