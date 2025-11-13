@@ -9,11 +9,14 @@ let deleteLeaseId = null;
 function loadModalHelpersIfNeeded() {
   return new Promise((resolve) => {
     try {
-      if (typeof window !== "undefined" && typeof window.showAlert === "function") {
+      if (
+        typeof window !== "undefined" &&
+        typeof window.showAlert === "function"
+      ) {
         return resolve(true);
       }
- 
-      var existing = document.querySelector('script[data-modalhelpers]');
+
+      var existing = document.querySelector("script[data-modalhelpers]");
       if (existing) {
         existing.addEventListener("load", function () {
           return resolve(true);
@@ -47,7 +50,6 @@ function loadModalHelpersIfNeeded() {
       try {
         if (typeof window.showAlert !== "function")
           window.showAlert = function (msg, type) {
-            // basic fallback
             console.warn("showAlert fallback:", type, msg);
             alert(String(msg));
           };
@@ -57,7 +59,9 @@ function loadModalHelpersIfNeeded() {
           };
         if (typeof window.showPrompt !== "function")
           window.showPrompt = function (msg, placeholder) {
-            return Promise.resolve(prompt(String(msg), String(placeholder || "")));
+            return Promise.resolve(
+              prompt(String(msg), String(placeholder || ""))
+            );
           };
       } catch (e) {
         /* noop */
@@ -417,7 +421,7 @@ function showListView() {
   document.getElementById("listView").classList.remove("hidden");
   document.getElementById("formView").classList.add("hidden");
   document.getElementById("detailView").classList.add("hidden");
-  // Ensure we're not in edit mode when showing list
+
   window.currentEditingLeaseId = null;
   loadLeaseTable();
 }
@@ -426,14 +430,14 @@ function showCreateView() {
   document.getElementById("listView").classList.add("hidden");
   document.getElementById("formView").classList.remove("hidden");
   document.getElementById("detailView").classList.add("hidden");
-  // Reset edit state to ensure Save performs a create (POST), not a patch
+
   window.currentEditingLeaseId = null;
   clearForm();
   clearErrors();
   populateTenantDropdown();
   populatePropertyDropdown();
   populateFinancialDefaults();
-  // Optional: refresh the form title to reflect create mode
+
   const titleEl = document.getElementById("formTitle");
   if (titleEl) titleEl.textContent = "Create Lease";
 }
@@ -447,13 +451,129 @@ function showAccordionSection(sectionId) {
 
   const section = document.getElementById(sectionId);
   if (section) section.classList.add("show");
-} 
+}
 
 document.addEventListener("DOMContentLoaded", function () {
   document
     .getElementById("fileInput")
     .addEventListener("change", handleFileSelection);
   showListView();
+});
+
+function parseYMD(ymd) {
+  if (!ymd || typeof ymd !== "string" || !/\d{4}-\d{2}-\d{2}/.test(ymd))
+    return null;
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  if (isNaN(dt.getTime())) return null;
+  return dt;
+}
+
+function addMonthsClamped(date, months) {
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const d = date.getDate();
+  const firstOfTarget = new Date(y, m + months, 1);
+  const lastDay = new Date(
+    firstOfTarget.getFullYear(),
+    firstOfTarget.getMonth() + 1,
+    0
+  ).getDate();
+  return new Date(
+    firstOfTarget.getFullYear(),
+    firstOfTarget.getMonth(),
+    Math.min(d, lastDay)
+  );
+}
+
+function formatYMD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function monthsBetween(start, end) {
+  let months =
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    (end.getMonth() - start.getMonth());
+  if (end.getDate() < start.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+function ensureEndDateHintElement() {
+  const endDateEl = document.getElementById("endDate");
+  if (!endDateEl || !endDateEl.parentNode) return null;
+  let hint = document.getElementById("endDateHint");
+  if (!hint) {
+    hint = document.createElement("div");
+    hint.id = "endDateHint";
+    hint.style.fontSize = "12px";
+    hint.style.color = "#6b7280";
+    hint.style.marginTop = "6px";
+    endDateEl.insertAdjacentElement("afterend", hint);
+  }
+  return hint;
+}
+
+function updateEndDateHint() {
+  try {
+    const startEl = document.getElementById("startDate");
+    const endEl = document.getElementById("endDate");
+    if (!startEl || !endEl) return;
+    const hint = ensureEndDateHintElement();
+    if (!hint) return;
+
+    const s = parseYMD(startEl.value);
+    const e = parseYMD(endEl.value);
+    if (!s || !e) {
+      hint.textContent = "";
+      return;
+    }
+    if (e <= s) {
+      hint.textContent = "End date must be after start date";
+      return;
+    }
+    const months = monthsBetween(s, e);
+    if (months <= 0) {
+      hint.textContent = "Less than 1 month";
+    } else if (months === 1) {
+      hint.textContent = "1 month from start date";
+    } else {
+      hint.textContent = `${months} months from start date`;
+    }
+  } catch (e) {
+    /* noop */
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const startDateEl = document.getElementById("startDate");
+  const endDateEl = document.getElementById("endDate");
+
+  if (startDateEl) {
+    try {
+      startDateEl.removeAttribute("min");
+    } catch (e) {
+      /* noop */
+    }
+  }
+
+  if (startDateEl && endDateEl) {
+    startDateEl.addEventListener("change", function () {
+      const start = parseYMD(startDateEl.value);
+      if (!start) return;
+      const end = addMonthsClamped(start, 24);
+      endDateEl.value = formatYMD(end);
+      updateEndDateHint();
+    });
+
+    endDateEl.addEventListener("change", function () {
+      updateEndDateHint();
+    });
+
+    updateEndDateHint();
+  }
 });
 
 function validateForm() {
@@ -486,10 +606,6 @@ function validateForm() {
   if (startDateEl.value && endDateEl.value) {
     if (startDate >= endDate) {
       showError("endDate", "End date must be after start date");
-      isValid = false;
-    }
-    if (startDate < new Date()) {
-      showError("startDate", "Start date cannot be in the past");
       isValid = false;
     }
   }
@@ -598,8 +714,6 @@ function clearErrors() {
     field.classList.remove("error");
   });
 }
-
-//#region Lease - Home
 
 document.addEventListener("DOMContentLoaded", function () {
   loadLeaseTable();
@@ -764,15 +878,7 @@ function getNextDueDate(lease) {
   return formatDate(nextDueStr);
 }
 
-//#endregion
-
 function loadForm(lease) {
-  // Defensive DOM assignments: element may not exist on all pages.
-  // For select fields (tenant/property), if the option for the current value
-  // isn't present (e.g., property filtered out because it's already leased),
-  // insert a selected option showing the current tenant/property name so the
-  // edit form reflects the existing lease.
-
   const tenantSelect = document.getElementById("tenantId");
   const propertySelect = document.getElementById("propertyId");
 
@@ -782,38 +888,45 @@ function loadForm(lease) {
     el.value = value || "";
   };
 
-  // Tenant
   try {
     const tenantVal = lease.tenantId || lease.user_id || "";
     if (tenantSelect) {
-      // If option doesn't exist, add a readonly option to display current tenant
-      if (tenantVal && !tenantSelect.querySelector(`option[value="${tenantVal}"]`)) {
-        const opt = document.createElement('option');
+      if (
+        tenantVal &&
+        !tenantSelect.querySelector(`option[value="${tenantVal}"]`)
+      ) {
+        const opt = document.createElement("option");
         opt.value = tenantVal;
-        opt.textContent = lease.tenantName || lease.tenant_name || `Tenant ${tenantVal}`;
-        // keep it selectable but mark as current
+        opt.textContent =
+          lease.tenantName || lease.tenant_name || `Tenant ${tenantVal}`;
+
         tenantSelect.appendChild(opt);
       }
       tenantSelect.value = tenantVal || "";
     }
   } catch (e) {
-    console.warn('Failed to set tenant select value', e);
+    console.warn("Failed to set tenant select value", e);
   }
 
-  // Property
   try {
     const propertyVal = lease.propertyId || lease.property_id || "";
     if (propertySelect) {
-      if (propertyVal && !propertySelect.querySelector(`option[value="${propertyVal}"]`)) {
-        const opt = document.createElement('option');
+      if (
+        propertyVal &&
+        !propertySelect.querySelector(`option[value="${propertyVal}"]`)
+      ) {
+        const opt = document.createElement("option");
         opt.value = propertyVal;
-        opt.textContent = lease.propertyName || lease.property_name || `Property ${propertyVal}`;
+        opt.textContent =
+          lease.propertyName ||
+          lease.property_name ||
+          `Property ${propertyVal}`;
         propertySelect.appendChild(opt);
       }
       propertySelect.value = propertyVal || "";
     }
   } catch (e) {
-    console.warn('Failed to set property select value', e);
+    console.warn("Failed to set property select value", e);
   }
 
   safeSet("startDate", lease.startDate || "");
@@ -827,11 +940,15 @@ function loadForm(lease) {
   safeSet("lateFee", lease.lateFee || "");
   safeSet("gracePeriod", lease.gracePeriod || "");
 
-  const isSecurityRefundableEl = document.getElementById("isSecurityRefundable");
-  if (isSecurityRefundableEl) isSecurityRefundableEl.checked = lease.isSecurityRefundable !== false;
+  const isSecurityRefundableEl = document.getElementById(
+    "isSecurityRefundable"
+  );
+  if (isSecurityRefundableEl)
+    isSecurityRefundableEl.checked = lease.isSecurityRefundable !== false;
 
   const advanceForfeitedEl = document.getElementById("advanceForfeited");
-  if (advanceForfeitedEl) advanceForfeitedEl.checked = lease.advanceForfeited === true;
+  if (advanceForfeitedEl)
+    advanceForfeitedEl.checked = lease.advanceForfeited === true;
 
   safeSet("autoTerminationMonths", lease.autoTerminationMonths || "");
   safeSet("terminationTriggerDays", lease.terminationTriggerDays || 61);
@@ -839,6 +956,12 @@ function loadForm(lease) {
   safeSet("noticeRenewalDays", lease.noticeRenewalDays || "");
   safeSet("rentIncreaseRenewal", lease.rentIncreaseRenewal || "");
   safeSet("notes", lease.notes || "");
+
+  try {
+    updateEndDateHint();
+  } catch (e) {
+    /* noop */
+  }
 }
 
 function clearForm() {
@@ -848,7 +971,7 @@ function clearForm() {
   document.getElementById("endDate").value = "";
   document.getElementById("status").value = "PENDING";
   document.getElementById("monthlyRent").value = "";
-  // document.getElementById("paymentFrequency").value = "Monthly";
+
   document.getElementById("quarterlyTax").value = "";
   document.getElementById("securityDeposit").value = "";
   document.getElementById("advancePayment").value = "";
@@ -866,10 +989,10 @@ function clearForm() {
 }
 
 async function saveLease() {
-  console.debug("saveLease called", { currentEditingLeaseId: window.currentEditingLeaseId });
+  console.debug("saveLease called", {
+    currentEditingLeaseId: window.currentEditingLeaseId,
+  });
 
-  // If editing an existing lease, require admin password BEFORE proceeding
-  // so the admin is prompted as soon as they click Save.
   if (window.currentEditingLeaseId) {
     try {
       const verified = await verifyAdminPassword();
@@ -979,19 +1102,17 @@ async function saveLease() {
 
     if (window.currentEditingLeaseId) {
       const url = `${API_BASE_URL}/${window.currentEditingLeaseId}`;
-      console.debug('Saving (PATCH)', url);
+      console.debug("Saving (PATCH)", url);
       const response = await fetch(url, { method: "PATCH", body: formData });
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        console.error('PATCH failed', response.status, text);
-        let errorMessage = 'Failed to update lease';
+        console.error("PATCH failed", response.status, text);
+        let errorMessage = "Failed to update lease";
         try {
-          const errorData = JSON.parse(text || '{}');
+          const errorData = JSON.parse(text || "{}");
           errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // ignore parse error
-        }
+        } catch (e) { }
         throw new Error(errorMessage);
       }
 
@@ -1001,19 +1122,17 @@ async function saveLease() {
       showListView();
     } else {
       const url = `${API_BASE_URL}/create-lease`;
-      console.debug('Saving (POST)', url);
+      console.debug("Saving (POST)", url);
       const response = await fetch(url, { method: "POST", body: formData });
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        console.error('POST failed', response.status, text);
-        let errorMessage = 'Failed to save lease';
+        console.error("POST failed", response.status, text);
+        let errorMessage = "Failed to save lease";
         try {
-          const errorData = JSON.parse(text || '{}');
+          const errorData = JSON.parse(text || "{}");
           errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // ignore parse error
-        }
+        } catch (e) { }
         throw new Error(errorMessage);
       }
 
@@ -1041,11 +1160,12 @@ function cancelForm() {
 
   const message = "You have unsaved changes. Do you want to discard them?";
 
-  // Prefer using the app's Modal component directly when available so the
-  // global-styled modal is always used even if modalHelpers hasn't finished
-  // loading. Fallback order: Modal.open -> window.showConfirm -> window.confirm
   try {
-    if (typeof Modal !== "undefined" && Modal && typeof Modal.open === "function") {
+    if (
+      typeof Modal !== "undefined" &&
+      Modal &&
+      typeof Modal.open === "function"
+    ) {
       Modal.open({
         title: "Discard changes",
         body: `<div style="white-space:pre-wrap;">${message}</div>`,
@@ -1058,9 +1178,7 @@ function cancelForm() {
           showListView();
           showToast("Changes discarded successfully");
         },
-        onCancel: function () {
-          // no-op, keep editing
-        },
+        onCancel: function () { },
       });
       return;
     }
@@ -1082,16 +1200,17 @@ function cancelForm() {
   });
 }
 
-// Backwards-compatible wrappers in case other modules call these functions.
 function showCancelModal() {
-  // Delegate to cancelForm which will open the global confirm modal.
   cancelForm();
 }
 
 function hideCancelModal() {
-  // Try to close a global Modal if one is open.
   try {
-    if (typeof Modal !== "undefined" && Modal && typeof Modal.close === "function") {
+    if (
+      typeof Modal !== "undefined" &&
+      Modal &&
+      typeof Modal.close === "function"
+    ) {
       Modal.close();
       return;
     }
@@ -1101,7 +1220,6 @@ function hideCancelModal() {
 }
 
 function confirmCancel() {
-  // Immediately perform the cancel action (used by legacy bindings).
   resetFormState();
   showListView();
   showToast("Changes discarded successfully");
@@ -1136,14 +1254,15 @@ function checkForUnsavedChanges() {
         return field.checked !== field.defaultChecked;
       }
       return field.value !== field.defaultValue;
-    }) || (Array.isArray(uploadedFiles) && uploadedFiles.length > 0)
+    }) ||
+    (Array.isArray(uploadedFiles) && uploadedFiles.length > 0)
   );
 }
 
 function resetFormState() {
   clearForm();
   clearErrors();
-  // Always exit edit mode when resetting form state
+
   window.currentEditingLeaseId = null;
 }
 
@@ -1155,33 +1274,31 @@ async function showEditView(leaseId) {
       return;
     }
 
-    // mark current editing lease id so saveLease will PATCH instead of POST
     window.currentEditingLeaseId = leaseId;
 
-  // Guard DOM access: some pages or states may not include all elements
-  // so check existence before manipulating to avoid uncaught TypeErrors.
-  const listViewEl = document.getElementById("listView");
-  const formViewEl = document.getElementById("formView");
-  const detailViewEl = document.getElementById("detailView");
-  const formTitleEl = document.getElementById("formTitle");
-  if (listViewEl) listViewEl.classList.add("hidden");
-  if (formViewEl) formViewEl.classList.remove("hidden");
-  if (detailViewEl) detailViewEl.classList.add("hidden");
-  if (formTitleEl) formTitleEl.textContent = "Edit Lease";
+    const listViewEl = document.getElementById("listView");
+    const formViewEl = document.getElementById("formView");
+    const detailViewEl = document.getElementById("detailView");
+    const formTitleEl = document.getElementById("formTitle");
+    if (listViewEl) listViewEl.classList.add("hidden");
+    if (formViewEl) formViewEl.classList.remove("hidden");
+    if (detailViewEl) detailViewEl.classList.add("hidden");
+    if (formTitleEl) formTitleEl.textContent = "Edit Lease";
 
     clearErrors();
-    // Ensure dropdowns and defaults are populated first so select values can be set
+
     try {
       await populateTenantDropdown();
       await populatePropertyDropdown();
       await populateFinancialDefaults();
     } catch (e) {
-      // non-fatal, still attempt to populate form
-      console.warn('Failed to pre-populate dropdowns/defaults for edit view', e);
+      console.warn(
+        "Failed to pre-populate dropdowns/defaults for edit view",
+        e
+      );
     }
 
     loadForm(mapLeaseToFormFields(lease));
-    // showTab("details");
   } catch (err) {
     console.error("showEditView error:", err);
     showToast("Failed to load lease for editing", "error");
@@ -1189,7 +1306,6 @@ async function showEditView(leaseId) {
 }
 
 function mapLeaseToFormFields(lease) {
-  // Map server lease keys to form-friendly keys used by loadForm
   const out = {
     tenantId: lease.user_id || lease.tenantId || "",
     propertyId: lease.property_id || lease.propertyId || "",
@@ -1206,7 +1322,8 @@ function mapLeaseToFormFields(lease) {
     paymentFrequency:
       lease.payment_frequency || lease.paymentFrequency || "Monthly",
     quarterlyTax: lease.quarterly_tax_percentage || lease.quarterlyTax || "",
-    securityDeposit: lease.security_deposit_months || lease.securityDeposit || "",
+    securityDeposit:
+      lease.security_deposit_months || lease.securityDeposit || "",
     advancePayment: lease.advance_payment_months || lease.advancePayment || "",
     lateFee: lease.late_fee_percentage || lease.lateFee || "",
     gracePeriod: lease.grace_period_days || lease.gracePeriod || "",
@@ -1219,12 +1336,13 @@ function mapLeaseToFormFields(lease) {
       lease.auto_termination_after_months || lease.autoTerminationMonths || "",
     terminationTriggerDays:
       lease.termination_trigger_days || lease.terminationTriggerDays || 61,
-    noticeCancelDays: lease.notice_before_cancel_days || lease.noticeCancelDays || "",
+    noticeCancelDays:
+      lease.notice_before_cancel_days || lease.noticeCancelDays || "",
     noticeRenewalDays:
       lease.notice_before_renewal_days || lease.noticeRenewalDays || "",
-    rentIncreaseRenewal: lease.rent_increase_on_renewal || lease.rentIncreaseRenewal || "",
-    // include display names so loadForm can show a readable option when the
-    // tenant/property isn't present in the current dropdown options
+    rentIncreaseRenewal:
+      lease.rent_increase_on_renewal || lease.rentIncreaseRenewal || "",
+
     tenantName: lease.tenant_name || lease.tenantName || "",
     propertyName: lease.property_name || lease.propertyName || "",
     notes: lease.notes || "",
@@ -1416,7 +1534,6 @@ function confirmDelete() {
   })();
 }
 
-//#region File Upload
 let uploadedFiles = [];
 
 function handleFileUpload() {
@@ -1498,46 +1615,39 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
-//#endregion
-
 function showToast(message, type = "success") {
   const toast = document.getElementById("toast");
   const title = document.getElementById("toastTitle");
   const messageEl = document.getElementById("toastMessage");
   const icon = document.getElementById("toastIcon");
 
-  // Title depending on type
   if (type === "error") title.textContent = "Error!";
   else if (type === "info") title.textContent = "Notice";
   else title.textContent = "Success!";
 
   messageEl.textContent = message;
 
-  // Reset classes and add type + show (CSS uses .toast and .toast.show)
   toast.classList.remove("show", "error", "info", "success");
-  // Ensure base class is present
+
   if (!toast.classList.contains("toast")) {
     toast.classList.add("toast");
   }
   if (type === "error") toast.classList.add("error");
 
-  // set icon for each type (FontAwesome classes)
   if (icon) {
-    icon.className = ""; // clear
+    icon.className = "";
     if (type === "error") icon.classList.add("fa-solid", "fa-circle-xmark");
     else if (type === "info") icon.classList.add("fa-solid", "fa-info-circle");
     else icon.classList.add("fa-solid", "fa-circle-check");
   }
 
-  // show
   requestAnimationFrame(() => {
     toast.classList.add("show");
   });
 
-  // hide after delay
   setTimeout(() => {
     toast.classList.remove("show");
-    // remove type class shortly after hide to allow CSS transitions
+
     setTimeout(() => {
       toast.classList.remove("error", "info", "success");
     }, 300);
@@ -1549,11 +1659,15 @@ function sendReminder() {
 }
 
 async function terminateLease() {
-  const confirmFn = (typeof window !== 'undefined' && typeof window.showConfirm === 'function')
-    ? ((msg, title) => window.showConfirm(msg, title))
-    : (msg => Promise.resolve(confirm(String(msg))));
+  const confirmFn =
+    typeof window !== "undefined" && typeof window.showConfirm === "function"
+      ? (msg, title) => window.showConfirm(msg, title)
+      : (msg) => Promise.resolve(confirm(String(msg)));
 
-  const ok = !!(await confirmFn("Are you sure you want to terminate this lease?", "Confirm termination"));
+  const ok = !!(await confirmFn(
+    "Are you sure you want to terminate this lease?",
+    "Confirm termination"
+  ));
   if (!ok) return;
   showToast("Lease termination process initiated");
 }
@@ -1605,67 +1719,65 @@ function setSessionCache(key, data) {
   } catch { }
 }
 
-// ------------------ Admin password verification (client) ------------------
 function createPasswordPromptModal() {
   return new Promise((resolve) => {
-    // Create modal elements
-    const overlay = document.createElement('div');
-    overlay.className = 'admin-password-overlay';
-    overlay.style.position = 'fixed';
-    overlay.style.left = '0';
-    overlay.style.top = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.background = 'rgba(0,0,0,0.4)';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.zIndex = '2200';
+    const overlay = document.createElement("div");
+    overlay.className = "admin-password-overlay";
+    overlay.style.position = "fixed";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.background = "rgba(0,0,0,0.4)";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.zIndex = "2200";
 
-    const modal = document.createElement('div');
-    modal.className = 'admin-password-modal';
-    modal.style.background = '#fff';
-    modal.style.padding = '20px';
-    modal.style.borderRadius = '8px';
-    modal.style.width = '380px';
-    modal.style.boxShadow = '0 10px 30px rgba(0,0,0,0.15)';
+    const modal = document.createElement("div");
+    modal.className = "admin-password-modal";
+    modal.style.background = "#fff";
+    modal.style.padding = "20px";
+    modal.style.borderRadius = "8px";
+    modal.style.width = "380px";
+    modal.style.boxShadow = "0 10px 30px rgba(0,0,0,0.15)";
 
-    const title = document.createElement('div');
-    title.style.fontWeight = '700';
-    title.style.marginBottom = '8px';
-    title.textContent = 'Confirm password';
+    const title = document.createElement("div");
+    title.style.fontWeight = "700";
+    title.style.marginBottom = "8px";
+    title.textContent = "Confirm password";
 
-    const desc = document.createElement('div');
-    desc.style.fontSize = '13px';
-    desc.style.color = '#374151';
-    desc.style.marginBottom = '12px';
-    desc.textContent = 'Please enter your password to confirm this action.';
+    const desc = document.createElement("div");
+    desc.style.fontSize = "13px";
+    desc.style.color = "#374151";
+    desc.style.marginBottom = "12px";
+    desc.textContent = "Please enter your password to confirm this action.";
 
-    const input = document.createElement('input');
-    // Prevent browser autofill by using unpredictable name and new-password
-    input.autocomplete = 'new-password';
-    input.name = 'p_' + Math.random().toString(36).slice(2);
-    input.type = 'password';
-    input.style.width = '100%';
-    input.style.padding = '10px 12px';
-    input.style.border = '1px solid #d1d5db';
-    input.style.borderRadius = '6px';
-    input.style.marginBottom = '12px';
+    const input = document.createElement("input");
 
-    const buttonRow = document.createElement('div');
-    buttonRow.style.display = 'flex';
-    buttonRow.style.justifyContent = 'flex-end';
-    buttonRow.style.gap = '8px';
+    input.autocomplete = "new-password";
+    input.name = "p_" + Math.random().toString(36).slice(2);
+    input.type = "password";
+    input.style.width = "100%";
+    input.style.padding = "10px 12px";
+    input.style.border = "1px solid #d1d5db";
+    input.style.borderRadius = "6px";
+    input.style.marginBottom = "12px";
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.padding = '8px 12px';
+    const buttonRow = document.createElement("div");
+    buttonRow.style.display = "flex";
+    buttonRow.style.justifyContent = "flex-end";
+    buttonRow.style.gap = "8px";
 
-    const okBtn = document.createElement('button');
-    okBtn.className = 'btn btn-primary';
-    okBtn.textContent = 'Confirm';
-    okBtn.style.padding = '8px 12px';
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn btn-secondary";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.style.padding = "8px 12px";
+
+    const okBtn = document.createElement("button");
+    okBtn.className = "btn btn-primary";
+    okBtn.textContent = "Confirm";
+    okBtn.style.padding = "8px 12px";
 
     buttonRow.appendChild(cancelBtn);
     buttonRow.appendChild(okBtn);
@@ -1678,30 +1790,31 @@ function createPasswordPromptModal() {
     document.body.appendChild(overlay);
 
     const cleanup = () => {
-      try { document.body.removeChild(overlay); } catch (e) { }
+      try {
+        document.body.removeChild(overlay);
+      } catch (e) { }
     };
 
-    cancelBtn.addEventListener('click', () => {
+    cancelBtn.addEventListener("click", () => {
       cleanup();
       resolve(null);
     });
 
-    okBtn.addEventListener('click', () => {
-      const val = input.value || '';
+    okBtn.addEventListener("click", () => {
+      const val = input.value || "";
       cleanup();
       resolve(val);
     });
 
-    input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') {
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
         okBtn.click();
       }
-      if (ev.key === 'Escape') {
+      if (ev.key === "Escape") {
         cancelBtn.click();
       }
     });
 
-    // Focus the input
     setTimeout(() => input.focus(), 50);
   });
 }
@@ -1725,24 +1838,21 @@ async function showDetailView(leaseId) {
 
 async function verifyAdminPassword() {
   try {
-    // Always use a reliable inline password prompt to avoid Modal API return-value issues
     const pwd = await createPasswordPromptModal();
     if (!pwd) return false;
 
-    const res = await fetch('/api/v1/admin/verify-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch("/api/v1/admin/verify-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: pwd }),
     });
     if (!res.ok) return false;
     return true;
   } catch (err) {
-    console.error('verifyAdminPassword error:', err);
+    console.error("verifyAdminPassword error:", err);
     return false;
   }
 }
-
-// ---------------------------------------------------------------------------
 
 showListView();
 
@@ -1769,4 +1879,3 @@ window.showEditView = showEditView;
 window.showDetailView = showDetailView;
 window.showListView = showListView;
 window.showAccordionSection = showAccordionSection;
-// window.showTab = showTab;

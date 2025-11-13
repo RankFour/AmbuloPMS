@@ -24,7 +24,7 @@
 
 #notificationMenu {
   width: 360px;
-  max-height: 420px;
+  max-height: 440px;
   overflow: hidden;
   padding: 0;
   box-shadow: var(--notif-shadow);
