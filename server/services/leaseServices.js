@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import conn from "../config/db.js";
 import propertiesServices from "./propertiesServices.js";
 import notificationsServices from "./notificationsServices.js";
+import chargesServices from "./chargesServices.js";
 
 const pool = await conn();
 
@@ -52,40 +53,38 @@ const createLease = async (leaseData = {}, contractFile = null, io = null) => {
 
     const lease_id = leaseData.lease_id || uuidv4();
 
-    // Whitelist of columns that exist in the leases table
     const allowedColumns = new Set([
-      'lease_id',
-      'user_id',
-      'property_id',
-      // dates and meta
-      'lease_start_date',
-      'lease_end_date',
-      'renewal_count',
-      'parent_lease_id',
-      // financials/status
-      'monthly_rent',
-      'lease_status',
-      // overrideable settings
-      'security_deposit_months',
-      'advance_payment_months',
-      'payment_frequency',
-      'quarterly_tax_percentage',
-      'lease_term_months',
-      'late_fee_percentage',
-      'grace_period_days',
-      'is_security_deposit_refundable',
-      'auto_termination_after_months',
-      'advance_payment_forfeited_on_cancel',
-      'termination_trigger_days',
-      'notice_before_cancel_days',
-      'notice_before_renewal_days',
-      'rent_increase_on_renewal',
-      // misc
-      'notes',
-      'lease_contract_id',
+      "lease_id",
+      "user_id",
+      "property_id",
+
+      "lease_start_date",
+      "lease_end_date",
+      "renewal_count",
+      "parent_lease_id",
+
+      "monthly_rent",
+      "lease_status",
+
+      "security_deposit_months",
+      "advance_payment_months",
+      "payment_frequency",
+      "quarterly_tax_percentage",
+      "lease_term_months",
+      "late_fee_percentage",
+      "grace_period_days",
+      "is_security_deposit_refundable",
+      "auto_termination_after_months",
+      "advance_payment_forfeited_on_cancel",
+      "termination_trigger_days",
+      "notice_before_cancel_days",
+      "notice_before_renewal_days",
+      "rent_increase_on_renewal",
+
+      "notes",
+      "lease_contract_id",
     ]);
 
-    // Start with the core required fields
     const newLease = {
       lease_id,
       user_id: leaseData.user_id,
@@ -100,22 +99,21 @@ const createLease = async (leaseData = {}, contractFile = null, io = null) => {
       lease_contract_id,
     };
 
-    // For each overrideable/optional column, prefer request value, else default value
     const optionalColumns = [
-      'security_deposit_months',
-      'advance_payment_months',
-      'payment_frequency',
-      'quarterly_tax_percentage',
-      'lease_term_months',
-      'late_fee_percentage',
-      'grace_period_days',
-      'is_security_deposit_refundable',
-      'auto_termination_after_months',
-      'advance_payment_forfeited_on_cancel',
-      'termination_trigger_days',
-      'notice_before_cancel_days',
-      'notice_before_renewal_days',
-      'rent_increase_on_renewal',
+      "security_deposit_months",
+      "advance_payment_months",
+      "payment_frequency",
+      "quarterly_tax_percentage",
+      "lease_term_months",
+      "late_fee_percentage",
+      "grace_period_days",
+      "is_security_deposit_refundable",
+      "auto_termination_after_months",
+      "advance_payment_forfeited_on_cancel",
+      "termination_trigger_days",
+      "notice_before_cancel_days",
+      "notice_before_renewal_days",
+      "rent_increase_on_renewal",
     ];
     for (const key of optionalColumns) {
       if (leaseData[key] !== undefined && leaseData[key] !== null) {
@@ -125,7 +123,6 @@ const createLease = async (leaseData = {}, contractFile = null, io = null) => {
       }
     }
 
-    // Remove any unexpected keys and undefined values
     Object.keys(newLease).forEach((key) => {
       if (!allowedColumns.has(key) || newLease[key] === undefined) {
         delete newLease[key];
@@ -158,20 +155,114 @@ const createLease = async (leaseData = {}, contractFile = null, io = null) => {
         property_status: newPropertyStatus,
       });
     }
-    
+
     try {
       if (leaseData.user_id) {
-        await notificationsServices.createNotification({
-          user_id: leaseData.user_id,
-          type: 'LEASE',
-          title: 'Lease Created',
-          body: `Your lease has been created with status ${leaseData.lease_status}.`,
-          link: '/leaseTenant.html',
-          meta: { lease_id }
-        }, io);
+        await notificationsServices.createNotification(
+          {
+            user_id: leaseData.user_id,
+            type: "LEASE",
+            title: "Lease Created",
+            body: `Your lease has been created with status ${leaseData.lease_status}.`,
+            link: "/leaseTenant.html",
+            meta: { lease_id },
+          },
+          io
+        );
       }
     } catch (notifyErr) {
-      console.warn('Failed to create lease creation notification', notifyErr);
+      console.warn("Failed to create lease creation notification", notifyErr);
+    }
+
+    try {
+      const advMonths = Number(leaseData.advance_payment_months || 0);
+      const secMonths = Number(leaseData.security_deposit_months || 0);
+      const startDate = leaseData.lease_start_date;
+      const monthlyRentAmount = Number(leaseData.monthly_rent || 0);
+
+      const createdChargeIds = [];
+
+      if (advMonths > 0 && startDate) {
+        for (let i = 1; i <= advMonths; i++) {
+          try {
+            const result = await chargesServices.createCharge({
+              lease_id,
+              charge_type: "Other",
+              description: `Advance Payment - ${i} of ${advMonths}`,
+              amount: monthlyRentAmount,
+              charge_date: startDate,
+              due_date: startDate,
+              is_recurring: 0,
+              status: "Pending",
+            });
+            createdChargeIds.push(result.charge_id);
+          } catch (e) {
+            console.warn("Failed to create advance payment charge", i, e);
+          }
+        }
+      }
+
+      if (secMonths > 0 && startDate) {
+        for (let i = 1; i <= secMonths; i++) {
+          try {
+            const result = await chargesServices.createCharge({
+              lease_id,
+              charge_type: "Others",
+              description: `Security Deposit - ${i} of ${secMonths}`,
+              amount: monthlyRentAmount,
+              charge_date: startDate,
+              due_date: startDate,
+              is_recurring: 0,
+              status: "Pending",
+            });
+            createdChargeIds.push(result.charge_id);
+          } catch (e) {
+            console.warn("Failed to create security deposit charge", i, e);
+          }
+        }
+      }
+
+      try {
+        const [adminRows] = await pool.query(
+          "SELECT user_id FROM users WHERE role IN ('ADMIN','SUPERADMIN', 'MANAGER')"
+        );
+        const chargeSummaryParts = [];
+        if (advMonths > 0)
+          chargeSummaryParts.push(`${advMonths} advance payment`);
+        if (secMonths > 0)
+          chargeSummaryParts.push(`${secMonths} security deposit`);
+        const summary = chargeSummaryParts.length
+          ? chargeSummaryParts.join(" & ")
+          : "No initial";
+        for (const admin of adminRows) {
+          try {
+            await notificationsServices.createNotification(
+              {
+                user_id: admin.user_id,
+                type: "CHARGE",
+                title: "Initial Lease Charges Created",
+                body: `${summary} charge(s) generated for lease ${lease_id}.`,
+                link: "/chargesAdmin.html",
+                meta: { lease_id, charge_ids: createdChargeIds },
+              },
+              io
+            );
+          } catch (e) {
+            console.warn(
+              "Failed to notify admin of initial charges",
+              admin.user_id,
+              e
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch admin users for charge notifications", e);
+      }
+    } catch (chargeErr) {
+      console.warn(
+        "Automatic initial charge creation encountered errors",
+        chargeErr
+      );
     }
 
     return { message: "Lease created successfully", lease_id };
@@ -351,14 +442,17 @@ const getSingleLeaseById = async (leaseId) => {
 
 const getLeaseByUserId = async (userId) => {
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query(
+      `
       SELECT l.*, p.property_name, p.property_id, p.display_image,
         a.address_id, a.building_name, a.street, a.city, a.postal_code, a.country
       FROM leases l
       LEFT JOIN properties p ON l.property_id = p.property_id
       LEFT JOIN addresses a ON p.address_id = a.address_id
       WHERE l.user_id = ?
-    `, [userId]);
+    `,
+      [userId]
+    );
     return rows;
   } catch (error) {
     throw error;
@@ -377,7 +471,7 @@ const updateLeaseById = async (
   try {
     await conn.beginTransaction();
 
-  const lease = await getSingleLeaseById(leaseId);
+    const lease = await getSingleLeaseById(leaseId);
 
     let lease_contract_id = lease.lease_contract_id;
 
@@ -466,24 +560,29 @@ const updateLeaseById = async (
         property_status: newPropertyStatus,
       });
     }
-    
+
     try {
       if (
-        lease && lease.user_id &&
+        lease &&
+        lease.user_id &&
         leaseData.lease_status &&
-        String(leaseData.lease_status).toUpperCase() !== String(lease.lease_status || '').toUpperCase()
+        String(leaseData.lease_status).toUpperCase() !==
+        String(lease.lease_status || "").toUpperCase()
       ) {
-        await notificationsServices.createNotification({
-          user_id: lease.user_id,
-          type: 'LEASE',
-          title: 'Lease Status Updated',
-          body: `Your lease status changed to ${leaseData.lease_status}.`,
-          link: '/leaseTenant.html',
-          meta: { lease_id: leaseId }
-        }, io);
+        await notificationsServices.createNotification(
+          {
+            user_id: lease.user_id,
+            type: "LEASE",
+            title: "Lease Status Updated",
+            body: `Your lease status changed to ${leaseData.lease_status}.`,
+            link: "/leaseTenant.html",
+            meta: { lease_id: leaseId },
+          },
+          io
+        );
       }
     } catch (notifyErr) {
-      console.warn('Failed to create lease update notification', notifyErr);
+      console.warn("Failed to create lease update notification", notifyErr);
     }
 
     return { message: "Lease updated successfully" };

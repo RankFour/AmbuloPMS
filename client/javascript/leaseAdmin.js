@@ -437,6 +437,13 @@ function showCreateView() {
   populateTenantDropdown();
   populatePropertyDropdown();
   populateFinancialDefaults();
+  try {
+    updateInitialChargesNotice && updateInitialChargesNotice();
+    attachInitialChargesNoticeListeners &&
+      attachInitialChargesNoticeListeners();
+  } catch (e) {
+    /* noop */
+  }
 
   const titleEl = document.getElementById("formTitle");
   if (titleEl) titleEl.textContent = "Create Lease";
@@ -986,6 +993,11 @@ function clearForm() {
   document.getElementById("rentIncreaseRenewal").value = "";
   document.getElementById("notes").value = "";
   updateUploadedFilesList();
+  try {
+    updateInitialChargesNotice && updateInitialChargesNotice();
+  } catch (e) {
+    /* noop */
+  }
 }
 
 async function saveLease() {
@@ -1019,6 +1031,34 @@ async function saveLease() {
   if (!isValid) {
     showToast("Please correct the errors in the form", "error");
     return;
+  }
+
+  if (!window.currentEditingLeaseId) {
+    try {
+      const adv = Number(
+        (document.getElementById("advancePayment") || {}).value || 0
+      );
+      const sec = Number(
+        (document.getElementById("securityDeposit") || {}).value || 0
+      );
+      const startDate =
+        (document.getElementById("startDate") || {}).value || "";
+      if ((adv > 0 || sec > 0) && startDate) {
+        const msg = `This lease will automatically create ${adv > 0 ? adv + " advance payment" : ""
+          }${adv > 0 && sec > 0 ? " and " : ""}${sec > 0 ? sec + " security deposit" : ""
+          } charge(s) (type "Other") due on ${startDate}. Continue?`;
+        const confirmFn =
+          typeof window.showConfirm === "function"
+            ? window.showConfirm
+            : (m) => Promise.resolve(confirm(String(m)));
+        const proceed = await confirmFn(msg, "Initial Charges");
+        if (!proceed) {
+          return;
+        }
+      }
+    } catch (e) {
+      /* noop */
+    }
   }
 
   const saveBtn = document.getElementById("saveBtn");
@@ -1853,6 +1893,41 @@ async function verifyAdminPassword() {
     return false;
   }
 }
+
+function updateInitialChargesNotice() {
+  const noticeEl = document.getElementById("initialChargesNotice");
+  if (!noticeEl) return;
+  const advEl = document.getElementById("advancePayment");
+  const secEl = document.getElementById("securityDeposit");
+  const startEl = document.getElementById("startDate");
+  const adv = Number(advEl && advEl.value ? advEl.value : 0);
+  const sec = Number(secEl && secEl.value ? secEl.value : 0);
+  const startDate = startEl && startEl.value ? startEl.value : null;
+  if ((adv > 0 || sec > 0) && startDate) {
+    const parts = [];
+    if (adv > 0) parts.push(`${adv} advance payment`);
+    if (sec > 0) parts.push(`${sec} security deposit`);
+    const summary = parts.join(" & ");
+    noticeEl.innerHTML = `<strong>Automatic Charges:</strong> ${summary} charge(s) will be created (type \"Other\") with due date = lease start (${startDate}).`;
+    noticeEl.style.display = "block";
+  } else {
+    noticeEl.style.display = "none";
+  }
+}
+
+function attachInitialChargesNoticeListeners() {
+  ["advancePayment", "securityDeposit", "startDate"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", updateInitialChargesNotice);
+      el.addEventListener("change", updateInitialChargesNotice);
+    }
+  });
+}
+document.addEventListener(
+  "DOMContentLoaded",
+  attachInitialChargesNoticeListeners
+);
 
 showListView();
 

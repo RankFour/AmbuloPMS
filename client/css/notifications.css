@@ -20,6 +20,7 @@
   --notif-chip-lease: #7c3aed;
   --notif-chip-inquiry: #0d9488;
   --notif-chip-info: #6b7280;
+  --notif-chip-charge: #a94bd2;
 }
 
 #notificationMenu {
@@ -81,6 +82,7 @@
 #notificationMenu .notification-type.type-lease { background: var(--notif-chip-lease); }
 #notificationMenu .notification-type.type-info { background: var(--notif-info); }
 #notificationMenu .notification-type.type-inquiry { background: var(--notif-chip-inquiry); }
+#notificationMenu .notification-type.type-charge { background: var(--notif-chip-charge); }
 
 #notificationMenu .dropdown-footer {
   border-top: 1px solid var(--notif-border);
