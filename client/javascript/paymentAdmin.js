@@ -74,12 +74,12 @@ const CHARGE_STATUS_MAPPINGS_CONST = (window.AppConstants &&
 
 const API_BASE_URL = "/api/v1";
 
-
-
-
 const showAlert = (message, type = "info") => {
     try {
-        if (window.ModalHelpers && typeof window.ModalHelpers.showAlert === "function") {
+        if (
+            window.ModalHelpers &&
+            typeof window.ModalHelpers.showAlert === "function"
+        ) {
             return window.ModalHelpers.showAlert(message, type);
         }
         if (typeof window.showAlert === "function") {
@@ -88,26 +88,37 @@ const showAlert = (message, type = "info") => {
     } catch (e) {
         console.warn("showAlert binding failed, falling back to window.alert", e);
     }
-    return window.alert((type ? type.toUpperCase() + ": " : "") + String(message));
+    return window.alert(
+        (type ? type.toUpperCase() + ": " : "") + String(message)
+    );
 };
 
 const showConfirm = (message, title = "Confirm") => {
     try {
-        if (window.ModalHelpers && typeof window.ModalHelpers.showConfirm === "function") {
+        if (
+            window.ModalHelpers &&
+            typeof window.ModalHelpers.showConfirm === "function"
+        ) {
             return window.ModalHelpers.showConfirm(message, title);
         }
         if (typeof window.showConfirm === "function") {
             return window.showConfirm(message, title);
         }
     } catch (e) {
-        console.warn("showConfirm binding failed, falling back to native confirm", e);
+        console.warn(
+            "showConfirm binding failed, falling back to native confirm",
+            e
+        );
     }
     return Promise.resolve(window.confirm(String(message)));
 };
 
 const showPrompt = (message, placeholder = "", title = "Input") => {
     try {
-        if (window.ModalHelpers && typeof window.ModalHelpers.showPrompt === "function") {
+        if (
+            window.ModalHelpers &&
+            typeof window.ModalHelpers.showPrompt === "function"
+        ) {
             return window.ModalHelpers.showPrompt(message, placeholder, title);
         }
         if (typeof window.showPrompt === "function") {
@@ -1634,27 +1645,31 @@ function getCurrentMonth() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-
-
 if (typeof showAlert === "undefined") {
     window.showAlert = function (message, type = "info") {
         try {
-            if (window.ModalHelpers && typeof window.ModalHelpers.showAlert === "function") {
+            if (
+                window.ModalHelpers &&
+                typeof window.ModalHelpers.showAlert === "function"
+            ) {
                 return window.ModalHelpers.showAlert(message, type);
             }
-        } catch (e) {}
-        
-        alert((type ? type.toUpperCase() + ': ' : '') + String(message));
+        } catch (e) { }
+
+        alert((type ? type.toUpperCase() + ": " : "") + String(message));
     };
 }
 
 if (typeof showConfirm === "undefined") {
     window.showConfirm = function (message, title) {
         try {
-            if (window.ModalHelpers && typeof window.ModalHelpers.showConfirm === "function") {
+            if (
+                window.ModalHelpers &&
+                typeof window.ModalHelpers.showConfirm === "function"
+            ) {
                 return window.ModalHelpers.showConfirm(message, title);
             }
-        } catch (e) {}
+        } catch (e) { }
         return Promise.resolve(confirm(String(message)));
     };
 }
@@ -1662,10 +1677,13 @@ if (typeof showConfirm === "undefined") {
 if (typeof showPrompt === "undefined") {
     window.showPrompt = function (message, placeholder, title) {
         try {
-            if (window.ModalHelpers && typeof window.ModalHelpers.showPrompt === "function") {
+            if (
+                window.ModalHelpers &&
+                typeof window.ModalHelpers.showPrompt === "function"
+            ) {
                 return window.ModalHelpers.showPrompt(message, placeholder, title);
             }
-        } catch (e) {}
+        } catch (e) { }
         return Promise.resolve(prompt(String(message)));
     };
 }
@@ -3095,23 +3113,22 @@ async function confirmDeleteCharge() {
 
     const { charge } = chargeToDelete;
     try {
-        // Call API to delete charge
-        const res = await fetch(`${API_BASE_URL}/charges/${encodeURIComponent(
-            String(charge.id)
-        )}`, {
-            method: "DELETE",
-            credentials: "include",
-        });
+        const res = await fetch(
+            `${API_BASE_URL}/charges/${encodeURIComponent(String(charge.id))}`,
+            {
+                method: "DELETE",
+                credentials: "include",
+            }
+        );
         if (!res.ok) {
             let msg = "Failed to delete charge";
             try {
                 const j = await res.json();
                 if (j && j.message) msg = j.message;
-            } catch {}
+            } catch { }
             throw new Error(msg);
         }
 
-        // Refresh cached data and UI after successful delete
         invalidateChargesCache();
         invalidateStatsCache();
         await fetchCharges({ force: true });
@@ -3147,76 +3164,6 @@ function recordPayment(chargeId) {
 
     createModalsAndDialogs();
     openModal("paymentModal");
-}
-
-function handlePaymentSubmission(event) {
-    event.preventDefault();
-
-    if (!currentPaymentCharge) {
-        showAlert("No charge selected for payment", "error");
-        return;
-    }
-
-    const formData = new FormData(event.target);
-    const paymentData = {
-        amount: parseFloat(formData.get("amount")),
-        paymentMethod: formData.get("method"),
-        reference: formData.get("reference").trim(),
-        paymentDate: formData.get("date"),
-        notes: "Payment recorded through admin interface",
-    };
-
-    if (paymentData.amount <= 0) {
-        showAlert("Payment amount must be greater than zero", "error");
-        return;
-    }
-
-    if (!paymentData.paymentMethod) {
-        showAlert("Please select a payment method", "error");
-        return;
-    }
-
-    if (!paymentData.reference) {
-        paymentData.reference = generateReference(paymentData.paymentMethod);
-    }
-
-    const lease = findLeaseByChargeId(currentPaymentCharge.id);
-    const charge = findChargeById(currentPaymentCharge.id);
-
-    if (!lease || !charge) {
-        showAlert("Charge or lease not found", "error");
-        return;
-    }
-
-    const newPayment = {
-        id: `pay-${Date.now()}`,
-        chargeId: currentPaymentCharge.id,
-        ...paymentData,
-        description: currentPaymentCharge.description,
-        type: currentPaymentCharge.type,
-        processedBy: "Admin User",
-    };
-
-    if (!lease.paymentHistory) {
-        lease.paymentHistory = [];
-    }
-
-    lease.paymentHistory.unshift(newPayment);
-    charge.status = "paid";
-
-    syncDataArrays();
-    filteredCharges = [...charges];
-    filteredPayments = [...payments];
-    updateStatistics();
-    renderChargesTable();
-    renderPaymentsTable();
-    closeModal("paymentModal");
-
-    showAlert(
-        `Payment of ${formatCurrency(paymentData.amount)} recorded successfully!`,
-        "success"
-    );
-    currentPaymentCharge = null;
 }
 
 function viewChargeDetails(chargeId) {
@@ -4272,21 +4219,19 @@ function createModalsAndDialogs() {
                         
                         <div class="form-group">
                             <label for="paymentMethod">Payment Method</label>
-                            <select id="paymentMethod" name="method" required>
-                                <option value="">Select method...</option>
-                                <option value="cash">Cash</option>
-                                <option value="gcash">GCash</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="paymentReference">Reference Number</label>
-                            <input type="text" id="paymentReference" name="reference" placeholder="Leave blank for auto-generation">
+                            <select id="paymentMethod" name="method" required></select>
                         </div>
                         
                         <div class="form-group">
                             <label for="paymentDate">Payment Date</label>
                             <input type="date" id="paymentDate" name="date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="paymentProofs">Proof Images (optional, up to 5)</label>
+                            <input type="file" id="paymentProofs" name="proofs" accept="image/*" multiple>
+                            <small style="color:#64748b;display:block;margin-top:4px;">Max 5 images. Images are optional.</small>
+                            <div id="paymentProofsPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
                         </div>
                         
                         <div class="modal-actions">
@@ -4317,7 +4262,6 @@ function createModalsAndDialogs() {
                                 <label for="addChargeUnit">Unit</label>
                                 <input type="text" id="addChargeUnit" name="unit" required>
                             </div>
-                        </div>
                         
                         <div class="form-row">
                             <div class="form-group">
@@ -4518,6 +4462,55 @@ function createModalsAndDialogs() {
     `;
 
     document.body.insertAdjacentHTML("beforeend", modalsHTML);
+
+    try {
+        const methodSelect = document.getElementById("paymentMethod");
+        if (methodSelect) {
+            const methods =
+                window.AppConstants &&
+                    Array.isArray(window.AppConstants.PAYMENT_METHODS)
+                    ? window.AppConstants.PAYMENT_METHODS
+                    : [];
+            methodSelect.innerHTML =
+                '<option value="">Select method...</option>' +
+                methods
+                    .map(
+                        (m) =>
+                            `<option value="${escapeHtml(m.value)}">${escapeHtml(
+                                m.label
+                            )}</option>`
+                    )
+                    .join("");
+        }
+    } catch (e) {
+        console.warn("Failed to populate payment methods", e);
+    }
+
+    const proofsInput = document.getElementById("paymentProofs");
+    if (proofsInput) {
+        proofsInput.addEventListener("change", () => {
+            const preview = document.getElementById("paymentProofsPreview");
+            if (!preview) return;
+            preview.innerHTML = "";
+            const files = Array.from(proofsInput.files || []);
+            if (files.length > 5) {
+                showAlert("Maximum of 5 images allowed", "error");
+                proofsInput.value = "";
+                return;
+            }
+            files.forEach((f) => {
+                const url = URL.createObjectURL(f);
+                const img = document.createElement("img");
+                img.src = url;
+                img.style.width = "70px";
+                img.style.height = "70px";
+                img.style.objectFit = "cover";
+                img.style.borderRadius = "4px";
+                img.style.border = "1px solid #e2e8f0";
+                preview.appendChild(img);
+            });
+        });
+    }
 }
 
 function createAdvancedAddChargesModal(tenantsParam) {
@@ -5279,7 +5272,10 @@ function setupAdvancedChargesModalFunctions(
             return;
         }
 
-        showConfirm("Are you sure you want to remove this charge?", "Remove charge").then((ok) => {
+        showConfirm(
+            "Are you sure you want to remove this charge?",
+            "Remove charge"
+        ).then((ok) => {
             if (!ok) return;
             const chargeItem = document.getElementById(`advancedCharge-${id}`);
             if (chargeItem) {
@@ -5795,142 +5791,230 @@ function setupAdvancedChargesModalFunctions(
     };
 }
 
-function initializeEventListeners() {
-    window.onclick = function (event) {
-        if (event.target.classList.contains("modal")) {
-            event.target.style.display = "none";
-            document.body.style.overflow = "auto";
-        }
-    };
-
-    document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") {
-            const openModals = document.querySelectorAll('.modal[style*="flex"]');
-            openModals.forEach((modal) => {
-                modal.style.display = "none";
-            });
-            document.body.style.overflow = "auto";
-        }
-    });
-
-    document.addEventListener("change", function (event) {
-        if (event.target.id === "paymentMethod") {
-            const referenceField = document.getElementById("paymentReference");
-            if (referenceField && !referenceField.value) {
-                referenceField.placeholder = `Auto-generate ${event.target.value.toUpperCase()} reference`;
-            }
-        }
-    });
-}
-
-function viewPaymentDetails(paymentId) {
-    const payment = findPaymentById(paymentId);
-    const lease = findLeaseByPaymentId(paymentId);
-
-    if (!payment || !lease) {
-        showAlert("Payment not found", "error");
+async function handlePaymentSubmission(event) {
+    event.preventDefault();
+    if (!currentPaymentCharge) {
+        showAlert("No charge selected for payment", "error");
         return;
     }
 
-    const relatedCharge = findChargeById(payment.chargeId);
+    const formData = new FormData(event.target);
+    const amount = parseFloat(formData.get("amount"));
+    const paymentMethod = formData.get("method");
+    const paymentDate = formData.get("date");
 
-    const modalHTML = `
-        <div id="viewPaymentModal" class="modal" style="display: flex;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Payment Details</h3>
-                    <span class="close" onclick="closeModal('viewPaymentModal')">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <div class="payment-details-grid">
-                        <div class="detail-item">
-                            <label>Payment ID:</label>
-                            <span>${payment.id}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Tenant:</label>
-                            <span>${lease.tenant}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Unit:</label>
-                            <span>${lease.unit}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Type:</label>
-                            <span>${capitalizeFirst(payment.type)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Amount:</label>
-                            <span class="amount-highlight">${formatCurrency(
-        payment.amount
-    )}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Payment Date:</label>
-                            <span>${formatDate(payment.paymentDate)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Method:</label>
-                            <span>${capitalizeFirst(
-        payment.paymentMethod
-    )}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Reference:</label>
-                            <span>${payment.reference}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Processed By:</label>
-                            <span>${payment.processedBy || "System"}</span>
-                        </div>
-                        <div class="detail-item full-width">
-                            <label>Description:</label>
-                            <span>${payment.description}</span>
-                        </div>
-                        <div class="detail-item full-width">
-                            <label>Notes:</label>
-                            <span>${payment.notes || "No additional notes"
-        }</span>
-                        </div>
-                    </div>
-                    
-                    ${relatedCharge
-            ? `
-                        <div class="charge-info-section">
-                            <h4>Related Charge Information</h4>
-                            <div class="charge-info-item">
-                                <label>Original Due Date:</label>
-                                <span>${formatDate(
-                relatedCharge.dueDate
-            )}</span>
-                            </div>
-                            <div class="charge-info-item">
-                                <label>Charge Status:</label>
-                                <span>Paid</span>
-                            </div>
-                        </div>
-                    `
-            : ""
-        }
-                    
-                    <div class="modal-actions">
-                        <button type="button" class="btn-secondary" onclick="closeModal('viewPaymentModal')">Close</button>
-                        <button type="button" class="btn-success" onclick="generateReceipt('${payment.id
-        }')">
-                            <i class="fas fa-receipt"></i> View Receipt
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    const existingModal = document.getElementById("viewPaymentModal");
-    if (existingModal) {
-        existingModal.remove();
+    if (!(amount > 0)) {
+        showAlert("Payment amount must be greater than zero", "error");
+        return;
+    }
+    if (!paymentMethod) {
+        showAlert("Please select a payment method", "error");
+        return;
+    }
+    if (!paymentDate) {
+        showAlert("Payment date required", "error");
+        return;
     }
 
-    document.body.insertAdjacentHTML("beforeend", modalHTML);
+    let proofs = [];
+    const proofsInput = document.getElementById("paymentProofs");
+    if (proofsInput && proofsInput.files && proofsInput.files.length) {
+        const files = Array.from(proofsInput.files);
+        if (files.length > 5) {
+            showAlert("Maximum of 5 images allowed", "error");
+            return;
+        }
+        try {
+            proofs = await Promise.all(
+                files.map(
+                    (f) =>
+                        new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = () =>
+                                reject(reader.error || new Error("File read error"));
+                            reader.readAsDataURL(f);
+                        })
+                )
+            );
+        } catch (e) {
+            console.error("Failed to read proofs", e);
+            showAlert("Failed to read one of the images", "error");
+            return;
+        }
+    }
+
+    const payload = {
+        chargeId: currentPaymentCharge.id,
+        amountPaid: amount,
+        paymentMethod,
+        paymentDate,
+        notes: "Payment recorded through admin interface",
+        proofs,
+    };
+
+    try {
+        const token = typeof getJwtToken === "function" ? getJwtToken() : null;
+        const resp = await fetch(`${API_BASE_URL}/payments/create-payment`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+            const msg = await resp.text().catch(() => "Failed to record payment");
+            showAlert(msg || "Failed to record payment", "error");
+            return;
+        }
+        showAlert(
+            `Payment of ${formatCurrency(amount)} recorded successfully!`,
+            "success"
+        );
+        closeModal("paymentModal");
+        currentPaymentCharge = null;
+
+        invalidatePaymentsCache();
+        requestStatisticsUpdate({ force: true });
+        await fetchAllPayments(1, paymentsLimit, { force: true }).catch(() => { });
+        await fetchCharges({ force: true }).catch(() => { });
+    } catch (e) {
+        console.error("Payment submission failed", e);
+        showAlert(e.message || "Error submitting payment", "error");
+    }
+}
+/**
+ * Display a modal with detailed payment information.
+ * Reconstructed after patch corruption removed original template.
+ */
+async function viewPaymentDetails(paymentId) {
+    try {
+        const idStr = String(paymentId);
+        let payment = payments.find((p) => String(p.payment_id || p.id) === idStr);
+        if (!payment) {
+            const token = localStorage.getItem("token") || "";
+            const resp = await fetch(`${API_BASE_URL}/payments/${idStr}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (resp.ok) {
+                const data = await resp.json().catch(() => null);
+                payment = data && (data.payment || data);
+            }
+        }
+        if (!payment) {
+            showAlert("Payment not found", "error");
+            return;
+        }
+        const relatedCharge = charges.find(
+            (c) =>
+                String(c.charge_id || c.id) ===
+                String(payment.charge_id || payment.chargeId)
+        );
+        const proofs = Array.isArray(payment.proofs) ? payment.proofs : [];
+        const proofThumbs = proofs.length
+            ? proofs
+                .map((p, i) => {
+                    const url = typeof p === "string" ? p : p.proof_url || "";
+                    if (!url) return "";
+                    return `<a href="${escapeHtml(
+                        url
+                    )}" target="_blank" rel="noopener" class="proof-link">Proof ${i + 1
+                        }</a>`;
+                })
+                .filter(Boolean)
+                .join(" | ")
+            : '<span class="no-proofs">No proofs</span>';
+
+        const modalHTML = `
+        <div class="modal" id="viewPaymentModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Payment Details</h3>
+                    <span class="close" onclick="closeModal('viewPaymentModal')">&times;</span>
+                </div>
+                <div class="tenant-context">Payment ID: ${escapeHtml(
+            String(payment.payment_id || payment.id || "")
+        )}</div>
+                <div class="charge-details-grid">
+                    <div class="detail-item">
+                        <label>Amount Paid</label>
+                        <span>${formatCurrency(
+            payment.amount_paid || payment.amountPaid || 0
+        )}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Payment Date</label>
+                        <span>${formatDate(
+            payment.payment_date ||
+            payment.paymentDate ||
+            payment.created_at
+        )}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Method</label>
+                        <span>${escapeHtml(
+            String(
+                payment.payment_method ||
+                payment.paymentMethod ||
+                ""
+            )
+        )}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Status</label>
+                        <span>${escapeHtml(
+            String(payment.status || "Pending")
+        )}</span>
+                    </div>
+                    <div class="detail-item full-width">
+                        <label>Description</label>
+                        <span>${escapeHtml(payment.description || "")}</span>
+                    </div>
+                    <div class="detail-item full-width">
+                        <label>Notes</label>
+                        <span>${escapeHtml(
+            payment.notes || "No additional notes"
+        )}</span>
+                    </div>
+                    <div class="detail-item full-width">
+                        <label>Proofs</label>
+                        <span>${proofThumbs}</span>
+                    </div>
+                </div>
+                ${relatedCharge
+                ? `
+                <div class="charge-info-section" style="margin-top:20px;">
+                    <h4>Related Charge Information</h4>
+                    <div class="charge-info-item"><label>Charge Description:</label> <span>${escapeHtml(
+                    relatedCharge.description || ""
+                )}</span></div>
+                    <div class="charge-info-item"><label>Due Date:</label> <span>${formatDate(
+                    relatedCharge.due_date || relatedCharge.dueDate
+                )}</span></div>
+                    <div class="charge-info-item"><label>Original Amount:</label> <span>${formatCurrency(
+                    relatedCharge.amount || 0
+                )}</span></div>
+                </div>`
+                : ""
+            }
+                <div class="modal-actions" style="margin-top:24px;">
+                    <button type="button" class="btn-secondary" onclick="closeModal('viewPaymentModal')">Close</button>
+                    <button type="button" class="btn-success" onclick="generateReceipt('${escapeHtml(
+                String(payment.payment_id || payment.id || "")
+            )}')"><i class="fas fa-receipt"></i> View Receipt</button>
+                </div>
+            </div>
+        </div>`;
+
+        const existingModal = document.getElementById("viewPaymentModal");
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML("beforeend", modalHTML);
+        openModal("viewPaymentModal");
+    } catch (err) {
+        console.error("Failed to show payment details", err);
+        showAlert("Could not display payment details", "error");
+    }
 }
 
 function injectPaymentModalStyles() {
@@ -6752,7 +6836,11 @@ window.copyPaymentId = function (id) {
 window.showFullPaymentId = function (id) {
     if (!id) return;
     try {
-        if (typeof Modal !== "undefined" && Modal && typeof Modal.open === "function") {
+        if (
+            typeof Modal !== "undefined" &&
+            Modal &&
+            typeof Modal.open === "function"
+        ) {
             Modal.open({
                 title: "Payment ID",
                 body: `<pre style="white-space:pre-wrap;">${escapeHtml(id)}</pre>`,
@@ -6769,7 +6857,10 @@ window.showFullPaymentId = function (id) {
 };
 
 async function approvePayment(paymentId) {
-    const okApprove = await showConfirm("Confirm this payment?", "Confirm payment");
+    const okApprove = await showConfirm(
+        "Confirm this payment?",
+        "Confirm payment"
+    );
     if (!okApprove) return;
 
     try {
@@ -6811,7 +6902,11 @@ async function approvePayment(paymentId) {
 }
 
 async function rejectPayment(paymentId) {
-    const reason = await showPrompt("Please provide a reason for rejection (optional):", "Optional reason", "Reject payment");
+    const reason = await showPrompt(
+        "Please provide a reason for rejection (optional):",
+        "Optional reason",
+        "Reject payment"
+    );
     if (reason === null) return;
 
     try {
@@ -6845,6 +6940,47 @@ async function rejectPayment(paymentId) {
 
 async function viewPendingPaymentDetails(paymentId) {
     viewPaymentDetails(paymentId);
+}
+
+function initializeEventListeners() {
+    try {
+        const paymentForm = document.getElementById("paymentForm");
+        if (paymentForm && !paymentForm.__listenerAttached) {
+            paymentForm.addEventListener("submit", handlePaymentSubmission);
+            paymentForm.__listenerAttached = true;
+        }
+
+        const pendingSearch = document.getElementById("pending-search");
+        if (pendingSearch && !pendingSearch.__listenerAttached) {
+            pendingSearch.addEventListener("input", filterPendingPayments);
+            pendingSearch.__listenerAttached = true;
+        }
+        const pendingDate = document.getElementById("pending-date");
+        if (pendingDate && !pendingDate.__listenerAttached) {
+            pendingDate.addEventListener("change", filterPendingPayments);
+            pendingDate.__listenerAttached = true;
+        }
+
+        document.querySelectorAll(".view-toggle-btn").forEach((btn) => {
+            if (!btn.__listenerAttached) {
+                btn.addEventListener("click", () =>
+                    switchPaymentView(btn.dataset.view)
+                );
+                btn.__listenerAttached = true;
+            }
+        });
+
+        document.querySelectorAll(".pending-tab-btn").forEach((tab) => {
+            if (!tab.__listenerAttached) {
+                tab.addEventListener("click", () =>
+                    filterPendingByStatus(tab.dataset.status)
+                );
+                tab.__listenerAttached = true;
+            }
+        });
+    } catch (e) {
+        console.warn("initializeEventListeners failed", e);
+    }
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -6897,13 +7033,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     } catch { }
 
-    
     try {
         const raw = localStorage.getItem("paymentAdminDeepLink");
         if (raw) {
             localStorage.removeItem("paymentAdminDeepLink");
             let dl = null;
-            try { dl = JSON.parse(raw); } catch (_) { dl = null; }
+            try {
+                dl = JSON.parse(raw);
+            } catch (_) {
+                dl = null;
+            }
             if (dl && typeof dl === "object") {
                 if (dl.tab === "payments" || dl.tab === "charges") {
                     switchTab(dl.tab);

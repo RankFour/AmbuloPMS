@@ -138,15 +138,11 @@ const getAllCharges = async (queryParams = {}) => {
             values.push(dueTo);
         }
 
-        
+
         const paidExpr = `IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0))`;
-        const effAmountExpr = `(
-            c.amount + CASE
-                WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)
-                    THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)
-                ELSE 0
-            END
-        )`;
+
+        const lateFeeExpr = `CASE\n                WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)\n                     AND IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0)) < c.amount\n                    THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)\n                ELSE 0\n            END`;
+        const effAmountExpr = `(c.amount + ${lateFeeExpr})`;
 
         if (status) {
             const s = String(status).toUpperCase();
@@ -180,12 +176,12 @@ const getAllCharges = async (queryParams = {}) => {
 
         const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-        
+
         const page = Math.max(1, parseInt(queryParams.page, 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(queryParams.limit, 10) || 10));
         const offset = (page - 1) * limit;
 
-        
+
         const countSql = `
             SELECT COUNT(*) AS cnt
             FROM charges c
@@ -213,7 +209,7 @@ const getAllCharges = async (queryParams = {}) => {
             p.property_name,
             IFNULL(c.total_paid, IFNULL(pay_sum.total_paid, 0)) AS total_paid,
             ${effAmountExpr} AS amount,
-            (${effAmountExpr} - c.amount) AS late_fee_amount,
+            ${lateFeeExpr} AS late_fee_amount,
             c.amount AS original_amount,
             CASE
                 WHEN c.status = 'Waived' THEN 'WAIVED'
@@ -358,16 +354,18 @@ const getChargeByUserId = async (userId) => {
             (
                 c.amount + CASE
                     WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)
+                         AND IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0)) < c.amount
                         THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)
                     ELSE 0
                 END
             ) AS amount,
             (
-                (c.amount + CASE
+                CASE
                     WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)
+                         AND IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0)) < c.amount
                         THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)
                     ELSE 0
-                END) - c.amount
+                END
             ) AS late_fee_amount,
             c.amount AS original_amount,
             CASE
@@ -375,6 +373,7 @@ const getChargeByUserId = async (userId) => {
                 WHEN IFNULL(c.total_paid, IFNULL(pay_sum.total_paid, 0)) >= (
                     c.amount + CASE
                         WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)
+                             AND IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0)) < c.amount
                             THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)
                         ELSE 0
                     END
@@ -441,16 +440,18 @@ const getChargeByLeaseId = async (leaseId, queryParams = {}) => {
             (
                 c.amount + CASE
                     WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)
+                         AND IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0)) < c.amount
                         THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)
                     ELSE 0
                 END
             ) AS amount,
             (
-                (c.amount + CASE
+                CASE
                     WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)
+                         AND IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0)) < c.amount
                         THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)
                     ELSE 0
-                END) - c.amount
+                END
             ) AS late_fee_amount,
             c.amount AS original_amount,
             CASE
@@ -458,6 +459,7 @@ const getChargeByLeaseId = async (leaseId, queryParams = {}) => {
                 WHEN IFNULL(c.total_paid, IFNULL(pay_sum.total_paid, 0)) >= (
                     c.amount + CASE
                         WHEN DATEDIFF(CURDATE(), DATE(c.due_date)) > IFNULL(l.grace_period_days, 0)
+                             AND IFNULL(c.total_paid, IFNULL(pay_sum.total_paid,0)) < c.amount
                             THEN ROUND(c.amount * IFNULL(l.late_fee_percentage, 0) / 100, 2)
                         ELSE 0
                     END
