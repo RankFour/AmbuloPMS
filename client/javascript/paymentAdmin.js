@@ -790,6 +790,13 @@ function onReady(fn) {
     }
 }
 
+/**
+ * Auto-generate upcoming recurring charges from recurring templates.
+ * Client-side opportunistic implementation.
+ * Creates charge if next_due within 14 days, respects auto_gen_until, then advances template.
+ * WARNING: For production reliability move this logic server-side (cron + idempotency).
+ */
+
 function ensureLoadingStyles() {
     if (document.getElementById("admin-loading-styles")) return;
     const style = document.createElement("style");
@@ -1004,7 +1011,12 @@ async function fetchCharges({ force = false } = {}) {
         const statusEl = document.getElementById("charges-status");
         const dateEl = document.getElementById("charges-date");
 
+        if (typeof window.chargesPage === "undefined") window.chargesPage = 1;
+        if (typeof window.chargesLimit === "undefined") window.chargesLimit = 10;
+
         const params = new URLSearchParams();
+        params.set("page", String(window.chargesPage));
+        params.set("limit", String(window.chargesLimit));
         if (searchEl && searchEl.value.trim())
             params.append("q", searchEl.value.trim());
         if (typeEl && typeEl.value) params.append("charge_type", typeEl.value);
@@ -1025,11 +1037,6 @@ async function fetchCharges({ force = false } = {}) {
             }
         }
 
-        if (typeof window.chargesPage === "undefined") window.chargesPage = 1;
-        if (typeof window.chargesLimit === "undefined") window.chargesLimit = 10;
-        params.set("page", String(window.chargesPage));
-        params.set("limit", String(window.chargesLimit));
-
         const base = `${API_BASE_URL}/charges`;
         const cacheKey = makeCacheKey(base, params);
         const cached = chargesListCache.get(cacheKey);
@@ -1048,7 +1055,6 @@ async function fetchCharges({ force = false } = {}) {
         }
 
         setChargesLoading(true, force ? "Refreshing…" : "Loading…");
-
         const url = base + (params.toString() ? `?${params.toString()}` : "");
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch charges from server");
@@ -1090,66 +1096,6 @@ async function fetchCharges({ force = false } = {}) {
         console.error("Error fetching charges from server:", error);
     }
 }
-
-onReady(() => {
-    setupChargeFilters();
-
-    setupChargesGroupingControl();
-    fetchCharges().finally(() => requestStatisticsUpdate());
-
-    try {
-        const methodEl = document.getElementById("payments-method");
-        const typeEl = document.getElementById("payments-type");
-        if (window.AppConstants) {
-            if (methodEl) {
-                const methods = window.AppConstants.PAYMENT_METHODS || [];
-                methodEl.innerHTML =
-                    '<option value="">All Methods</option>' +
-                    methods
-                        .map((m) => `<option value="${m.value}">${m.label}</option>`)
-                        .join("");
-            }
-            if (typeEl) {
-                const types = window.AppConstants.CHARGE_TYPES || [];
-                typeEl.innerHTML =
-                    '<option value="">All Types</option>' +
-                    types
-                        .map((t) => `<option value="${t.value}">${t.label}</option>`)
-                        .join("");
-            }
-        }
-
-        const searchEl = document.getElementById("payments-search");
-        const dateEl = document.getElementById("payments-date");
-        if (searchEl)
-            searchEl.addEventListener("input", () =>
-                fetchAllPayments(1, paymentsLimit).finally(() =>
-                    requestStatisticsUpdate()
-                )
-            );
-        if (methodEl)
-            methodEl.addEventListener("change", () =>
-                fetchAllPayments(1, paymentsLimit).finally(() =>
-                    requestStatisticsUpdate()
-                )
-            );
-        if (typeEl)
-            typeEl.addEventListener("change", () =>
-                fetchAllPayments(1, paymentsLimit).finally(() =>
-                    requestStatisticsUpdate()
-                )
-            );
-        if (dateEl)
-            dateEl.addEventListener("change", () =>
-                fetchAllPayments(1, paymentsLimit).finally(() =>
-                    requestStatisticsUpdate()
-                )
-            );
-    } catch (e) {
-        console.warn("Failed to initialize Payment History filters", e);
-    }
-});
-
 function setupChargeFilters() {
     const typeEl = document.getElementById("charges-type");
     if (typeEl) {

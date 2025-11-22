@@ -37,6 +37,8 @@ import notificationsRoutes from './routes/notificationsRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import documentsRoutes from './routes/documentsRoutes.js';
 import remindersService from './services/remindersService.js';
+import recurringRoutes from './routes/recurringRoutes.js';
+import recurringGenerationService from './services/recurringGenerationService.js';
 
 
 import tables from './tables/tables.js';
@@ -102,6 +104,7 @@ app.use(`/api/${API_VERSION}/reports`, reportsRoutes);
 app.use(`/api/${API_VERSION}/notifications`, notificationsRoutes);
 app.use(`/api/${API_VERSION}/admin`, adminRoutes);
 app.use(`/api/${API_VERSION}/documents`, documentsRoutes);
+app.use(`/api/${API_VERSION}/recurring-charges`, recurringRoutes);
 
 // Rate limiting specifically for assistant endpoints (configurable)
 const assistantLimiter = rateLimit({
@@ -199,6 +202,7 @@ const startServer = async () => {
         server.listen(PORT, () => console.log(colours.fg.yellow, `${PROJECT_NAME}`, `API is running in ${process.env.NODE_ENV} mode on port ${PORT}`, colours.reset));
         // Start scheduled background jobs after server is up
         try { remindersService.startChargeReminderJob(app); } catch (e) { console.error('Failed to start reminders job', e); }
+        try { recurringGenerationService.startRecurringGenerationJob(app, { intervalMinutes: parseInt(process.env.RECURRING_GEN_INTERVAL_MIN || '15', 10) || 15, lookaheadDays: parseInt(process.env.RECURRING_GEN_LOOKAHEAD_DAYS || '14', 10) || 14 }); } catch (e) { console.error('Failed to start recurring generation job', e); }
     } catch (error) {
         console.log(error);
     }
