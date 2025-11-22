@@ -5248,6 +5248,102 @@ function setupAdvancedChargesModalFunctions(
             `input[name="advancedDueDate_${chargeCounter}"]`
         ).value = nextMonth.toISOString().split("T")[0];
 
+        try {
+            const chargeTypeSelect = chargeItem.querySelector(
+                `select[name="advancedChargeType_${chargeCounter}"]`
+            );
+            const leaseSelect = chargeItem.querySelector(
+                `#advancedLease_${chargeCounter}`
+            );
+            const recurringCheckbox = chargeItem.querySelector(
+                `input[name="advancedIsRecurring_${chargeCounter}"]`
+            );
+            const freqSelect = chargeItem.querySelector(
+                `select[name="advancedRecurringFrequency_${chargeCounter}"]`
+            );
+            const autoGenInput = chargeItem.querySelector(
+                `input[name="advancedAutoGenUntil_${chargeCounter}"]`
+            );
+
+            function applyLeaseEndAutoGen(leaseId) {
+                if (!leaseId || !autoGenInput) return;
+                fetchLeaseById(leaseId)
+                    .then((lease) => {
+                        try {
+                            const endRaw =
+                                lease &&
+                                (lease.end_date ||
+                                    lease.lease_end ||
+                                    lease.endDate ||
+                                    lease.endDateUtc);
+                            if (!endRaw) return;
+                            const formatted =
+                                typeof formatForDateInput === "function"
+                                    ? formatForDateInput(endRaw)
+                                    : new Date(endRaw).toISOString().split("T")[0];
+                            autoGenInput.value = formatted;
+                            console.log(
+                                "[AdvancedCharges] Auto-Generate Until set from lease end",
+                                { chargeCounter, leaseId, leaseEnd: endRaw, formatted }
+                            );
+                        } catch (e) {
+                            console.warn(
+                                "[AdvancedCharges] Failed to set auto-generate until from lease",
+                                e
+                            );
+                        }
+                    })
+                    .catch((e) =>
+                        console.warn("[AdvancedCharges] Lease fetch failed", e)
+                    );
+            }
+
+            function syncRentAutoRecurring() {
+                if (!chargeTypeSelect) return;
+                const val = (chargeTypeSelect.value || "").toLowerCase();
+                if (val === "rent") {
+                    if (recurringCheckbox && !recurringCheckbox.checked) {
+                        recurringCheckbox.checked = true;
+
+                        if (typeof toggleAdvancedRecurringOptions === "function") {
+                            toggleAdvancedRecurringOptions(chargeCounter);
+                        }
+                    }
+                    if (freqSelect) freqSelect.value = "monthly";
+                    if (leaseSelect && leaseSelect.value) {
+                        applyLeaseEndAutoGen(leaseSelect.value);
+                    }
+                    console.log(
+                        "[AdvancedCharges] Rent type selected: applied recurring/monthly & attempted lease end auto-gen",
+                        { chargeCounter }
+                    );
+                }
+            }
+
+            if (chargeTypeSelect) {
+                chargeTypeSelect.addEventListener("change", syncRentAutoRecurring);
+            }
+            if (leaseSelect) {
+                leaseSelect.addEventListener("change", function () {
+                    if (
+                        chargeTypeSelect &&
+                        (chargeTypeSelect.value || "").toLowerCase() === "rent" &&
+                        recurringCheckbox &&
+                        recurringCheckbox.checked
+                    ) {
+                        applyLeaseEndAutoGen(leaseSelect.value);
+                    }
+                });
+            }
+
+            syncRentAutoRecurring();
+        } catch (e) {
+            console.warn(
+                "[AdvancedCharges] Failed to initialize rent auto-recurring handler",
+                e
+            );
+        }
+
         updateAdvancedSummary();
 
         const tenantSelect = chargeItem.querySelector(
