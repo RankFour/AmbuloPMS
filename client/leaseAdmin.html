@@ -513,6 +513,16 @@
                                     <div class="info-grid" id="rulesInfo"></div>
                                 </div>
                             </div>
+                            <!-- Renewal History (hidden unless renewals exist) -->
+                            <div class="card" id="renewalHistoryCard" style="display:none;">
+                                <div class="card-body">
+                                    <h3 style="margin-bottom:20px;color:#1e3a8a;font-size:20px;font-weight:700;">Renewal History</h3>
+                                    <div id="latestRenewalSummary" style="display:none;margin-bottom:16px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px;background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);">
+                                        <!-- Populated dynamically -->
+                                    </div>
+                                    <div id="renewalTimeline" style="display:flex;flex-direction:column;gap:12px;"></div>
+                                </div>
+                            </div>
 
                             <!-- Notes -->
                             <div class="card" id="notesCard" style="display: none;">
@@ -521,6 +531,13 @@
                                         Additional Notes</h3>
                                     <p id="leaseNotes" style="white-space: pre-wrap; line-height: 1.6; color: #4b5563;">
                                     </p>
+                                </div>
+                            </div>
+                            <!-- Termination Details (hidden unless terminated) -->
+                            <div class="card" id="terminationCard" style="display: none;">
+                                <div class="card-body">
+                                    <h3 style="margin-bottom: 20px; color:#b91c1c; font-size:20px; font-weight:700;">Termination Details</h3>
+                                    <div class="info-grid" id="terminationInfo"></div>
                                 </div>
                             </div>
                         </div>
@@ -533,10 +550,9 @@
                                     <div class="sidebar-section">
                                         <h3>Quick Actions</h3>
                                         <div style="display: flex; flex-direction: column; gap: 12px;">
-                                            <button class="btn btn-primary" onclick="showEditView()"><i
-                                                    class="fa-solid fa-pen"></i> Edit Lease</button>
-                                            <button class="btn btn-danger" onclick="terminateLease()"><i
-                                                    class="fa-solid fa-x"></i> Terminate Lease</button>
+                                            <button class="btn btn-primary" onclick="showEditView()"><i class="fa-solid fa-pen"></i> Edit Lease</button>
+                                            <button class="btn btn-warning" onclick="showRenewModal()"><i class="fa-solid fa-rotate"></i> Renew Lease</button>
+                                            <button class="btn btn-danger" onclick="showTerminationModal()"><i class="fa-solid fa-xmark"></i> Terminate Lease</button>
                                         </div>
                                     </div>
                                 </div>
@@ -655,6 +671,81 @@
                 <div style="display: flex; gap: 12px; justify-content: center;">
                     <button class="btn btn-secondary" onclick="hideDeleteModal()">Cancel</button>
                     <button class="btn btn-danger" onclick="confirmDelete()">Delete Lease</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lease Termination Modal -->
+        <div id="terminationModal" class="modal">
+            <div class="modal-content" style="max-width:560px;">
+                <h3 style="margin-bottom: 12px; font-weight:700; color:#ef4444;">Terminate Lease</h3>
+                <p style="margin-bottom: 16px; color:#6b7280;font-size:13px;">Provide termination details. This will set the lease status to <strong>TERMINATED</strong> and free the property.</p>
+                <div class="form-grid" style="margin-bottom:16px;">
+                    <div class="form-group">
+                        <label class="form-label">Termination Date</label>
+                        <input type="date" id="terminationDate" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Reason</label>
+                        <select id="terminationReason" class="form-select">
+                            <option value="End-of-term">End-of-term</option>
+                            <option value="Cancellation">Cancellation</option>
+                            <option value="Non-payment">Non-payment</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Advance Payment Status</label>
+                        <select id="advancePaymentStatus" class="form-select">
+                            <option value="Applied to rent">Applied to rent</option>
+                            <option value="Forfeited">Forfeited</option>
+                            <option value="Refunded">Refunded</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Security Deposit Status</label>
+                        <select id="securityDepositStatus" class="form-select">
+                            <option value="Held">Held</option>
+                            <option value="Refunded">Refunded</option>
+                            <option value="Forfeited">Forfeited</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:18px;">
+                    <label class="form-label">Notes (optional)</label>
+                    <textarea id="terminationNotes" class="form-input textarea" placeholder="Additional context..."></textarea>
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button class="btn btn-secondary" onclick="hideTerminationModal()">Cancel</button>
+                    <button class="btn btn-danger" onclick="confirmTerminateLease()"><i class="fa-solid fa-xmark me-1"></i> Confirm Termination</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lease Renewal Modal -->
+        <div id="renewModal" class="modal">
+            <div class="modal-content" style="max-width:520px;">
+                <h3 style="margin-bottom: 12px; font-weight:700; color:#2563eb;">Renew Lease</h3>
+                <p style="margin-bottom: 16px; color:#6b7280;font-size:13px;">Extend the lease by selecting a new end date. Optionally adjust the monthly rent.</p>
+                <div class="form-grid" style="margin-bottom:16px;">
+                    <div class="form-group">
+                        <label class="form-label">New End Date *</label>
+                        <input type="date" id="renewEndDate" class="form-input">
+                        <div class="error-message" id="renewEndDate-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">New Monthly Rent (optional)</label>
+                        <input type="number" id="renewMonthlyRent" class="form-input" min="0" step="0.01" placeholder="Leave blank to keep current">
+                    </div>
+                </div>
+                <div id="rentIncreasePreview" style="font-size:12px;color:#6b7280;margin-bottom:12px;"></div>
+                <div class="form-group" style="margin-bottom:18px;">
+                    <label class="form-label">Notes (optional)</label>
+                    <textarea id="renewNotes" class="form-input textarea" placeholder="Renewal notes..."></textarea>
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button class="btn btn-secondary" onclick="hideRenewModal()">Cancel</button>
+                    <button class="btn btn-warning" onclick="confirmRenewLease()"><i class="fa-solid fa-rotate me-1"></i> Confirm Renewal</button>
                 </div>
             </div>
         </div>

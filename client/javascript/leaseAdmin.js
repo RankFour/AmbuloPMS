@@ -1339,6 +1339,15 @@ async function showEditView(leaseId) {
     }
 
     loadForm(mapLeaseToFormFields(lease));
+
+    try {
+      const startInput = document.getElementById("startDate");
+      const endInput = document.getElementById("endDate");
+      if (startInput) startInput.removeAttribute("min");
+      if (endInput) endInput.removeAttribute("min");
+    } catch (e) {
+      /* noop */
+    }
   } catch (err) {
     console.error("showEditView error:", err);
     showToast("Failed to load lease for editing", "error");
@@ -1434,6 +1443,10 @@ function loadDetailView(lease) {
         lease.lease_end_date
       )}</div>
     </div>
+    <div class="info-item">
+      <div class="info-label">Renewal Count</div>
+      <div class="info-value">${lease.renewal_count || 0}</div>
+    </div>
   `;
 
     document.getElementById("financialInfo").innerHTML = `
@@ -1471,12 +1484,12 @@ function loadDetailView(lease) {
 
     document.getElementById("rulesInfo").innerHTML = `
     <div class="info-item">
-      <div class="info-label">Security Refundable</div>
+      <div class="info-label">Security Deposit: Refundable?</div>
       <div class="info-value">${lease.is_security_deposit_refundable ? "Yes" : "No"
       }</div>
     </div>
     <div class="info-item">
-      <div class="info-label">Advance Forfeited</div>
+      <div class="info-label">Advance Forfeited on Cancel</div>
       <div class="info-value">${lease.advance_payment_forfeited_on_cancel ? "Yes" : "No"
       }</div>
     </div>
@@ -1486,11 +1499,11 @@ function loadDetailView(lease) {
       } month(s)</div>
     </div>
     <div class="info-item">
-      <div class="info-label">Termination Trigger</div>
+      <div class="info-label">Nonpayment before Termination (days)</div>
       <div class="info-value">${lease.termination_trigger_days} days</div>
     </div>
     <div class="info-item">
-      <div class="info-label">Cancel Notice</div>
+      <div class="info-label">Termination Notice</div>
       <div class="info-value">${lease.notice_before_cancel_days} days</div>
     </div>
     <div class="info-item">
@@ -1498,7 +1511,7 @@ function loadDetailView(lease) {
       <div class="info-value">${lease.notice_before_renewal_days} days</div>
     </div>
     <div class="info-item">
-      <div class="info-label">Rent Increase</div>
+      <div class="info-label">Rent Increase on Renewal</div>
       <div class="info-value">${lease.rent_increase_on_renewal}%</div>
     </div>
   `;
@@ -1518,6 +1531,146 @@ function loadDetailView(lease) {
       notesCard.style.display = "block";
     } else {
       notesCard.style.display = "none";
+    }
+
+    const terminationCard = document.getElementById("terminationCard");
+    const terminationInfo = document.getElementById("terminationInfo");
+    try {
+      if (
+        String(lease.lease_status || "").toUpperCase() === "TERMINATED" &&
+        lease.termination
+      ) {
+        const t = lease.termination;
+        terminationInfo.innerHTML = `
+          <div class="info-item">
+            <div class="info-label">Termination Date</div>
+            <div class="info-value">${t.termination_date ? formatDate(t.termination_date) : "-"
+          }</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Reason</div>
+            <div class="info-value">${t.termination_reason || "-"}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Advance Payment Status</div>
+            <div class="info-value">${t.advance_payment_status || "-"}</div>
+          </div>
+            <div class="info-item">
+            <div class="info-label">Security Deposit Status</div>
+            <div class="info-value">${t.security_deposit_status || "-"}</div>
+          </div>
+          ${t.notes
+            ? `<div class="info-item"><div class="info-label">Notes</div><div class="info-value" style="white-space:pre-wrap;">${t.notes}</div></div>`
+            : ""
+          }
+        `;
+        terminationCard.style.display = "block";
+      } else {
+        terminationCard.style.display = "none";
+      }
+    } catch (e) {
+      terminationCard && (terminationCard.style.display = "none");
+    }
+
+    try {
+      const historyCard = document.getElementById("renewalHistoryCard");
+      const timelineEl = document.getElementById("renewalTimeline");
+      const latestSummaryEl = document.getElementById("latestRenewalSummary");
+      if (historyCard && timelineEl) {
+        const history = Array.isArray(lease.renewal_history)
+          ? lease.renewal_history
+          : [];
+        if (history.length) {
+          historyCard.style.display = "block";
+
+          if (latestSummaryEl) {
+            const latest = history[0];
+            try {
+              const prevEnd = latest.previous_end_date
+                ? formatDate(latest.previous_end_date)
+                : "-";
+              const newEnd = latest.new_end_date
+                ? formatDate(latest.new_end_date)
+                : "-";
+              const prevRent = Number(latest.previous_rent || 0);
+              const newRent = Number(latest.new_rent || 0);
+              const inc = Number(latest.rent_increase_pct || 0);
+              const incLabel =
+                inc === 0
+                  ? "No change"
+                  : inc > 0
+                    ? "+" + inc.toFixed(2) + "%"
+                    : inc.toFixed(2) + "%";
+              latestSummaryEl.innerHTML = `
+                <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;">
+                  <div style="flex:1;min-width:180px;">
+                    <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Latest Renewal</div>
+                    <div style="margin-top:6px;font-size:14px;color:#1f2937;font-weight:600;">${latest.created_at ? formatDate(latest.created_at) : ""
+                }</div>
+                  </div>
+                  <div style="flex:1;min-width:200px;">
+                    <div style="font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;">End Date</div>
+                    <div style="margin-top:6px;font-size:14px;color:#1f2937;font-weight:600;">${prevEnd} → <span style="color:#2563eb;">${newEnd}</span></div>
+                  </div>
+                  <div style="flex:1;min-width:210px;">
+                    <div style="font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;">Rent</div>
+                    <div style="margin-top:6px;font-size:14px;color:#1f2937;font-weight:600;">₱${prevRent.toLocaleString()} → <span style="color:#059669;">₱${newRent.toLocaleString()}</span> <span style="margin-left:4px;font-size:12px;color:${inc > 0 ? "#dc2626" : inc < 0 ? "#059669" : "#6b7280"
+                };">(${incLabel})</span></div>
+                  </div>
+                  ${latest.notes
+                  ? `<div style=\"flex:1;min-width:200px;\"><div style=\"font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;\">Notes</div><div style=\"margin-top:6px;font-size:13px;color:#374151;white-space:pre-wrap;\">${latest.notes}</div></div>`
+                  : ""
+                }
+                </div>`;
+              latestSummaryEl.style.display = "block";
+            } catch (e) {
+              latestSummaryEl.style.display = "none";
+            }
+          }
+          timelineEl.innerHTML = history
+            .map((r) => {
+              const prevEnd = r.previous_end_date
+                ? formatDate(r.previous_end_date)
+                : "-";
+              const newEnd = r.new_end_date ? formatDate(r.new_end_date) : "-";
+              const inc = Number(r.rent_increase_pct || 0);
+              const incLabel =
+                inc === 0
+                  ? "No change"
+                  : inc > 0
+                    ? "+" + inc.toFixed(2) + "%"
+                    : inc.toFixed(2) + "%";
+              return `
+              <div style=\"display:flex;flex-direction:column;gap:4px;padding:10px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc;position:relative;\">
+                <div style=\"display:flex;justify-content:space-between;align-items:center;\">
+                  <div style=\"font-weight:600;color:#1f2937;\">Renewal #${r.renewal_id
+                }</div>
+                  <div style=\"font-size:11px;color:#6b7280;\">${r.created_at ? formatDate(r.created_at) : ""
+                }</div>
+                </div>
+                <div style=\"font-size:12px;color:#374151;\"><strong>End Date:</strong> ${prevEnd} → <span style=\"color:#2563eb;font-weight:600;\">${newEnd}</span></div>
+                <div style=\"font-size:12px;color:#374151;\"><strong>Rent:</strong> ₱${Number(
+                  r.previous_rent || 0
+                ).toLocaleString()} → <span style=\"color:#059669;font-weight:600;\">₱${Number(
+                  r.new_rent || 0
+                ).toLocaleString()}</span> <span style=\"margin-left:4px;font-size:11px;color:${inc > 0 ? "#dc2626" : inc < 0 ? "#059669" : "#6b7280"
+                };\">(${incLabel})</span></div>
+                ${r.notes
+                  ? `<div style=\"font-size:12px;color:#4b5563;white-space:pre-wrap;\">${r.notes}</div>`
+                  : ""
+                }
+              </div>`;
+            })
+            .join("");
+        } else {
+          historyCard.style.display = "none";
+          timelineEl.innerHTML = "";
+          if (latestSummaryEl) latestSummaryEl.style.display = "none";
+        }
+      }
+    } catch (e) {
+      const historyCard = document.getElementById("renewalHistoryCard");
+      if (historyCard) historyCard.style.display = "none";
     }
   } catch (error) {
     console.error("Error loading detail view:", error);
@@ -1698,19 +1851,215 @@ function sendReminder() {
   showToast("Payment reminder sent successfully!");
 }
 
-async function terminateLease() {
-  const confirmFn =
-    typeof window !== "undefined" && typeof window.showConfirm === "function"
-      ? (msg, title) => window.showConfirm(msg, title)
-      : (msg) => Promise.resolve(confirm(String(msg)));
+function showTerminationModal() {
+  const modal = document.getElementById("terminationModal");
+  if (!modal) return;
 
-  const ok = !!(await confirmFn(
-    "Are you sure you want to terminate this lease?",
-    "Confirm termination"
-  ));
-  if (!ok) return;
-  showToast("Lease termination process initiated");
+  try {
+    const d = new Date();
+    const iso = d.toISOString().split("T")[0];
+    const terminationDateEl = document.getElementById("terminationDate");
+    if (terminationDateEl && !terminationDateEl.value)
+      terminationDateEl.value = iso;
+  } catch { }
+  modal.classList.add("show");
 }
+
+function hideTerminationModal() {
+  const modal = document.getElementById("terminationModal");
+  if (modal) modal.classList.remove("show");
+}
+
+async function confirmTerminateLease() {
+  try {
+    const leaseId =
+      window.currentDetailLease && window.currentDetailLease.lease_id;
+    if (!leaseId) {
+      showToast("No lease selected", "error");
+      return;
+    }
+    const termination_date = (document.getElementById("terminationDate") || {})
+      .value;
+    const termination_reason = (
+      document.getElementById("terminationReason") || {}
+    ).value;
+    const advance_payment_status = (
+      document.getElementById("advancePaymentStatus") || {}
+    ).value;
+    const security_deposit_status = (
+      document.getElementById("securityDepositStatus") || {}
+    ).value;
+    const notes = (document.getElementById("terminationNotes") || {}).value;
+
+    const payload = {
+      termination_date,
+      termination_reason,
+      advance_payment_status,
+      security_deposit_status,
+      notes,
+    };
+    const res = await fetch(`${API_BASE_URL}/${leaseId}/terminate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Termination failed");
+    }
+    hideTerminationModal();
+    showToast("Lease terminated successfully");
+
+    await showDetailView(leaseId);
+    await updateStatsBar();
+  } catch (e) {
+    console.error("confirmTerminateLease error", e);
+    showToast(e.message || "Termination error", "error");
+  }
+}
+
+function showRenewModal() {
+  const modal = document.getElementById("renewModal");
+  if (!modal) return;
+  try {
+    const lease = window.currentDetailLease;
+    if (
+      lease &&
+      String(lease.lease_status || "").toUpperCase() === "TERMINATED"
+    ) {
+      showToast("Cannot renew a terminated lease", "error");
+      return;
+    }
+    if (lease) {
+      const currentEnd =
+        lease.lease_end_date && lease.lease_end_date.split
+          ? lease.lease_end_date.split("T")[0]
+          : "";
+
+      if (currentEnd) {
+        const [y, m, d] = currentEnd.split("-").map(Number);
+        const newDate = new Date(y, (m || 1) - 1, d || 1);
+        newDate.setMonth(newDate.getMonth() + 12);
+        const iso = `${newDate.getFullYear()}-${String(
+          newDate.getMonth() + 1
+        ).padStart(2, "0")}-${String(newDate.getDate()).padStart(2, "0")}`;
+        const renewEndEl = document.getElementById("renewEndDate");
+        if (renewEndEl && !renewEndEl.value) renewEndEl.value = iso;
+      }
+      const rentEl = document.getElementById("renewMonthlyRent");
+      if (rentEl && !rentEl.value) {
+        rentEl.placeholder = `Current: ₱${Number(
+          lease.monthly_rent || 0
+        ).toLocaleString()}`;
+
+        const baseRent = Number(lease.monthly_rent || 0);
+        const pctRaw = lease.rent_increase_on_renewal;
+        const pct =
+          pctRaw !== undefined && pctRaw !== null ? Number(pctRaw) : 0;
+        if (!isNaN(baseRent) && baseRent > 0 && !isNaN(pct) && pct > 0) {
+          const newRent = Math.round(baseRent * (1 + pct / 100) * 100) / 100;
+          rentEl.value = newRent;
+
+          const previewEl = document.getElementById("rentIncreasePreview");
+          if (previewEl) {
+            const diffPct = ((newRent - baseRent) / baseRent) * 100;
+            previewEl.textContent = `Proposed increase: ${diffPct.toFixed(
+              2
+            )}% (from ₱${baseRent.toLocaleString()} to ₱${newRent.toLocaleString()})`;
+          }
+        }
+      }
+    }
+  } catch { }
+  modal.classList.add("show");
+}
+
+function hideRenewModal() {
+  const modal = document.getElementById("renewModal");
+  if (modal) modal.classList.remove("show");
+}
+
+async function confirmRenewLease() {
+  const leaseId =
+    window.currentDetailLease && window.currentDetailLease.lease_id;
+  if (!leaseId) {
+    showToast("No lease selected", "error");
+    return;
+  }
+  if (
+    window.currentDetailLease &&
+    String(window.currentDetailLease.lease_status || "").toUpperCase() ===
+    "TERMINATED"
+  ) {
+    showToast("Renewal not allowed: lease is terminated", "error");
+    hideRenewModal();
+    return;
+  }
+  const endEl = document.getElementById("renewEndDate");
+  const rentEl = document.getElementById("renewMonthlyRent");
+  const notesEl = document.getElementById("renewNotes");
+  const new_end_date = endEl && endEl.value ? endEl.value : "";
+  const new_monthly_rent_raw = rentEl && rentEl.value ? rentEl.value : null;
+
+  if (!new_end_date) {
+    const errDiv = document.getElementById("renewEndDate-error");
+    if (errDiv) errDiv.textContent = "New end date is required";
+    showToast("Provide a new end date", "error");
+    return;
+  } else {
+    const errDiv = document.getElementById("renewEndDate-error");
+    if (errDiv) errDiv.textContent = "";
+  }
+
+  const payload = { new_end_date };
+  if (new_monthly_rent_raw)
+    payload.new_monthly_rent = Number(new_monthly_rent_raw);
+  if (notesEl && notesEl.value) payload.notes = notesEl.value;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/${leaseId}/renew`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Renewal failed");
+    }
+    hideRenewModal();
+    showToast("Lease renewed successfully");
+    await showDetailView(leaseId);
+    await updateStatsBar();
+  } catch (e) {
+    console.error("confirmRenewLease error", e);
+    showToast(e.message || "Renewal error", "error");
+  }
+}
+
+document.addEventListener("input", function (e) {
+  if (e.target && e.target.id === "renewMonthlyRent") {
+    try {
+      const lease = window.currentDetailLease;
+      if (!lease) return;
+      const current = Number(lease.monthly_rent || 0);
+      const val = Number(e.target.value || 0);
+      const previewEl = document.getElementById("rentIncreasePreview");
+      if (!previewEl) return;
+      if (!val) {
+        previewEl.textContent = "";
+        return;
+      }
+      if (current > 0) {
+        const diffPct = ((val - current) / current) * 100;
+        previewEl.textContent = `Proposed increase: ${diffPct.toFixed(
+          2
+        )}% (from ₱${current.toLocaleString()} to ₱${val.toLocaleString()})`;
+      } else {
+        previewEl.textContent = "";
+      }
+    } catch { }
+  }
+});
 
 function viewPaymentHistory() {
   showToast("Payment history feature coming soon!");
@@ -1866,6 +2215,7 @@ async function showDetailView(leaseId) {
       showToast("Lease not found", "error");
       return;
     }
+    window.currentDetailLease = lease;
 
     document.getElementById("listView").classList.add("hidden");
     document.getElementById("formView").classList.add("hidden");
@@ -1945,7 +2295,12 @@ window.confirmDelete = confirmDelete;
 window.handleFileUpload = handleFileUpload;
 window.removeFile = removeFile;
 window.sendReminder = sendReminder;
-window.terminateLease = terminateLease;
+window.showTerminationModal = showTerminationModal;
+window.hideTerminationModal = hideTerminationModal;
+window.confirmTerminateLease = confirmTerminateLease;
+window.showRenewModal = showRenewModal;
+window.hideRenewModal = hideRenewModal;
+window.confirmRenewLease = confirmRenewLease;
 window.viewPaymentHistory = viewPaymentHistory;
 window.viewAllActivity = viewAllActivity;
 window.downloadDocument = downloadDocument;
