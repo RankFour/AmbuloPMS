@@ -434,7 +434,29 @@ const getSingleLeaseById = async (leaseId) => {
       );
       contract = contractRows[0] || null;
     }
-    return { ...lease, contract };
+
+    let termination = null;
+    try {
+      const [tRows] = await pool.query(
+        `SELECT * FROM lease_termination WHERE lease_id = ? ORDER BY termination_id DESC LIMIT 1`,
+        [leaseId]
+      );
+      if (tRows.length) termination = tRows[0];
+    } catch (e) {
+      console.warn("Failed to fetch termination record for lease", leaseId, e);
+    }
+
+    let renewal_history = [];
+    try {
+      const [rRows] = await pool.query(
+        `SELECT renewal_id, previous_end_date, new_end_date, previous_rent, new_rent, rent_increase_pct, notes, created_at FROM lease_renewals WHERE lease_id = ? ORDER BY renewal_id DESC`,
+        [leaseId]
+      );
+      renewal_history = rRows;
+    } catch (e) {
+      console.warn("Failed to fetch renewal history for lease", leaseId, e);
+    }
+    return { ...lease, contract, termination, renewal_history };
   } catch (error) {
     throw error;
   }
@@ -606,6 +628,221 @@ const deleteLeaseById = async (leaseId) => {
   }
 };
 
+const terminateLease = async (leaseId, terminationData = {}, io = null) => {
+  if (!leaseId) throw new Error("Lease ID is required");
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [leaseRows] = await conn.query(
+      `SELECT lease_id, user_id, property_id, lease_status FROM leases WHERE lease_id = ? LIMIT 1`,
+      [leaseId]
+    );
+    if (leaseRows.length === 0) throw new Error("Lease not found");
+    const lease = leaseRows[0];
+
+    const status = String(lease.lease_status || "").toUpperCase();
+    if (["TERMINATED", "CANCELLED"].includes(status)) {
+      throw new Error("Lease already terminated/cancelled");
+    }
+    if (status === "PENDING") {
+    } else if (status !== "ACTIVE" && status !== "EXPIRED") {
+      throw new Error(
+        "Only ACTIVE, EXPIRED or PENDING leases can be terminated"
+      );
+    }
+
+    const allowedReasons = [
+      "Cancellation",
+      "Non-payment",
+      "End-of-term",
+      "Other",
+    ];
+    const allowedAdvanceStatuses = ["Applied to rent", "Forfeited", "Refunded"];
+    const allowedSecurityStatuses = ["Refunded", "Forfeited", "Held"];
+
+    const termination_reason =
+      terminationData.termination_reason &&
+        allowedReasons.includes(terminationData.termination_reason)
+        ? terminationData.termination_reason
+        : "Other";
+    const advance_payment_status =
+      terminationData.advance_payment_status &&
+        allowedAdvanceStatuses.includes(terminationData.advance_payment_status)
+        ? terminationData.advance_payment_status
+        : "Applied to rent";
+    const security_deposit_status =
+      terminationData.security_deposit_status &&
+        allowedSecurityStatuses.includes(terminationData.security_deposit_status)
+        ? terminationData.security_deposit_status
+        : "Held";
+    const termination_date =
+      terminationData.termination_date ||
+      new Date().toISOString().split("T")[0];
+    const notes = terminationData.notes || null;
+
+    const [insResult] = await conn.query(
+      `INSERT INTO lease_termination (lease_id, termination_date, termination_reason, advance_payment_status, security_deposit_status, notes) VALUES (?,?,?,?,?,?)`,
+      [
+        leaseId,
+        termination_date,
+        termination_reason,
+        advance_payment_status,
+        security_deposit_status,
+        notes,
+      ]
+    );
+    const termination_id = insResult.insertId;
+
+    await conn.query(
+      `UPDATE leases SET lease_status = 'TERMINATED', updated_at = NOW() WHERE lease_id = ?`,
+      [leaseId]
+    );
+
+    if (lease.property_id) {
+      try {
+        await propertiesServices.editPropertyById(lease.property_id, {
+          property_status: "Available",
+        });
+      } catch (e) {
+        console.warn("Property status update failed after termination", e);
+      }
+    }
+
+    await conn.commit();
+    conn.release();
+
+    try {
+      if (lease.user_id) {
+        await notificationsServices.createNotification(
+          {
+            user_id: lease.user_id,
+            type: "LEASE",
+            title: "Lease Terminated",
+            body: `Your lease has been terminated (Reason: ${termination_reason}).`,
+            link: "/leaseTenant.html",
+            meta: { lease_id: leaseId, termination_id },
+          },
+          io
+        );
+      }
+    } catch (e) {
+      console.warn("Failed to notify tenant of termination", e);
+    }
+
+    return {
+      message: "Lease terminated successfully",
+      lease_id: leaseId,
+      termination_id,
+    };
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    throw error;
+  }
+};
+
+const renewLease = async (leaseId, renewalData = {}, io = null) => {
+  if (!leaseId) throw new Error("Lease ID is required");
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [leaseRows] = await conn.query(
+      `SELECT * FROM leases WHERE lease_id = ? LIMIT 1`,
+      [leaseId]
+    );
+    if (leaseRows.length === 0) throw new Error("Lease not found");
+    const lease = leaseRows[0];
+    const status = String(lease.lease_status || "").toUpperCase();
+    if (status !== "ACTIVE" && status !== "EXPIRED") {
+      throw new Error("Only ACTIVE or EXPIRED leases can be renewed");
+    }
+
+    const new_end_date = renewalData.new_end_date;
+    if (!new_end_date || !/\d{4}-\d{2}-\d{2}/.test(new_end_date)) {
+      throw new Error(
+        "Valid new_end_date (YYYY-MM-DD) is required for renewal"
+      );
+    }
+    const oldRent = Number(lease.monthly_rent || 0);
+    const newMonthlyRent =
+      renewalData.new_monthly_rent !== undefined &&
+        renewalData.new_monthly_rent !== null
+        ? Number(renewalData.new_monthly_rent)
+        : oldRent;
+    if (isNaN(newMonthlyRent) || newMonthlyRent <= 0) {
+      throw new Error("Invalid new monthly rent");
+    }
+    let rentIncreasePct = 0;
+    if (oldRent > 0) {
+      rentIncreasePct = ((newMonthlyRent - oldRent) / oldRent) * 100;
+    }
+    rentIncreasePct = Math.round(rentIncreasePct * 100) / 100;
+
+    const updatedNotes = renewalData.notes
+      ? `${lease.notes ? lease.notes + "\n" : ""}Renewal: ${renewalData.notes}`
+      : lease.notes;
+
+    await conn.query(
+      `UPDATE leases SET lease_end_date = ?, monthly_rent = ?, renewal_count = COALESCE(renewal_count,0) + 1, rent_increase_on_renewal = ?, lease_status = 'ACTIVE', updated_at = NOW(), notes = ? WHERE lease_id = ?`,
+      [new_end_date, newMonthlyRent, rentIncreasePct, updatedNotes, leaseId]
+    );
+
+    try {
+      await conn.query(
+        `INSERT INTO lease_renewals (lease_id, previous_end_date, new_end_date, previous_rent, new_rent, rent_increase_pct, notes) VALUES (?,?,?,?,?,?,?)`,
+        [
+          leaseId,
+          lease.lease_end_date && lease.lease_end_date.split
+            ? lease.lease_end_date.split("T")[0]
+            : lease.lease_end_date,
+          new_end_date,
+          oldRent,
+          newMonthlyRent,
+          rentIncreasePct,
+          renewalData.notes || null,
+        ]
+      );
+    } catch (e) {
+      console.warn("Failed to insert renewal log for lease", leaseId, e);
+    }
+
+    await conn.commit();
+    conn.release();
+
+    try {
+      if (lease.user_id) {
+        await notificationsServices.createNotification(
+          {
+            user_id: lease.user_id,
+            type: "LEASE",
+            title: "Lease Renewed",
+            body: `Your lease has been renewed. New end date: ${new_end_date}.`,
+            link: "/leaseTenant.html",
+            meta: { lease_id: leaseId },
+          },
+          io
+        );
+      }
+    } catch (e) {
+      console.warn("Failed to notify tenant of renewal", e);
+    }
+
+    return {
+      message: "Lease renewed successfully",
+      lease_id: leaseId,
+      new_end_date,
+      new_monthly_rent: newMonthlyRent,
+      rent_increase_percentage: rentIncreasePct,
+    };
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    throw error;
+  }
+};
+
 export default {
   createLease,
   getAllLeases,
@@ -613,4 +850,6 @@ export default {
   getLeaseByUserId,
   updateLeaseById,
   deleteLeaseById,
+  terminateLease,
+  renewLease,
 };

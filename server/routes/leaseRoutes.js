@@ -7,6 +7,8 @@ import {
   getLeaseByUserId,
   updateLeaseById,
   deleteLeaseById,
+  terminateLease,
+  renewLease,
 } from "../controllers/leaseControllers.js";
 import createUploadMiddleware from "../middlewares/multer/uploadMiddleware.js";
 
@@ -19,14 +21,18 @@ router.post(
     fieldFolders: {
       contract: "lease_contracts",
     },
-  }), protect,
+  }),
+  protect,
   createLease
 );
 
 router.get("/", protect, getAllLeases);
-// Place more specific route before generic :id to avoid shadowing
+
 router.get("/users/:userId", protect, getLeaseByUserId);
 router.get("/:id", protect, getSingleLeaseById);
+
+router.post("/:id/terminate", protect, terminateLease);
+router.post("/:id/renew", protect, renewLease);
 
 router.patch(
   "/:id",
@@ -35,7 +41,8 @@ router.patch(
     fieldFolders: {
       contract: "lease_contracts",
     },
-  }), protect,
+  }),
+  protect,
   updateLeaseById
 );
 

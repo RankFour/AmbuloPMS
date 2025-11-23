@@ -9,12 +9,14 @@ const createLease = expressAsync(async (req, res) => {
         : null;
 
     const leaseData = req.body;
-    const io = req.app && req.app.get ? req.app.get('io') : null;
+    const io = req.app && req.app.get ? req.app.get("io") : null;
     const result = await leaseServices.createLease(leaseData, contractFile, io);
     res.status(201).json(result);
   } catch (error) {
     console.error("Error creating lease:", error);
-    res.status(400).json({ message: error.message || "Failed to create lease" });
+    res
+      .status(400)
+      .json({ message: error.message || "Failed to create lease" });
   }
 });
 
@@ -46,7 +48,9 @@ const getLeaseByUserId = expressAsync(async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error("Error getting leases by user:", error);
-    res.status(400).json({ message: error.message || "Failed to get leases by user" });
+    res
+      .status(400)
+      .json({ message: error.message || "Failed to get leases by user" });
   }
 });
 
@@ -59,12 +63,19 @@ const updateLeaseById = expressAsync(async (req, res) => {
         ? req.files["contract"][0]
         : null;
 
-    const io = req.app && req.app.get ? req.app.get('io') : null;
-    const result = await leaseServices.updateLeaseById(leaseId, leaseData, contractFile, io);
+    const io = req.app && req.app.get ? req.app.get("io") : null;
+    const result = await leaseServices.updateLeaseById(
+      leaseId,
+      leaseData,
+      contractFile,
+      io
+    );
     res.status(200).json(result);
   } catch (error) {
     console.error("Error updating lease:", error);
-    res.status(400).json({ message: error.message || "Failed to update lease" });
+    res
+      .status(400)
+      .json({ message: error.message || "Failed to update lease" });
   }
 });
 
@@ -75,7 +86,41 @@ const deleteLeaseById = expressAsync(async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error("Error deleting lease:", error);
-    res.status(400).json({ message: error.message || "Failed to delete lease" });
+    res
+      .status(400)
+      .json({ message: error.message || "Failed to delete lease" });
+  }
+});
+
+const terminateLease = expressAsync(async (req, res) => {
+  try {
+    const leaseId = req.params.id;
+    const terminationData = req.body || {};
+    const io = req.app && req.app.get ? req.app.get("io") : null;
+    const result = await leaseServices.terminateLease(
+      leaseId,
+      terminationData,
+      io
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error terminating lease:", error);
+    res
+      .status(400)
+      .json({ message: error.message || "Failed to terminate lease" });
+  }
+});
+
+const renewLease = expressAsync(async (req, res) => {
+  try {
+    const leaseId = req.params.id;
+    const renewalData = req.body || {};
+    const io = req.app && req.app.get ? req.app.get("io") : null;
+    const result = await leaseServices.renewLease(leaseId, renewalData, io);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error renewing lease:", error);
+    res.status(400).json({ message: error.message || "Failed to renew lease" });
   }
 });
 
@@ -86,4 +131,6 @@ export {
   getLeaseByUserId,
   updateLeaseById,
   deleteLeaseById,
+  terminateLease,
+  renewLease,
 };
