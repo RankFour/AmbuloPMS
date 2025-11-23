@@ -14,6 +14,7 @@ import leaseContractsTable from "./leaseContractsTable.js";
 import leasesTable from "./leasesTable.js";
 import leaseDefaultTable from "./leaseDefaultTable.js";
 import leaseTerminationTable from "./leaseTerminationTable.js";
+import leaseRenewalsTable from "./leaseRenewalsTable.js";
 
 // tickets
 import ticketsTable from "./ticketsTable.js";
@@ -66,6 +67,7 @@ const tables = async (dbConnection) => {
     leasesTable,
     leaseDefaultTable,
     leaseTerminationTable,
+    leaseRenewalsTable,
 
     // tickets
     ticketsTable,
