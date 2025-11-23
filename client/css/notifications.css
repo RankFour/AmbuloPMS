@@ -24,14 +24,15 @@
 }
 
 #notificationMenu {
-  width: 360px;
-  max-height: 440px;
+  width: 550px;
+  max-height: 450px;
   overflow: hidden;
   padding: 0;
   box-shadow: var(--notif-shadow);
   border-radius: var(--notif-radius);
 }
 #notificationMenu .dropdown-header {
+  font-size: 1.2rem;
   padding: 12px 14px;
   font-weight: 600;
   border-bottom: 1px solid var(--notif-border);

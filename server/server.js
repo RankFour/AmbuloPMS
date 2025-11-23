@@ -39,6 +39,7 @@ import documentsRoutes from './routes/documentsRoutes.js';
 import remindersService from './services/remindersService.js';
 import recurringRoutes from './routes/recurringRoutes.js';
 import recurringGenerationService from './services/recurringGenerationService.js';
+import leaseServices from './services/leaseServices.js';
 
 
 import tables from './tables/tables.js';
@@ -203,6 +204,8 @@ const startServer = async () => {
         // Start scheduled background jobs after server is up
         try { remindersService.startChargeReminderJob(app); } catch (e) { console.error('Failed to start reminders job', e); }
         try { recurringGenerationService.startRecurringGenerationJob(app, { intervalMinutes: parseInt(process.env.RECURRING_GEN_INTERVAL_MIN || '15', 10) || 15, lookaheadDays: parseInt(process.env.RECURRING_GEN_LOOKAHEAD_DAYS || '14', 10) || 14 }); } catch (e) { console.error('Failed to start recurring generation job', e); }
+        try { leaseServices.startLeaseRenewalReminderJob(app, { intervalMinutes: parseInt(process.env.RENEWAL_REMINDER_INTERVAL_MIN || '1440', 10) || 1440 }); } catch (e) { console.error('Failed to start lease renewal reminder job', e); }
+        try { leaseServices.startAutoLeaseTerminationJob(app, { intervalMinutes: parseInt(process.env.AUTO_TERMINATION_INTERVAL_MIN || '1440', 10) || 1440 }); } catch (e) { console.error('Failed to start auto lease termination job', e); }
     } catch (error) {
         console.log(error);
     }

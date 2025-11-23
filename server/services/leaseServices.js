@@ -635,7 +635,11 @@ const terminateLease = async (leaseId, terminationData = {}, io = null) => {
     await conn.beginTransaction();
 
     const [leaseRows] = await conn.query(
-      `SELECT lease_id, user_id, property_id, lease_status FROM leases WHERE lease_id = ? LIMIT 1`,
+      `SELECT l.lease_id, l.user_id, l.property_id, l.lease_status,
+        CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name, u.suffix) AS tenant_name
+        FROM leases l
+        LEFT JOIN users u ON l.user_id = u.user_id
+        WHERE l.lease_id = ? LIMIT 1`,
       [leaseId]
     );
     if (leaseRows.length === 0) throw new Error("Lease not found");
@@ -719,7 +723,8 @@ const terminateLease = async (leaseId, terminationData = {}, io = null) => {
             user_id: lease.user_id,
             type: "LEASE",
             title: "Lease Terminated",
-            body: `Your lease has been terminated (Reason: ${termination_reason}).`,
+            body: `${lease.tenant_name || "Your"
+              } lease has been terminated (Reason: ${termination_reason}).`,
             link: "/leaseTenant.html",
             meta: { lease_id: leaseId, termination_id },
           },
@@ -728,6 +733,41 @@ const terminateLease = async (leaseId, terminationData = {}, io = null) => {
       }
     } catch (e) {
       console.warn("Failed to notify tenant of termination", e);
+    }
+
+    try {
+      const [adminRows] = await pool.query(
+        "SELECT user_id FROM users WHERE role IN ('ADMIN','SUPERADMIN','MANAGER')"
+      );
+      for (const admin of adminRows) {
+        try {
+          await notificationsServices.createNotification(
+            {
+              user_id: admin.user_id,
+              type: "LEASE",
+              title: "Lease Terminated",
+              body: `Lease ${leaseId} (${lease.tenant_name || "Tenant"
+                }) terminated. Reason: ${termination_reason}. Advance: ${advance_payment_status}. Security Deposit: ${security_deposit_status}. Date: ${termination_date}.`,
+              link: "/leaseAdmin.html",
+              meta: {
+                lease_id: leaseId,
+                termination_id,
+                reason: termination_reason,
+                tenant_name: lease.tenant_name,
+              },
+            },
+            io
+          );
+        } catch (e) {
+          console.warn(
+            "Failed to notify admin of termination",
+            admin.user_id,
+            e
+          );
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch admins for termination notification", e);
     }
 
     return {
@@ -749,7 +789,10 @@ const renewLease = async (leaseId, renewalData = {}, io = null) => {
     await conn.beginTransaction();
 
     const [leaseRows] = await conn.query(
-      `SELECT * FROM leases WHERE lease_id = ? LIMIT 1`,
+      `SELECT l.*, CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name, u.suffix) AS tenant_name
+        FROM leases l
+        LEFT JOIN users u ON l.user_id = u.user_id
+        WHERE l.lease_id = ? LIMIT 1`,
       [leaseId]
     );
     if (leaseRows.length === 0) throw new Error("Lease not found");
@@ -818,7 +861,8 @@ const renewLease = async (leaseId, renewalData = {}, io = null) => {
             user_id: lease.user_id,
             type: "LEASE",
             title: "Lease Renewed",
-            body: `Your lease has been renewed. New end date: ${new_end_date}.`,
+            body: `${lease.tenant_name || "Your"
+              } lease has been renewed. New end date: ${new_end_date}.`,
             link: "/leaseTenant.html",
             meta: { lease_id: leaseId },
           },
@@ -827,6 +871,43 @@ const renewLease = async (leaseId, renewalData = {}, io = null) => {
       }
     } catch (e) {
       console.warn("Failed to notify tenant of renewal", e);
+    }
+
+    try {
+      const [adminRows] = await pool.query(
+        "SELECT user_id FROM users WHERE role IN ('ADMIN','SUPERADMIN','MANAGER')"
+      );
+      for (const admin of adminRows) {
+        try {
+          await notificationsServices.createNotification(
+            {
+              user_id: admin.user_id,
+              type: "LEASE",
+              title: "Lease Renewed",
+              body: `Lease ${leaseId} (${lease.tenant_name || "Tenant"
+                }) renewed. Old end: ${lease.lease_end_date?.split
+                  ? lease.lease_end_date.split("T")[0]
+                  : lease.lease_end_date
+                } → New end: ${new_end_date}. Rent: ₱${oldRent.toLocaleString()} → ₱${newMonthlyRent.toLocaleString()} (${rentIncreasePct}% change).`,
+              link: "/leaseAdmin.html",
+              meta: {
+                lease_id: leaseId,
+                previous_end_date: lease.lease_end_date,
+                new_end_date,
+                previous_rent: oldRent,
+                new_rent: newMonthlyRent,
+                rent_increase_pct: rentIncreasePct,
+                tenant_name: lease.tenant_name,
+              },
+            },
+            io
+          );
+        } catch (e) {
+          console.warn("Failed to notify admin of renewal", admin.user_id, e);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch admins for renewal notification", e);
     }
 
     return {
@@ -843,6 +924,226 @@ const renewLease = async (leaseId, renewalData = {}, io = null) => {
   }
 };
 
+const scanAndSendRenewalReminders = async (io = null) => {
+  try {
+    const [dueRows] = await pool.query(`
+      SELECT l.lease_id, l.user_id, l.property_id, l.lease_end_date, l.notice_before_renewal_days, l.monthly_rent, p.property_name,
+        CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name, u.suffix) AS tenant_name
+      FROM leases l
+      LEFT JOIN properties p ON l.property_id = p.property_id
+      LEFT JOIN users u ON l.user_id = u.user_id
+      WHERE l.lease_status IN ('ACTIVE','EXPIRED')
+        AND l.notice_before_renewal_days IS NOT NULL
+        AND l.notice_before_renewal_days > 0
+        AND DATEDIFF(l.lease_end_date, CURDATE()) = l.notice_before_renewal_days
+    `);
+    if (!dueRows.length) return { processed: 0 };
+
+    let adminUsers = [];
+    try {
+      const [admins] = await pool.query(
+        "SELECT user_id FROM users WHERE role IN ('ADMIN','SUPERADMIN','MANAGER')"
+      );
+      adminUsers = admins.map((a) => a.user_id);
+    } catch (e) {
+      console.warn("Failed to fetch admins for renewal reminders", e);
+    }
+
+    let sent = 0;
+    for (const row of dueRows) {
+      const leaseId = row.lease_id;
+      const endDate =
+        row.lease_end_date && row.lease_end_date.split
+          ? row.lease_end_date.split("T")[0]
+          : row.lease_end_date;
+      const daysBefore = Number(row.notice_before_renewal_days || 0);
+      if (!daysBefore) continue;
+
+      try {
+        const [existingTenant] = await pool.query(
+          `SELECT notification_id FROM notifications WHERE user_id = ? AND title = 'Lease Renewal Reminder' AND DATE(created_at) = CURDATE() AND JSON_EXTRACT(meta,'$.lease_id') = ? LIMIT 1`,
+          [row.user_id, leaseId]
+        );
+        if (!existingTenant.length) {
+          try {
+            await notificationsServices.createNotification(
+              {
+                user_id: row.user_id,
+                type: "LEASE",
+                title: "Lease Renewal Reminder",
+                body: `${row.tenant_name || "Your"} lease for ${row.property_name || "a property"
+                  } ends on ${endDate}. It is ${daysBefore} day(s) away. Please review renewal options.`,
+                link: "/leaseTenant.html",
+                meta: {
+                  lease_id: leaseId,
+                  kind: "RENEWAL_REMINDER",
+                  days_before: daysBefore,
+                  tenant_name: row.tenant_name,
+                },
+              },
+              io
+            );
+            sent++;
+          } catch (e) {
+            console.warn(
+              "Failed to notify tenant renewal reminder",
+              leaseId,
+              e
+            );
+          }
+        }
+      } catch (e) {
+        console.warn(
+          "Duplicate check failed (tenant) for renewal reminder",
+          leaseId,
+          e
+        );
+      }
+
+      for (const adminId of adminUsers) {
+        try {
+          const [existingAdmin] = await pool.query(
+            `SELECT notification_id FROM notifications WHERE user_id = ? AND title = 'Lease Renewal Reminder' AND DATE(created_at) = CURDATE() AND JSON_EXTRACT(meta,'$.lease_id') = ? LIMIT 1`,
+            [adminId, leaseId]
+          );
+          if (existingAdmin.length) continue;
+          try {
+            await notificationsServices.createNotification(
+              {
+                user_id: adminId,
+                type: "LEASE",
+                title: "Lease Renewal Reminder",
+                body: `Lease ${leaseId} (${row.tenant_name || "Tenant"} – ${row.property_name || "property"
+                  }) ends on ${endDate} in ${daysBefore} day(s). Consider initiating renewal.`,
+                link: "/leaseAdmin.html",
+                meta: {
+                  lease_id: leaseId,
+                  kind: "RENEWAL_REMINDER",
+                  days_before: daysBefore,
+                  tenant_name: row.tenant_name,
+                },
+              },
+              io
+            );
+            sent++;
+          } catch (e) {
+            console.warn(
+              "Failed to notify admin renewal reminder",
+              adminId,
+              leaseId,
+              e
+            );
+          }
+        } catch (e) {
+          console.warn(
+            "Duplicate check failed (admin) for renewal reminder",
+            leaseId,
+            adminId,
+            e
+          );
+        }
+      }
+    }
+    return { processed: dueRows.length, sent };
+  } catch (err) {
+    console.error("scanAndSendRenewalReminders error", err);
+    return { processed: 0, sent: 0, error: err.message };
+  }
+};
+
+const startLeaseRenewalReminderJob = (app, { intervalMinutes = 1440 } = {}) => {
+  try {
+    const io = app.get && app.get("io");
+    const intervalMs = intervalMinutes * 60 * 1000;
+    const run = async () => {
+      try {
+        const result = await scanAndSendRenewalReminders(io);
+        if (result.processed) {
+          console.info("[LeaseRenewalReminderJob] Checked leases:", result);
+        }
+      } catch (e) {
+        console.error("[LeaseRenewalReminderJob] run failed", e);
+      }
+    };
+
+    run();
+    setInterval(run, intervalMs);
+    console.info(
+      "[LeaseRenewalReminderJob] Started with interval",
+      intervalMinutes,
+      "minute(s)"
+    );
+  } catch (e) {
+    console.error("Failed to start Lease Renewal Reminder job", e);
+  }
+};
+
+const autoTerminateExpiredLeases = async (io = null) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const [rows] = await pool.query(`
+      SELECT l.lease_id
+      FROM leases l
+      WHERE l.lease_status IN ('ACTIVE','EXPIRED')
+        AND l.lease_end_date < CURDATE()
+    `);
+    if (!rows.length) return { processed: 0, terminated: 0 };
+    let terminated = 0;
+    for (const r of rows) {
+      try {
+        await terminateLease(
+          r.lease_id,
+          {
+            termination_reason: "End-of-term",
+            termination_date: today,
+            notes: "Automatically terminated after end date.",
+            advance_payment_status: "Applied to rent",
+            security_deposit_status: "Held",
+          },
+          io
+        );
+        terminated++;
+      } catch (e) {
+        console.warn(
+          "Auto termination failed for lease",
+          r.lease_id,
+          e.message
+        );
+      }
+    }
+    return { processed: rows.length, terminated };
+  } catch (e) {
+    console.error("autoTerminateExpiredLeases error", e);
+    return { processed: 0, terminated: 0, error: e.message };
+  }
+};
+
+const startAutoLeaseTerminationJob = (app, { intervalMinutes = 1440 } = {}) => {
+  try {
+    const io = app.get && app.get("io");
+    const intervalMs = intervalMinutes * 60 * 1000;
+    const run = async () => {
+      try {
+        const result = await autoTerminateExpiredLeases(io);
+        if (result.terminated) {
+          console.info("[AutoLeaseTerminationJob] Terminated leases:", result);
+        }
+      } catch (e) {
+        console.error("[AutoLeaseTerminationJob] run failed", e);
+      }
+    };
+    run();
+    setInterval(run, intervalMs);
+    console.info(
+      "[AutoLeaseTerminationJob] Started with interval",
+      intervalMinutes,
+      "minute(s)"
+    );
+  } catch (e) {
+    console.error("Failed to start Auto Lease Termination job", e);
+  }
+};
+
 export default {
   createLease,
   getAllLeases,
@@ -852,4 +1153,8 @@ export default {
   deleteLeaseById,
   terminateLease,
   renewLease,
+  scanAndSendRenewalReminders,
+  startLeaseRenewalReminderJob,
+  autoTerminateExpiredLeases,
+  startAutoLeaseTerminationJob,
 };
