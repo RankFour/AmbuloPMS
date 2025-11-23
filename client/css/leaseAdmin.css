@@ -434,6 +434,49 @@ body:has(.sidebar.collapsed) .main-content,
   border: 1px solid #6b7280;
 }
 
+/* Lease Indicators */
+.indicators-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 48px;
+}
+.lease-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: relative;
+  cursor: help;
+  transition: transform .2s ease, box-shadow .2s ease;
+  flex-shrink: 0;
+}
+.lease-indicator.renewed {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16,185,129,.35);
+}
+.lease-indicator.renewal-soon {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245,158,11,.35);
+}
+.lease-indicator:hover {
+  transform: scale(1.35);
+}
+.lease-indicator[data-tooltip]:hover:after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  transform: translate(-50%, -100%);
+  background: #1f2937;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  z-index: 10;
+}
+
 .status-pending {
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   color: #92400e;

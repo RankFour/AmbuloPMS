@@ -122,9 +122,7 @@ async function updateStatsBar() {
 
     let properties = getSessionCache("properties");
     if (!properties) {
-      const propRes = await fetch(
-        "/api/v1/properties?status=Available&limit=1000"
-      );
+      const propRes = await fetch("/api/v1/properties?status=Available&limit=1000");
       if (propRes.ok) {
         const propData = await propRes.json();
         properties = propData.properties || [];
@@ -137,22 +135,14 @@ async function updateStatsBar() {
     let vacant = "-";
     try {
       const leasedPropertyIds = leases
-        .filter((lease) =>
-          ["ACTIVE", "PENDING"].includes(
-            (lease.lease_status || "").toUpperCase()
-          )
-        )
+        .filter((lease) => ["ACTIVE", "PENDING"].includes((lease.lease_status || "").toUpperCase()))
         .map((lease) => lease.property_id);
-      const trulyVacant = properties.filter(
-        (prop) => !leasedPropertyIds.includes(prop.property_id)
-      );
+      const trulyVacant = properties.filter((prop) => !leasedPropertyIds.includes(prop.property_id));
       vacant = trulyVacant.length;
     } catch { }
 
     let total = leases.length;
-    let active = 0,
-      pending = 0,
-      terminated = 0;
+    let active = 0, pending = 0, terminated = 0;
     let expiring = 0;
     let totalDuration = 0;
     const now = new Date();
@@ -168,34 +158,16 @@ async function updateStatsBar() {
         if (diffDays > 0 && diffDays <= 30) expiring++;
         if (lease.lease_start_date) {
           const startDate = new Date(lease.lease_start_date);
-          const durationMonths = Math.round(
-            (endDate - startDate) / (1000 * 60 * 60 * 24 * 30)
-          );
+            const durationMonths = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24 * 30));
           totalDuration += durationMonths;
         }
       }
     });
-    let avgduration = total > 0 ? Math.round(totalDuration / total) : "-";
+    const avgduration = total > 0 ? Math.round(totalDuration / total) : "-";
 
-    setStatsBar({
-      total,
-      active,
-      pending,
-      terminated,
-      expiring,
-      vacant,
-      avgduration,
-    });
+    setStatsBar({ total, active, pending, terminated, expiring, vacant, avgduration });
   } catch (err) {
-    setStatsBar({
-      total: "-",
-      active: "-",
-      pending: "-",
-      terminated: "-",
-      expiring: "-",
-      vacant: "-",
-      avgduration: "-",
-    });
+    setStatsBar({ total: "-", active: "-", pending: "-", terminated: "-", expiring: "-", vacant: "-", avgduration: "-" });
     console.error("Stats bar error:", err);
   }
 }
@@ -773,59 +745,52 @@ async function loadLeaseTable() {
 
     leases.forEach((lease, idx) => {
       const row = document.createElement("tr");
+      let hasRenewals = false;
+      try { hasRenewals = Number(lease.renewal_count) > 0 || (Array.isArray(lease.renewal_history) && lease.renewal_history.length > 0); } catch { }
+      let daysToEnd = null; let goodForRenewal = false;
+      try {
+        if (lease.lease_end_date) {
+          const endDateObj = new Date(lease.lease_end_date);
+          const today = new Date();
+          daysToEnd = Math.ceil((endDateObj - today) / (1000 * 60 * 60 * 24));
+          const windowDays = Number(lease.notice_before_renewal_days || 0);
+          goodForRenewal = (String(lease.lease_status || '').toUpperCase() === 'ACTIVE') && windowDays > 0 && daysToEnd > 0 && daysToEnd <= windowDays;
+        }
+      } catch { }
+      const indicatorSpans = [];
+      if (hasRenewals) indicatorSpans.push(`<span class="lease-indicator renewed" data-tooltip="Renewed ${lease.renewal_count || (Array.isArray(lease.renewal_history)?lease.renewal_history.length:0)} time(s)"></span>`);
+      if (goodForRenewal) {
+        const windowDays = Number(lease.notice_before_renewal_days || 0);
+        indicatorSpans.push(`<span class="lease-indicator renewal-soon" data-tooltip="Eligible for renewal: ${daysToEnd} day(s) left (window ${windowDays}d)"></span>`);
+      }
+      const inlineIndicators = indicatorSpans.length ? `<span style="display:inline-flex;gap:4px;margin-left:6px;vertical-align:middle;">${indicatorSpans.join('')}</span>` : '';
+
       row.innerHTML = `
-          <td>
-            <strong style="color: #1f2937; font-weight: 700;">${idx + 1 + (filters.page - 1) * 10
-        }</strong>
-          </td>
-          <td>
-            <div style="font-weight: 600; color: #111827;">${lease.tenant_name || ""
-        }</div>
-            <div style="font-size: 12px; color: #6b7280;">User ID: ${lease.user_id || ""
-        }</div>
-          </td>
-          <td>
-            <div style="font-weight: 500; color: #111827;">${lease.property_name || ""
-        }</div>
-            <div style="font-size: 12px; color: #6b7280;">Property ID: ${lease.property_id || ""
-        }</div>
-          </td>
-          <td>
-            <div style="font-size: 13px; font-weight: 500;">${formatDate(
-          lease.lease_start_date
-        )}</div>
-            <div style="font-size: 12px; color: #6b7280;">to ${formatDate(
-          lease.lease_end_date
-        )}</div>
-            <div style="font-size: 11px; color: #9ca3af;">${getDuration(
-          lease.lease_start_date,
-          lease.lease_end_date
-        )}</div>
-          </td>
-          <td>
-            <span class="status-badge status-${(
-          lease.lease_status || ""
-        ).toLowerCase()}">${lease.lease_status || ""}</span>
-          </td>
-          <td>
-            <div style="font-weight: 700; color: #059669; font-size: 16px;">₱${(
-          lease.monthly_rent || 0
-        ).toLocaleString()}</div>
-            <div style="font-size: 12px; color: #6b7280;">${lease.payment_frequency || ""
-        }</div>
-          </td>
-          <td>
-            <div style="font-weight: 500;">${getNextDueDate(lease)}</div>
-          </td>
-          <td>
-            <button class="action-btn action-view" onclick="showDetailView('${lease.lease_id
-        }')" title="View Details"><i class="fa-solid fa-eye"></i></button>
-            <button class="action-btn action-edit" onclick="showEditView('${lease.lease_id
-        }')" title="Edit Lease"><i class="fa-solid fa-pen"></i></button>
-            <button class="action-btn action-delete" onclick="showDeleteModal('${lease.lease_id
-        }')" title="Delete Lease"><i class="fa-solid fa-trash"></i></button>
-          </td>
-        `;
+        <td><strong style="color:#1f2937;font-weight:700;">${idx + 1 + (filters.page - 1) * 10}</strong></td>
+        <td>
+          <div style="font-weight:600;color:#111827;">${lease.tenant_name || ''}</div>
+          <div style="font-size:12px;color:#6b7280;">User ID: ${lease.user_id || ''}</div>
+        </td>
+        <td>
+          <div style="font-weight:500;color:#111827;">${lease.property_name || ''}</div>
+          <div style="font-size:12px;color:#6b7280;">Property ID: ${lease.property_id || ''}</div>
+        </td>
+        <td>
+          <div style="font-size:13px;font-weight:500;">${formatDate(lease.lease_start_date)}</div>
+          <div style="font-size:12px;color:#6b7280;">to ${formatDate(lease.lease_end_date)}</div>
+          <div style="font-size:11px;color:#9ca3af;">${getDuration(lease.lease_start_date, lease.lease_end_date)}</div>
+        </td>
+        <td><span class="status-badge status-${(lease.lease_status || '').toLowerCase()}">${lease.lease_status || ''}</span>${inlineIndicators}</td>
+        <td>
+          <div style="font-weight:700;color:#059669;font-size:16px;">₱${(lease.monthly_rent || 0).toLocaleString()}</div>
+          <div style="font-size:12px;color:#6b7280;">${lease.payment_frequency || ''}</div>
+        </td>
+        <td><div style="font-weight:500;">${getNextDueDate(lease)}</div></td>
+        <td>
+          <button class="action-btn action-view" onclick="showDetailView('${lease.lease_id}')" title="View Details"><i class="fa-solid fa-eye"></i></button>
+          <button class="action-btn action-edit" onclick="showEditView('${lease.lease_id}')" title="Edit Lease"><i class="fa-solid fa-pen"></i></button>
+          <button class="action-btn action-delete" onclick="showDeleteModal('${lease.lease_id}')" title="Delete Lease"><i class="fa-solid fa-trash"></i></button>
+        </td>`;
       tableBody.appendChild(row);
     });
   } catch (error) {
