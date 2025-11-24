@@ -183,18 +183,26 @@ const deleteUserById = expressAsync(async (req, res) => {
 });
 
 const logoutUser = (req, res) => {
-  const cookieDomain =
-    process.env.NODE_ENV === "production"
-      ? process.env.COOKIE_DOMAIN
-      : process.env.COOKIE_DOMAIN_LOCAL;
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-    domain: cookieDomain,
-  });
-  res.json({ message: "Logged out successfully" });
+  try {
+    const prod = process.env.NODE_ENV === 'production';
+    const cookieDomain = prod ? process.env.COOKIE_DOMAIN : process.env.COOKIE_DOMAIN_LOCAL;
+
+    const variants = [
+      { httpOnly: false, sameSite: 'lax', path: '/' },
+      { httpOnly: true, sameSite: 'strict', path: '/' },
+    ];
+    if (cookieDomain) {
+      variants.push({ httpOnly: false, sameSite: 'lax', path: '/', domain: cookieDomain });
+      variants.push({ httpOnly: true, sameSite: 'strict', path: '/', domain: cookieDomain });
+    }
+    for (const v of variants) {
+      try { res.clearCookie('token', { ...v, secure: prod }); } catch (_) { }
+      try { res.cookie('token', '', { ...v, secure: prod, maxAge: 0 }); } catch (_) { }
+    }
+    res.json({ message: 'Logged out successfully' });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to logout', detail: e.message || String(e) });
+  }
 };
 
 const resendSetupEmail = expressAsync(async (req, res) => {
