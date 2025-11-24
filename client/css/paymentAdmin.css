@@ -1565,6 +1565,12 @@ body:has(.sidebar.collapsed) .main-content,
   backdrop-filter: blur(5px);
 }
 
+.modal.active-modal {
+  display: flex !important;
+  align-items: flex-start;
+  justify-content: center;
+}
+
 .modal-content {
   background: white;
   margin: 5% auto;

@@ -2670,15 +2670,14 @@ async function openStandardEditModal(charge, lease) {
         return "";
     };
 
-    const mapped = {
-        id: use.charge_id || use.id,
-        type: use.charge_type || use.type,
-        description: use.description,
-        amount: parseFloat(use.amount || use.amount_paid || 0) || 0,
-        dueDate: formatForDateInput(use.due_date || use.dueDate || ""),
-        status: use.status,
-        template_id: use.template_id || null,
-    };
+        const mapped = {
+            id: charge.charge_id || charge.id,
+            type: charge.charge_type || charge.type,
+            description: charge.description || '',
+            amount: parseFloat(charge.amount || charge.amount_paid || 0) || 0,
+            dueDate: formatForDateInput(charge.due_date || charge.dueDate || ''),
+            template_id: charge.template_id || null
+        };
 
     document.getElementById("editChargeId").value = mapped.id;
     document.getElementById("editChargeType").value = mapped.type;
@@ -2889,10 +2888,7 @@ window.handleEditRecurringSubmission = async function (event) {
     const formData = new FormData(form);
     const templateId = document.getElementById("editRecurringTemplateId").value;
     if (!templateId) {
-        showAlert(
-            "This recurring charge doesn't have a template to edit.",
-            "error"
-        );
+        showAlert("This recurring charge doesn't have a template to edit.", "error");
         submitBtn && submitBtn.removeAttribute("disabled");
         submitBtn && submitBtn.classList.remove("loading");
         return;
@@ -3033,22 +3029,34 @@ function removeCharge(id) {
         showAlert("Charge not found", "error");
         return;
     }
-
     chargeToDelete = { charge, lease };
-
-    document.getElementById("deleteChargeTenant").textContent = lease.tenant;
-    document.getElementById("deleteChargeUnit").textContent = lease.unit;
-    document.getElementById("deleteChargeDescription").textContent =
-        charge.description;
-    document.getElementById("deleteChargeAmount").textContent = formatCurrency(
-        charge.amount
-    );
-    document.getElementById("deleteChargeDueDate").textContent = formatDate(
-        charge.dueDate
-    );
-
-    createModalsAndDialogs();
-    openModal("deleteChargeModal");
+    const html = `
+        <div class="modal-header">
+            <h3 style="margin:0;">Delete Charge</h3>
+            <button class="close" aria-label="Close" onclick="closeDynamicModal('modal-delete-charge')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+                <i class="fas fa-exclamation-triangle" style="color:#ef4444;font-size:22px;margin-top:2px;"></i>
+                <div>
+                    <p style="margin:0 0 6px;font-weight:600;">Are you sure you want to delete this charge?</p>
+                    <p style="margin:0;color:#64748b;">This action cannot be undone.</p>
+                </div>
+            </div>
+            <div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+                <div><label>Tenant:</label><div>${lease.tenant}</div></div>
+                <div><label>Unit:</label><div>${lease.unit}</div></div>
+                <div class="full-width" style="grid-column:1/-1;"><label>Description:</label><div>${charge.description}</div></div>
+                <div><label>Amount:</label><div>${formatCurrency(charge.amount)}</div></div>
+                <div><label>Due Date:</label><div>${formatDate(charge.dueDate)}</div></div>
+            </div>
+            <div class="modal-actions" style="margin-top:26px;">
+                <button type="button" class="btn-secondary" onclick="closeDynamicModal('modal-delete-charge')">Cancel</button>
+                <button type="button" class="btn-danger" onclick="(function(){confirmDeleteCharge();})();">Delete</button>
+            </div>
+        </div>
+    `;
+    createAndShowModal('modal-delete-charge', html);
 }
 
 async function confirmDeleteCharge() {
@@ -3120,75 +3128,49 @@ function viewChargeDetails(chargeId) {
         showAlert("Charge not found", "error");
         return;
     }
-
     currentViewingCharge = charge;
-
-    document.getElementById("viewChargeTenant").textContent = lease.tenant;
-    document.getElementById("viewChargeUnit").textContent = lease.unit;
-    document.getElementById("viewChargeType").textContent = capitalizeFirst(
-        charge.type
-    );
-    document.getElementById("viewChargeDescription").textContent =
-        charge.description;
-
-    const totalAmt = Number(charge.amount) || 0;
-    const baseAmt =
-        typeof charge.original_amount === "number" &&
-            charge.original_amount !== null
-            ? Number(charge.original_amount) || 0
-            : totalAmt;
-    const lateFeeAmt =
-        typeof charge.late_fee_amount === "number"
-            ? Number(charge.late_fee_amount) || 0
-            : 0;
-    const amountEl = document.getElementById("viewChargeAmount");
-    if (amountEl) {
-        amountEl.innerHTML = `${formatCurrency(totalAmt)}${lateFeeAmt > 0
-                ? `<div style="font-size:12px; color:#64748b; margin-top:4px;">Base: ${formatCurrency(
-                    baseAmt
-                )} + Late fee: ${formatCurrency(lateFeeAmt)}</div>`
-                : ""
-            }`;
-    }
-    document.getElementById("viewChargeDueDate").textContent = formatDate(
-        charge.dueDate
-    );
-    document.getElementById("viewChargeCreatedDate").textContent = formatDate(
-        charge.createdDate
-    );
-    document.getElementById("viewChargeStatus").innerHTML =
-        getStatusDisplay(charge);
-
-    const relatedPayments =
-        lease.paymentHistory?.filter((p) => p.chargeId === charge.id) || [];
-    const paymentHistoryDiv = document.getElementById("viewChargePaymentHistory");
-
-    if (relatedPayments.length > 0) {
-        paymentHistoryDiv.innerHTML = relatedPayments
-            .map(
-                (payment) => `
-            <div class="payment-history-item">
-                <div class="payment-info">
-                    <strong>${formatCurrency(payment.amount)}</strong>
-                    <span class="payment-method">${capitalizeFirst(
-                    payment.paymentMethod
-                )}</span>
-                </div>
-                <div class="payment-details">
-                    <div>Date: ${formatDate(payment.paymentDate)}</div>
-                    <div>Reference: ${payment.reference}</div>
-                </div>
+    const relatedPayments = lease.paymentHistory?.filter(p => p.chargeId === charge.id) || [];
+    const paymentsHtml = relatedPayments.length ? relatedPayments.map(p => `
+        <div style="padding:8px 0; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between;">
+            <div style="display:flex; flex-direction:column;">
+                <strong>${formatCurrency(p.amount)}</strong>
+                <span style="font-size:12px; color:#64748b;">${capitalizeFirst(p.paymentMethod)}</span>
             </div>
-        `
-            )
-            .join("");
-    } else {
-        paymentHistoryDiv.innerHTML =
-            '<p class="no-payments">No payments recorded for this charge</p>';
-    }
-
-    createModalsAndDialogs();
-    openModal("viewChargeModal");
+            <div style="text-align:right; font-size:12px; color:#475569;">
+                <div>${formatDate(p.paymentDate)}</div>
+                <div>Ref: ${p.reference}</div>
+            </div>
+        </div>`).join('') : '<p style="color:#64748b; margin:12px 0 0;">No payments recorded for this charge.</p>';
+    const totalAmt = Number(charge.amount)||0;
+    const baseAmt = (typeof charge.original_amount === 'number' && charge.original_amount !== null) ? Number(charge.original_amount)||0 : totalAmt;
+    const lateFeeAmt = typeof charge.late_fee_amount === 'number' ? Number(charge.late_fee_amount)||0 : 0;
+    const breakdown = lateFeeAmt>0 ? `<div style=\"font-size:12px;color:#64748b;margin-top:4px;\">Base: ${formatCurrency(baseAmt)} + Late fee: ${formatCurrency(lateFeeAmt)}</div>` : '';
+    const statusHtml = getStatusDisplay(charge);
+    const html = `
+        <div class="modal-header">
+            <h3 style="margin:0;">Charge Details</h3>
+            <button class="close" aria-label="Close" onclick="closeDynamicModal('modal-view-charge')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+                <div><label>Tenant:</label><div>${lease.tenant}</div></div>
+                <div><label>Unit:</label><div>${lease.unit}</div></div>
+                <div><label>Type:</label><div>${capitalizeFirst(charge.type)}</div></div>
+                <div><label>Amount:</label><div>${formatCurrency(totalAmt)}${breakdown}</div></div>
+                <div><label>Due Date:</label><div>${formatDate(charge.dueDate)}</div></div>
+                <div><label>Created:</label><div>${formatDate(charge.createdDate)}</div></div>
+                <div><label>Status:</label><div>${statusHtml}</div></div>
+                <div style="grid-column:1/-1;"><label>Description:</label><div>${charge.description}</div></div>
+            </div>
+            <div style="margin-top:24px;">
+                <h4 style="margin:0 0 12px;">Payment History</h4>
+                <div>${paymentsHtml}</div>
+            </div>
+            <div class="modal-actions" style="margin-top:26px;">
+                <button type="button" class="btn-secondary" onclick="closeDynamicModal('modal-view-charge')">Close</button>
+            </div>
+        </div>`;
+    createAndShowModal('modal-view-charge', html);
 }
 
 function filterCharges() {
@@ -4095,18 +4077,55 @@ document.addEventListener("click", function (e) {
 });
 
 function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = "flex";
-        document.body.style.overflow = "hidden";
-
-        const firstInput = modal.querySelector("input, textarea, select");
-        if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
-        }
+    let modal = document.getElementById(modalId);
+    if (!modal) {
+        try { createModalsAndDialogs(); } catch (e) { console.warn('Failed modal init', e); }
+        modal = document.getElementById(modalId);
     }
+    if (!modal) {
+        console.warn('Modal not found after init attempt:', modalId);
+        return;
+    }
+    modal.style.display = 'flex';
+    modal.classList.add('active-modal');
+    console.debug('[Modals] openModal -> set display flex for', modalId, 'computed:', getComputedStyle(modal).display);
+    void modal.offsetWidth;
+    document.body.style.overflow = 'hidden';
+    const firstInput = modal.querySelector('input, textarea, select');
+    if (firstInput) setTimeout(() => { try { firstInput.focus(); } catch(_){} }, 60);
 }
 
+// Dynamic standalone modal helpers for charge operations
+function createAndShowModal(id, contentHtml, { onShow } = {}) {
+    try {
+        const existing = document.getElementById(id);
+        if (existing) existing.remove();
+        const wrapper = document.createElement('div');
+        wrapper.id = id;
+        wrapper.className = 'modal active-modal';
+        wrapper.setAttribute('role','dialog');
+        wrapper.setAttribute('aria-modal','true');
+        wrapper.innerHTML = `<div class="modal-content" style="max-width:680px;">${contentHtml}</div>`;
+        document.body.appendChild(wrapper);
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => {
+            try {
+                const focusable = wrapper.querySelector('input, select, textarea, button');
+                if (focusable) focusable.focus();
+            } catch(_) {}
+        }, 40);
+        if (typeof onShow === 'function') { try { onShow(wrapper); } catch(e){ console.warn('onShow error', e); } }
+        return wrapper;
+    } catch(e){ console.error('[Modals] createAndShowModal failed', e); return null; }
+}
+
+function closeDynamicModal(id){
+    const el = document.getElementById(id);
+    if (el) el.remove();
+    if (!document.querySelector('.modal.active-modal')) {
+        document.body.style.overflow = 'auto';
+    }
+}
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -4142,7 +4161,11 @@ function showSection(sectionName) {
 }
 
 function createModalsAndDialogs() {
+    if (window.__modalsInitialized) return;
+    window.__modalsInitialized = true;
     if (document.getElementById("paymentModal")) return;
+
+    console.debug('[Modals] Initializing charge/payment modals');
 
     injectEnhancedButtonStyles();
 
@@ -4408,6 +4431,14 @@ function createModalsAndDialogs() {
     `;
 
     document.body.insertAdjacentHTML("beforeend", modalsHTML);
+    console.debug('[Modals] Modal HTML inserted');
+    console.debug('[Modals] Presence map:', {
+        paymentModal: !!document.getElementById('paymentModal'),
+        addChargeModal: !!document.getElementById('addChargeModal'),
+        editChargeModal: !!document.getElementById('editChargeModal'),
+        viewChargeModal: !!document.getElementById('viewChargeModal'),
+        deleteChargeModal: !!document.getElementById('deleteChargeModal')
+    });
 
     try {
         const methodSelect = document.getElementById("paymentMethod");
@@ -4458,6 +4489,30 @@ function createModalsAndDialogs() {
         });
     }
 }
+
+// --- Automatic modal initialization (DOMContentLoaded + immediate) ---
+(function modalAutoInit(){
+    function init(){
+        try {
+            createModalsAndDialogs();
+            console.debug('[Modals] Auto-init executed');
+        } catch(e){ console.error('[Modals] Auto-init failed', e); }
+        // Retry if critical modals still missing
+        setTimeout(() => {
+            const needed = ['paymentModal','editChargeModal','viewChargeModal','deleteChargeModal'];
+            const missing = needed.filter(id => !document.getElementById(id));
+            if (missing.length){
+                console.warn('[Modals] Retry init, missing:', missing);
+                try { window.__modalsInitialized = false; createModalsAndDialogs(); } catch(e){ console.error('[Modals] Retry init failed', e); }
+            }
+        }, 800);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+        init();
+    }
+})();
 
 function createAdvancedAddChargesModal(tenantsParam) {
     const existingModal = document.getElementById("advancedAddChargeModal");
@@ -7140,3 +7195,4 @@ window.viewPaymentDetails = viewPaymentDetails;
 window.generateReceipt = generateReceipt;
 window.sortTable = sortTable;
 window.toggleReferenceVisibility = window.toggleReferenceVisibility;
+window.closeDynamicModal = closeDynamicModal;
