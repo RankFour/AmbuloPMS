@@ -579,42 +579,7 @@
                                                 <span class="info-label">Payment Status</span>
                                                 <span class="status-badge status-active">Current</span>
                                             </div>
-                                            <button class="btn btn-primary" style="margin-top: 12px;"
-                                                onclick="viewPaymentHistory()">
-                                                View Payment History
-                                            </button>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Recent Activity -->
-                            <div class="card">
-                                <div class="card-body">
-                                    <div class="sidebar-section">
-                                        <h3>Recent Activity</h3>
-                                        <div class="notification-item notification-info">
-                                            <span style="color: #3b82f6;">💳</span>
-                                            <div>
-                                                <p style="font-size: 12px; font-weight: 600; color: #1e40af;">
-                                                    Payment
-                                                    Received</p>
-                                                <p style="font-size: 11px; color: #3b82f6;">2 days ago</p>
-                                            </div>
-                                        </div>
-                                        <div class="notification-item notification-success">
-                                            <span style="color: #10b981;">📅</span>
-                                            <div>
-                                                <p style="font-size: 12px; font-weight: 600; color: #065f46;">Lease
-                                                    Renewed</p>
-                                                <p style="font-size: 11px; color: #10b981;">1 week ago</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            style="background: none; border: none; color: #667eea; font-size: 12px; cursor: pointer; margin-top: 12px;"
-                                            onclick="viewAllActivity()">
-                                            View All Activity →
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -624,30 +589,7 @@
                                 <div class="card-body">
                                     <div class="sidebar-section">
                                         <h3>Documents</h3>
-                                        <div id="documentsList"
-                                            style="display: flex; flex-direction: column; gap: 8px;">
-                                            <div
-                                                style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f8fafc; border-radius: 6px;">
-                                                <div style="display: flex; align-items: center; gap: 8px;">
-                                                    <span>📄</span>
-                                                    <span style="font-size: 12px; font-weight: 500;">Lease
-                                                        Agreement.pdf</span>
-                                                </div>
-                                                <button class="action-btn" onclick="downloadDocument('lease-agreement')"
-                                                    title="Download">⬇️</button>
-                                            </div>
-                                            <div
-                                                style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f8fafc; border-radius: 6px;">
-                                                <div style="display: flex; align-items: center; gap: 8px;">
-                                                    <span>📋</span>
-                                                    <span style="font-size: 12px; font-weight: 500;">Property
-                                                        Inspection.pdf</span>
-                                                </div>
-                                                <button class="action-btn"
-                                                    onclick="downloadDocument('property-inspection')"
-                                                    title="Download">⬇️</button>
-                                            </div>
-                                        </div>
+                                        <div id="documentsList" style="display:flex;flex-direction:column;gap:12px;"></div>
                                         <button
                                             style="background: none; border: none; color: #667eea; font-size: 12px; cursor: pointer; margin-top: 12px;"
                                             onclick="uploadNewDocument()">

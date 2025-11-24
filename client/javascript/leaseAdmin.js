@@ -1364,7 +1364,7 @@ function mapLeaseToFormFields(lease) {
   return out;
 }
 
-function loadDetailView(lease) {
+async function loadDetailView(lease) {
   try {
     document.getElementById(
       "detailTitle"
@@ -1636,6 +1636,108 @@ function loadDetailView(lease) {
     } catch (e) {
       const historyCard = document.getElementById("renewalHistoryCard");
       if (historyCard) historyCard.style.display = "none";
+    }
+
+    // Dynamic Documents (Contract) Rendering (list + contract via secure proxy)
+    try {
+      const documentsListEl = document.getElementById("documentsList");
+      if (documentsListEl) {
+        const baseLeaseProxy = `/api/v1/assistant/view?lease_id=${encodeURIComponent(lease.lease_id)}`;
+        const contractUrl = lease && lease.contract && lease.contract.url ? lease.contract.url : null;
+
+        // Fetch additional documents list (if any)
+        let extraFiles = [];
+        try {
+          const listRes = await fetch(`${baseLeaseProxy}&list=1`);
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            extraFiles = Array.isArray(listData.files) ? listData.files : [];
+          }
+        } catch (e) { /* ignore list errors */ }
+
+        const parts = [];
+        if (contractUrl) {
+          const fileName = (() => { try { return contractUrl.split('/').pop().split('?')[0]; } catch { return 'contract'; } })();
+          parts.push(`
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <i class="fa-solid fa-file-contract" style="color:#2563eb;font-size:16px;"></i>
+              <span style="font-size:12px;font-weight:600;">Primary Lease Contract (${fileName})</span>
+            </div>
+            <button type="button" data-lease-id="${lease.lease_id}" class="secure-doc-link" style="cursor:pointer;display:inline-block;padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f0f7ff;color:#2563eb;font-weight:600;font-size:12px;text-decoration:none;margin-bottom:10px;">
+              Open Contract (Secure Proxy) ↗
+            </button>
+          `);
+        } else {
+          parts.push(`<div style="font-size:12px;color:#6b7280;">No primary contract uploaded.</div>`);
+        }
+
+        if (extraFiles.length) {
+          parts.push(`<div style="font-size:12px;font-weight:600;color:#374151;margin:6px 0 4px;">Additional Documents (${extraFiles.length})</div>`);
+          parts.push('<div style="display:flex;flex-direction:column;gap:6px;">');
+          for (const f of extraFiles) {
+            const originalUrl = f.secure_url;
+            const sizeLabel = f.bytes ? (f.bytes > 1024*1024 ? (f.bytes/1024/1024).toFixed(2)+' MB' : (f.bytes/1024).toFixed(1)+' KB') : '';
+            parts.push(`
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <i class="fa-solid fa-file" style="color:#6b7280;font-size:14px;"></i>
+                  <span style="font-size:12px;font-weight:500;">${f.filename}</span>
+                  <span style="font-size:11px;color:#6b7280;">${sizeLabel}</span>
+                </div>
+                <button type="button" data-url="${originalUrl}" class="secure-doc-link" title="Open" style="cursor:pointer;font-size:11px;color:#2563eb;background:transparent;border:none;text-decoration:none;font-weight:600;">Open ↗</button>
+              </div>`);
+          }
+          parts.push('</div>');
+        }
+
+        documentsListEl.innerHTML = parts.join('');
+        try {
+          const token = (() => {
+            // localStorage direct token
+            const direct = localStorage.getItem('token');
+            if (direct) return direct;
+            // user object token
+            try {
+              const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+              if (userObj && userObj.token) return userObj.token;
+            } catch {}
+            // cookie token (non-httpOnly only)
+            try {
+              const match = document.cookie.match(/(?:^|; )token=([^;]+)/);
+              if (match) return decodeURIComponent(match[1]);
+            } catch {}
+            return '';
+          })();
+          documentsListEl.querySelectorAll('.secure-doc-link').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              const leaseIdAttr = btn.getAttribute('data-lease-id');
+              const rawUrlAttr = btn.getAttribute('data-url');
+              const endpoint = leaseIdAttr
+                ? `/api/v1/assistant/view?lease_id=${encodeURIComponent(leaseIdAttr)}`
+                : `/api/v1/assistant/view?url=${encodeURIComponent(rawUrlAttr)}`;
+              try {
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                const resp = await fetch(endpoint, { headers, credentials: 'include' });
+                if (!resp.ok) {
+                  alert(`Failed to load document (${resp.status})`);
+                  return;
+                }
+                const blob = await resp.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                window.open(objectUrl, '_blank');
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
+              } catch (err) {
+                console.error('Secure doc open error', err);
+                alert('Error opening document');
+              }
+            });
+          });
+        } catch (e) { /* ignore binding errors */ }
+      }
+    } catch (e) {
+      console.warn("Failed to render contract documents", e);
     }
   } catch (error) {
     console.error("Error loading detail view:", error);
