@@ -430,8 +430,8 @@ function renderPaymentsTable() {
                         <div class="card-amount payment">${formatCurrency(
                     Number(payment.amount) || 0
                 )}${hasAlloc
-                        ? `<div style=\"margin-top:6px;\">${allocIndicatorPillMobile}</div>`
-                        : ""
+                    ? `<div style=\"margin-top:6px;\">${allocIndicatorPillMobile}</div>`
+                    : ""
                     }</div>
                     </div>
                     <div class="card-details">
@@ -2553,7 +2553,16 @@ function handleAddChargeSubmission(event) {
     invalidateStatsCache();
     requestStatisticsUpdate({ force: true });
     renderChargesTable();
+
+
     closeModal("addChargeModal");
+
+    setTimeout(() => {
+        const stillOpen = document.getElementById('addChargeModal');
+        if (stillOpen && getComputedStyle(stillOpen).display !== 'none') {
+            try { closeModal('addChargeModal'); } catch (_) { }
+        }
+    }, 120);
 
     showAlert(
         `New charge of ${formatCurrency(chargeData.amount)} added successfully!`,
@@ -2670,14 +2679,14 @@ async function openStandardEditModal(charge, lease) {
         return "";
     };
 
-        const mapped = {
-            id: charge.charge_id || charge.id,
-            type: charge.charge_type || charge.type,
-            description: charge.description || '',
-            amount: parseFloat(charge.amount || charge.amount_paid || 0) || 0,
-            dueDate: formatForDateInput(charge.due_date || charge.dueDate || ''),
-            template_id: charge.template_id || null
-        };
+    const mapped = {
+        id: charge.charge_id || charge.id,
+        type: charge.charge_type || charge.type,
+        description: charge.description || '',
+        amount: parseFloat(charge.amount || charge.amount_paid || 0) || 0,
+        dueDate: formatForDateInput(charge.due_date || charge.dueDate || ''),
+        template_id: charge.template_id || null
+    };
 
     document.getElementById("editChargeId").value = mapped.id;
     document.getElementById("editChargeType").value = mapped.type;
@@ -3090,7 +3099,17 @@ async function confirmDeleteCharge() {
         renderChargesTable();
         renderPaymentsTable();
 
-        closeModal("deleteChargeModal");
+        try { closeDynamicModal('modal-delete-charge'); } catch (_) { }
+        try { closeModal("deleteChargeModal"); } catch (_) { }
+
+        setTimeout(() => {
+            const dyn = document.getElementById('modal-delete-charge');
+            if (dyn) { try { closeDynamicModal('modal-delete-charge'); } catch (_) { } }
+            const stat = document.getElementById('deleteChargeModal');
+            if (stat && getComputedStyle(stat).display !== 'none') {
+                try { closeModal('deleteChargeModal'); } catch (_) { }
+            }
+        }, 100);
         showAlert("Charge deleted successfully!", "success");
     } catch (e) {
         console.error("Delete charge failed:", e);
@@ -3141,10 +3160,10 @@ function viewChargeDetails(chargeId) {
                 <div>Ref: ${p.reference}</div>
             </div>
         </div>`).join('') : '<p style="color:#64748b; margin:12px 0 0;">No payments recorded for this charge.</p>';
-    const totalAmt = Number(charge.amount)||0;
-    const baseAmt = (typeof charge.original_amount === 'number' && charge.original_amount !== null) ? Number(charge.original_amount)||0 : totalAmt;
-    const lateFeeAmt = typeof charge.late_fee_amount === 'number' ? Number(charge.late_fee_amount)||0 : 0;
-    const breakdown = lateFeeAmt>0 ? `<div style=\"font-size:12px;color:#64748b;margin-top:4px;\">Base: ${formatCurrency(baseAmt)} + Late fee: ${formatCurrency(lateFeeAmt)}</div>` : '';
+    const totalAmt = Number(charge.amount) || 0;
+    const baseAmt = (typeof charge.original_amount === 'number' && charge.original_amount !== null) ? Number(charge.original_amount) || 0 : totalAmt;
+    const lateFeeAmt = typeof charge.late_fee_amount === 'number' ? Number(charge.late_fee_amount) || 0 : 0;
+    const breakdown = lateFeeAmt > 0 ? `<div style=\"font-size:12px;color:#64748b;margin-top:4px;\">Base: ${formatCurrency(baseAmt)} + Late fee: ${formatCurrency(lateFeeAmt)}</div>` : '';
     const statusHtml = getStatusDisplay(charge);
     const html = `
         <div class="modal-header">
@@ -4092,10 +4111,10 @@ function openModal(modalId) {
     void modal.offsetWidth;
     document.body.style.overflow = 'hidden';
     const firstInput = modal.querySelector('input, textarea, select');
-    if (firstInput) setTimeout(() => { try { firstInput.focus(); } catch(_){} }, 60);
+    if (firstInput) setTimeout(() => { try { firstInput.focus(); } catch (_) { } }, 60);
 }
 
-// Dynamic standalone modal helpers for charge operations
+
 function createAndShowModal(id, contentHtml, { onShow } = {}) {
     try {
         const existing = document.getElementById(id);
@@ -4103,8 +4122,8 @@ function createAndShowModal(id, contentHtml, { onShow } = {}) {
         const wrapper = document.createElement('div');
         wrapper.id = id;
         wrapper.className = 'modal active-modal';
-        wrapper.setAttribute('role','dialog');
-        wrapper.setAttribute('aria-modal','true');
+        wrapper.setAttribute('role', 'dialog');
+        wrapper.setAttribute('aria-modal', 'true');
         wrapper.innerHTML = `<div class="modal-content" style="max-width:680px;">${contentHtml}</div>`;
         document.body.appendChild(wrapper);
         document.body.style.overflow = 'hidden';
@@ -4112,14 +4131,14 @@ function createAndShowModal(id, contentHtml, { onShow } = {}) {
             try {
                 const focusable = wrapper.querySelector('input, select, textarea, button');
                 if (focusable) focusable.focus();
-            } catch(_) {}
+            } catch (_) { }
         }, 40);
-        if (typeof onShow === 'function') { try { onShow(wrapper); } catch(e){ console.warn('onShow error', e); } }
+        if (typeof onShow === 'function') { try { onShow(wrapper); } catch (e) { console.warn('onShow error', e); } }
         return wrapper;
-    } catch(e){ console.error('[Modals] createAndShowModal failed', e); return null; }
+    } catch (e) { console.error('[Modals] createAndShowModal failed', e); return null; }
 }
 
-function closeDynamicModal(id){
+function closeDynamicModal(id) {
     const el = document.getElementById(id);
     if (el) el.remove();
     if (!document.querySelector('.modal.active-modal')) {
@@ -4490,20 +4509,20 @@ function createModalsAndDialogs() {
     }
 }
 
-// --- Automatic modal initialization (DOMContentLoaded + immediate) ---
-(function modalAutoInit(){
-    function init(){
+
+(function modalAutoInit() {
+    function init() {
         try {
             createModalsAndDialogs();
             console.debug('[Modals] Auto-init executed');
-        } catch(e){ console.error('[Modals] Auto-init failed', e); }
-        // Retry if critical modals still missing
+        } catch (e) { console.error('[Modals] Auto-init failed', e); }
+
         setTimeout(() => {
-            const needed = ['paymentModal','editChargeModal','viewChargeModal','deleteChargeModal'];
+            const needed = ['paymentModal', 'editChargeModal', 'viewChargeModal', 'deleteChargeModal'];
             const missing = needed.filter(id => !document.getElementById(id));
-            if (missing.length){
+            if (missing.length) {
                 console.warn('[Modals] Retry init, missing:', missing);
-                try { window.__modalsInitialized = false; createModalsAndDialogs(); } catch(e){ console.error('[Modals] Retry init failed', e); }
+                try { window.__modalsInitialized = false; createModalsAndDialogs(); } catch (e) { console.error('[Modals] Retry init failed', e); }
             }
         }, 800);
     }
