@@ -1,7 +1,7 @@
 import fetchCompanyDetails from "../api/loadCompanyInfo.js";
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Ensure a mount point exists on every page
+
   let host = document.getElementById("navbar-placeholder");
   if (!host) {
     host = document.createElement("header");
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await injectDynamicLogo();
       setupNavbarFeatures();
       try { setupAuthMenu(); } catch (e) { console.warn('Auth menu init failed', e); }
-      try { document.dispatchEvent(new CustomEvent('navbar:loaded')); } catch (e) {}
+      try { document.dispatchEvent(new CustomEvent('navbar:loaded')); } catch (e) { }
     })
     .catch((error) => {
       console.error("Error loading navbar:", error);
@@ -28,8 +28,8 @@ async function injectDynamicLogo() {
     const logoContainer = document.getElementById('logoContainer');
     if (!logoContainer) return;
     const details = await fetchCompanyDetails();
-    if (!details) return; // keep fallback text
-    // Prefer alt logo, then icon logo, else fallback text remains
+    if (!details) return;
+
     const markup = details.altLogoHtml || details.logoHtml;
     if (markup) {
       logoContainer.innerHTML = markup;
@@ -40,7 +40,7 @@ async function injectDynamicLogo() {
   }
 }
 
-// --- Auth-aware navbar (replace Login with user dropdown) ---
+
 function getTokenFromCookie() {
   try {
     return (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1] || null;
@@ -55,7 +55,7 @@ function decodeJwtPayload(t) {
     while (payload.length % 4) payload += '=';
     const json = decodeURIComponent(atob(payload).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
     const obj = JSON.parse(json);
-    if (obj && obj.exp && Date.now() / 1000 > Number(obj.exp)) return null; // expired
+    if (obj && obj.exp && Date.now() / 1000 > Number(obj.exp)) return null;
     return obj;
   } catch { return null; }
 }
@@ -66,7 +66,7 @@ function isAdminRole(role) {
 
 function extractUserName(payload) {
   const p = payload || {};
-  // Prefer explicit parts: first_name + middle_name + last_name + suffix
+
   const parts = [p.first_name, p.middle_name, p.last_name].filter(Boolean);
   const suffix = p.suffix ? String(p.suffix).trim() : '';
   if (parts.length) {
@@ -87,7 +87,7 @@ function extractUserName(payload) {
 
 function extractAvatarUrl(payload) {
   const p = payload || {};
-  // Prefer direct avatar string from token or localStorage user
+
   let url = (
     p.avatar || p.avatar_url || p.avatarUrl || p.photo_url || p.photoUrl || p.profile_photo || p.image ||
     (p.user && (p.user.avatar || p.user.avatar_url || p.user.photo_url || p.user.profile_photo || p.user.image)) ||
@@ -100,7 +100,7 @@ function extractAvatarUrl(payload) {
         const u = JSON.parse(userStr);
         url = u.avatar || u.avatar_url || '';
       }
-    } catch {}
+    } catch { }
   }
   return url;
 }
@@ -115,25 +115,25 @@ function nameInitials(name) {
 function setupAuthMenu() {
   const token = getTokenFromCookie() || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null);
   const payload = decodeJwtPayload(token);
-  // Merge in localStorage user fields for middle_name/suffix if present
+
   try {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const u = JSON.parse(userStr);
-      ['first_name','middle_name','last_name','suffix','avatar','email','role'].forEach(k => {
+      ['first_name', 'middle_name', 'last_name', 'suffix', 'avatar', 'email', 'role'].forEach(k => {
         if (u[k] !== undefined && u[k] !== null && !payload?.[k]) {
-          if (!payload) return; // payload may be null when token invalid
+          if (!payload) return;
           payload[k] = u[k];
         }
       });
-      // also set nested user for compatibility
-      if (payload) payload.user = { ...(payload.user||{}), ...u };
+
+      if (payload) payload.user = { ...(payload.user || {}), ...u };
     }
-  } catch {}
+  } catch { }
   const navLinks = document.querySelector('.nav-links');
   if (!navLinks) return;
 
-  // Find the Login link <li>
+
   let loginLi = null;
   Array.from(navLinks.children).forEach(li => {
     const a = li.querySelector('a[href="/login.html"]');
@@ -141,11 +141,11 @@ function setupAuthMenu() {
   });
 
   if (!payload) {
-    // Not logged in -> keep Login link as-is
+
     return;
   }
 
-  // Logged in: replace Login with user dropdown
+
   const name = extractUserName(payload) || 'User';
   const avatar = extractAvatarUrl(payload);
   const role = payload.role || payload.user_role || payload.userRole || '';
@@ -178,7 +178,7 @@ function setupAuthMenu() {
     e.preventDefault();
     try {
       document.cookie = 'token=; Max-Age=0; path=/';
-    } catch {}
+    } catch { }
     window.location.href = '/login.html';
   });
   dd.querySelector('[data-action="portal"]').addEventListener('click', () => close());

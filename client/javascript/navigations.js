@@ -408,6 +408,7 @@
     const profileName = document.getElementById("profileName");
     const profileRole = document.getElementById("profileRole");
     const viewAllMessagesBtn = document.getElementById("viewAllMessagesBtn");
+    const wishlistMenuItem = document.getElementById("wishlistMenuItem");
 
     if (user) {
       if (profileBtn) {
@@ -447,6 +448,7 @@
       );
       if (contactSubmissionsMenuItem)
         contactSubmissionsMenuItem.style.display = "";
+      if (wishlistMenuItem) wishlistMenuItem.style.display = "none";
       window.currentAdminUser = user;
     } else {
       if (profileBtn) {
@@ -465,6 +467,7 @@
       );
       if (contactSubmissionsMenuItem)
         contactSubmissionsMenuItem.style.display = "none";
+      if (wishlistMenuItem) wishlistMenuItem.style.display = "none";
       window.currentAdminUser = null;
     }
   }
@@ -2063,6 +2066,8 @@
     const profileName = document.getElementById("profileName");
     const profileRole = document.getElementById("profileRole");
     const viewAllMessagesBtn = document.getElementById("viewAllMessagesBtn");
+    const wishlistMenuItem = document.getElementById("wishlistMenuItem");
+    const contactSubmissionsMenuItem = document.getElementById("contactSubmissionsMenuItem");
 
     if (user) {
       if (profileBtn) {
@@ -2098,6 +2103,17 @@
         profileRole.textContent = parts.join(" • ");
       }
       if (viewAllMessagesBtn) viewAllMessagesBtn.href = "/messages.html";
+      if (wishlistMenuItem) wishlistMenuItem.style.display = "";
+      if (contactSubmissionsMenuItem) contactSubmissionsMenuItem.style.display = "none";
+      try {
+        const badge = document.getElementById('wishlistCountBadge');
+        if (badge) {
+          const list = JSON.parse(localStorage.getItem('wishlist')||'[]');
+          const c = Array.isArray(list)? list.length : 0;
+          badge.textContent = c;
+          badge.style.display = c>0? 'inline-flex':'none';
+        }
+      } catch(e) {}
       window.currentTenantUser = user;
     } else {
       if (profileBtn) {
@@ -2111,6 +2127,8 @@
       if (profileName) profileName.textContent = "";
       if (profileRole) profileRole.textContent = "";
       if (viewAllMessagesBtn) viewAllMessagesBtn.href = "#";
+      if (wishlistMenuItem) wishlistMenuItem.style.display = "none";
+      if (contactSubmissionsMenuItem) contactSubmissionsMenuItem.style.display = "none";
       window.currentTenantUser = null;
     }
   }
@@ -2284,6 +2302,8 @@
         "account-profile.html": "Account Settings",
         "account-profile": "Account Settings",
         accountProfile: "Account Settings",
+        "wishlistTenant.html": "My Wishlist",
+        wishlistTenant: "My Wishlist",
       };
       this.pageIcons = {
         "dashboard.html": "fas fa-chart-line",
@@ -2307,6 +2327,8 @@
         "account-profile.html": "fas fa-user-cog",
         "account-profile": "fas fa-user-cog",
         accountProfile: "fas fa-user-cog",
+        "wishlistTenant.html": "fas fa-heart",
+        wishlistTenant: "fas fa-heart",
       };
       this.pageDescriptions = {
         "dashboard.html":
@@ -2350,6 +2372,8 @@
           "Manage your account settings, personal information, and preferences",
         accountProfile:
           "Manage your account settings, personal information, and preferences",
+        "wishlistTenant.html": "Manage properties you've wishlisted for easy access",
+        wishlistTenant: "Manage properties you've wishlisted for easy access",
       };
     }
     getDefaultInboxMessages() {
@@ -2666,6 +2690,10 @@
           this.updatePageTitle(pageKey);
         }
       });
+
+      if (currentPage === "wishlistTenant") {
+        this.updatePageTitle("wishlistTenant");
+      }
 
       const activeLink = document.querySelector(".nav-link.active");
       if (!activeLink) {

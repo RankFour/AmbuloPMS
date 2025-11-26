@@ -370,16 +370,18 @@
 
 .navbar-content {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start; /* allow left section to size naturally */
   align-items: center;
   padding: 0 32px;
   min-height: 60px;
+  width: 100%;
 }
 
 .navbar-left {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 auto;
 }
 
 .page-title-container {
@@ -423,6 +425,8 @@
   display: flex;
   align-items: center;
   gap: 15px;
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .search-bar {
@@ -958,6 +962,26 @@
   width: 20px;
   text-align: center;
   font-size: 14px;
+}
+
+/* Wishlist badge */
+.wishlist-count-badge {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  background: linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);
+  color:#fff;
+  font-size:11px;
+  font-weight:600;
+  min-width:20px;
+  height:20px;
+  padding:0 6px;
+  border-radius:12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.18);
+  border:2px solid #fff;
 }
 
 /* Notification specific colors */
