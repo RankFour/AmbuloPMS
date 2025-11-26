@@ -641,12 +641,58 @@ function renderTenantCards(bundle) {
   const activeTickets = myTicketsFinal.filter(t => /PENDING|ASSIGNED|IN_PROGRESS/i.test(String(t.ticket_status || '')));
 
   const recentPayments = Array.isArray(dashboard?.recentPayments) ? dashboard.recentPayments : [];
-  const payments = Array.isArray(myPayments) && myPayments.length ? myPayments : recentPayments;
-  const myPaymentsFinal = payments.filter(p => !p.tenant_id && !p.user_id ? true : String(p.user_id || p.tenant_id) === String(userId || ''));
+  const idMatch = (o) => String(o?.user_id || o?.tenant_id || o?.userId || o?.tenantId || '') === String(userId || '');
+  const myLeaseIdsSet = new Set((Array.isArray(myLeases) ? myLeases : []).map(l => String((l?.id ?? l?.lease_id ?? l?._id ?? '') || '')));
+  const matchesByLease = (o) => o && (o.lease_id != null || o.leaseId != null) && myLeaseIdsSet.has(String(o.lease_id ?? o.leaseId));
+  
+  
+  
+  
+  
+  const hasLeases = Array.isArray(myLeases) && myLeases.length > 0;
+  const usedMyPayments = Array.isArray(myPayments) && myPayments.length > 0;
+  const paymentsBase = usedMyPayments ? myPayments : (Array.isArray(recentPayments) ? recentPayments : []);
+  let myPaymentsFinal = [];
+  if (hasLeases) {
+    if (usedMyPayments) {
+      const selId = selectedLease ? String(leaseIdOf(selectedLease)) : null;
+      const hasLeaseField = Array.isArray(paymentsBase) && paymentsBase.some(p => p && (p.lease_id != null || p.leaseId != null));
+      if (selId && hasLeaseField) {
+        const byLease = paymentsBase.filter(p => String(p?.lease_id ?? p?.leaseId ?? '') === selId);
+        myPaymentsFinal = byLease.length ? byLease : paymentsBase;
+      } else {
+        myPaymentsFinal = Array.isArray(paymentsBase) ? paymentsBase : [];
+      }
+    } else {
+      myPaymentsFinal = (Array.isArray(paymentsBase) ? paymentsBase : []).filter(p => idMatch(p) || matchesByLease(p));
+    }
+  } else {
+    myPaymentsFinal = [];
+  }
   
   let pendingAmt = 0;
-  if (Array.isArray(myCharges) && myCharges.length) {
-    pendingAmt = myCharges.reduce((acc, c) => {
+  
+  const chargesBase = Array.isArray(myCharges) ? myCharges : [];
+  const usedMyCharges = Array.isArray(myCharges) && myCharges.length > 0;
+  let tenantCharges = [];
+  if (hasLeases) {
+    if (usedMyCharges) {
+      const selId = selectedLease ? String(leaseIdOf(selectedLease)) : null;
+      const hasLeaseField = chargesBase.some(c => c && (c.lease_id != null || c.leaseId != null));
+      if (selId && hasLeaseField) {
+        const byLease = chargesBase.filter(c => String(c?.lease_id ?? c?.leaseId ?? '') === selId);
+        tenantCharges = byLease.length ? byLease : chargesBase;
+      } else {
+        tenantCharges = chargesBase;
+      }
+    } else {
+      tenantCharges = chargesBase.filter(c => idMatch(c) || matchesByLease(c));
+    }
+  } else {
+    tenantCharges = [];
+  }
+  if (tenantCharges.length) {
+    pendingAmt = tenantCharges.reduce((acc, c) => {
       const st = String(c.status || c.canonical_status || '').toLowerCase();
       if (st === 'pending' || st === 'due' || st === 'unpaid') {
         const orig = Number(c.original_amount ?? c.amount ?? 0) || 0;
@@ -655,8 +701,7 @@ function renderTenantCards(bundle) {
       return acc;
     }, 0);
   } else {
-    const sums = payDist?.sums || {};
-    pendingAmt = Number(sums?.Pending || 0);
+    pendingAmt = 0;
   }
 
   
@@ -1051,8 +1096,13 @@ export async function loadDashboardMetrics() {
     );
 
     try {
+        
+        const _payload = (typeof getCurrentUserPayload === 'function') ? getCurrentUserPayload() : null;
+        const _role = _payload && (_payload.role || _payload.user_role || _payload.userType || _payload.user_type);
+        const _isAdmin = (typeof isAdminRole === 'function') ? isAdminRole(_role) : true;
       
-      try {
+        if (_isAdmin) {
+          try {
         const rows = (recentPayments || []).slice(0, 5).map(p => {
           const when = p.created_at || p.paymentDate || p.createdAt;
           const amt = Number(p.amount_paid ?? p.amount ?? p.total_amount ?? 0);
@@ -1090,7 +1140,8 @@ export async function loadDashboardMetrics() {
           link.href = '/paymentAdmin.html';
           link.addEventListener('click', (e) => { e.preventDefault(); window.location.href = '/paymentAdmin.html'; });
         }
-      } catch {}
+          } catch {}
+        }
 
       const lateCard = findCardByTitle(/^late\s*payments/i);
       if (lateCard) {
@@ -1544,7 +1595,7 @@ export async function loadDashboardMetrics() {
     if (!isAdminRole(role)) return;
   } catch {}
 
-  // Ensure we have the same variables available here as were used inside applyBundle
+  
   const {
     dashboard,
     expectedIncome,
@@ -1557,6 +1608,16 @@ export async function loadDashboardMetrics() {
     myTickets,
     myLeases,
   } = bundle || {};
+
+  
+  try {
+    const payload = getCurrentUserPayload();
+    const role = (payload && (payload.role || payload.user_role || payload.userRole)) || '';
+    if (!isAdminRole(role)) {
+      
+      return;
+    }
+  } catch {}
 
   const propertiesCount = Number(dashboard?.propertiesCount || 0);
   const tenantsCount = Number(dashboard?.tenantsCount || 0);
