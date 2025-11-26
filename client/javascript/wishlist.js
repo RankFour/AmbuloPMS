@@ -1,5 +1,6 @@
 (function () {
     const API_BASE_URL = "/api/v1/properties";
+    const WL_API = "/api/v1/wishlist";
 
     function getWishlist() {
         try {
@@ -19,13 +20,26 @@
     function isWishlisted(id) {
         return getWishlist().includes(String(id));
     }
-    function toggleWishlist(id) {
+    async function toggleWishlist(id) {
         const l = getWishlist();
         const s = String(id);
         const i = l.indexOf(s);
-        if (i >= 0) l.splice(i, 1);
-        else l.push(s);
-        setWishlist(l);
+        if (i >= 0) {
+            l.splice(i, 1);
+            setWishlist(l);
+            try { await fetch(`${WL_API}/${encodeURIComponent(s)}`, { method: 'DELETE', credentials: 'include' }); } catch {}
+        } else {
+            l.push(s);
+            setWishlist(l);
+            try {
+                await fetch(WL_API, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ property_id: s })
+                });
+            } catch {}
+        }
         try { window.dispatchEvent(new Event('wishlist:updated')); } catch { }
     }
 
@@ -285,7 +299,22 @@
 
     async function init() {
         const grid = document.getElementById("wishlistGrid");
-        const list = getWishlist();
+        let list = getWishlist();
+        if (!list || list.length === 0) {
+            
+            try {
+                const res = await fetch(WL_API, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    const ids = (data && (data.wishlist || data.ids)) || [];
+                    if (Array.isArray(ids) && ids.length) {
+                        setWishlist(ids);
+                        list = ids;
+                        try { window.dispatchEvent(new Event('wishlist:updated')); } catch {}
+                    }
+                }
+            } catch {}
+        }
         if (!list || list.length === 0) {
             document.getElementById("wishlistSummary").textContent =
                 "You have 0 wishlisted properties.";
