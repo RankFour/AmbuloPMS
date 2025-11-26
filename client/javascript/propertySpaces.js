@@ -24,7 +24,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     };
 
-    
     const handleScroll = () => {
       const scrollTop =
         window.pageYOffset || document.documentElement.scrollTop;
@@ -40,7 +39,6 @@ document.addEventListener("DOMContentLoaded", () => {
       revealOnScroll();
     };
 
-    
     document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
       anchor.addEventListener("click", function (e) {
         e.preventDefault();
@@ -55,10 +53,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    
     window.addEventListener("scroll", handleScroll);
     window.addEventListener("load", revealOnScroll);
-    revealOnScroll(); 
+    revealOnScroll();
   }
 
   const observerOptions = {
@@ -116,7 +113,7 @@ function applyFilters() {
 
   propertyCards.forEach((card) => {
     const cardStatus = card.getAttribute("data-status");
-    
+
     const cardPrice = parseInt(card.getAttribute("data-price"));
     const cardArea = parseInt(card.getAttribute("data-area"));
     const cardTitle = card
@@ -129,22 +126,22 @@ function applyFilters() {
     const matchesSearch =
       !searchTerm ||
       cardTitle.includes(searchTerm) ||
-      cardLocation.includes(searchTerm)
-      
+      cardLocation.includes(searchTerm);
 
     const matchesStatus =
       activeFilters.status.length === 0 ||
       activeFilters.status.includes(cardStatus);
 
-    
-    
-
     let matchesPrice = true;
-    if (typeof activeFilters.minPrice === 'number') {
-      matchesPrice = matchesPrice && (isNaN(cardPrice) ? true : cardPrice >= activeFilters.minPrice);
+    if (typeof activeFilters.minPrice === "number") {
+      matchesPrice =
+        matchesPrice &&
+        (isNaN(cardPrice) ? true : cardPrice >= activeFilters.minPrice);
     }
-    if (typeof activeFilters.maxPrice === 'number') {
-      matchesPrice = matchesPrice && (isNaN(cardPrice) ? true : cardPrice <= activeFilters.maxPrice);
+    if (typeof activeFilters.maxPrice === "number") {
+      matchesPrice =
+        matchesPrice &&
+        (isNaN(cardPrice) ? true : cardPrice <= activeFilters.maxPrice);
     }
 
     let matchesArea = true;
@@ -158,11 +155,7 @@ function applyFilters() {
     }
 
     const shouldShow =
-      matchesSearch &&
-      matchesStatus &&
-      
-      matchesPrice &&
-      matchesArea;
+      matchesSearch && matchesStatus && matchesPrice && matchesArea;
 
     if (shouldShow) {
       card.style.display = "block";
@@ -202,10 +195,10 @@ function clearAllFilters() {
     btn.classList.remove("active");
   });
 
-  const minSelect = document.getElementById('priceMinSelect');
-  const maxSelect = document.getElementById('priceMaxSelect');
-  if (minSelect) minSelect.value = '';
-  if (maxSelect) maxSelect.value = '';
+  const minSelect = document.getElementById("priceMinSelect");
+  const maxSelect = document.getElementById("priceMaxSelect");
+  if (minSelect) minSelect.value = "";
+  if (maxSelect) maxSelect.value = "";
 
   const sortSelect = document.getElementById("sortSelect");
   if (sortSelect) {
@@ -275,7 +268,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (sortSelect) {
     sortSelect.addEventListener("change", sortProperties);
   }
-  
+
   document.addEventListener("mouseover", function (e) {
     if (e.target.closest(".property-card")) {
       const card = e.target.closest(".property-card");
@@ -294,7 +287,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 async function fetchProperties() {
-
   const cacheKey = "propertySpacesAll";
   let properties = null;
   const cached = sessionStorage.getItem(cacheKey);
@@ -342,6 +334,9 @@ function getStatusBadge(status) {
 }
 
 function renderPropertyCard(property) {
+  const role = getUserRole();
+  const isTenant = role === "TENANT";
+  const wished = isWishlisted(property.property_id);
   const imageUrl =
     property.display_image ||
     (property.property_pictures && property.property_pictures[0]?.image_url) ||
@@ -350,23 +345,29 @@ function renderPropertyCard(property) {
     ? `${property.street}, ${property.city}, ${property.province}`
     : property.city || "";
 
+  const statusLower = String(property.property_status || "").toLowerCase();
+
   return `
-    <div class="property-card reveal-element scale-up" data-status="${property.property_status?.toLowerCase()}" data-type="${
-    property.property_type || ""
-  }" data-price="${property.base_rent || 0}" data-area="${
-    property.floor_area_sqm || 0
-  }">
+    <div class="property-card reveal-element scale-up" data-status="${statusLower}" data-type="${property.property_type || ""
+    }" data-price="${property.base_rent || 0}" data-area="${property.floor_area_sqm || 0
+    }" data-id="${property.property_id}">
       <div class="property-image" style="background-image:url('${imageUrl}');">
         ${getStatusBadge(property.property_status)}
+        ${isTenant
+      ? `<button class="wishlist-btn" aria-label="Add to wishlist" data-id="${property.property_id
+      }">${wishlistIconSvg(wished)}</button>`
+      : ""
+    }
       </div>
       <div class="property-info">
         <div class="property-header">
           <div>
-            <div class="property-title">${
-              property.property_name || "Unit"
-            }</div>
+            <div class="property-title">${property.property_name || "Unit"
+    }</div>
             <div class="property-desc">${address}</div>
-            <div class="property-price"><span class="price-amount">${formatPrice(property.base_rent)}</span><span class="price-term">/mo</span></div>
+            <div class="property-price"><span class="price-amount">${formatPrice(
+      property.base_rent
+    )}</span><span class="price-term">/mo</span></div>
           </div>
         </div>
         <div class="property-details">
@@ -384,9 +385,8 @@ function renderPropertyCard(property) {
           </div>
         </div>
         <div class="property-actions">
-          <button class="btn btn-primary" onclick="window.location.href='spacesDetails.html?id=${
-            property.property_id
-          }'">View Details</button>
+          <button class="btn btn-primary" onclick="window.location.href='spacesDetails.html?id=${property.property_id
+    }'">View Details</button>
         </div>
       </div>
     </div>
@@ -394,11 +394,11 @@ function renderPropertyCard(property) {
 }
 
 function revealCards() {
-  document.querySelectorAll('.property-card').forEach(card => {
-    card.classList.add('revealed');
+  document.querySelectorAll(".property-card").forEach((card) => {
+    card.classList.add("revealed");
   });
-  document.querySelectorAll('.reveal-element').forEach(el => {
-    el.classList.add('revealed');
+  document.querySelectorAll(".reveal-element").forEach((el) => {
+    el.classList.add("revealed");
   });
 }
 
@@ -413,9 +413,10 @@ async function populatePropertyGrid() {
       return;
     }
     grid.innerHTML = properties.map(renderPropertyCard).join("");
-    
+
     initializePriceDropdowns(properties);
     revealCards();
+    initWishlistButtons();
   } catch (err) {
     grid.innerHTML = `<div class="error">Failed to load properties.</div>`;
     console.error(err);
@@ -424,13 +425,12 @@ async function populatePropertyGrid() {
 
 document.addEventListener("DOMContentLoaded", () => {
   populatePropertyGrid().then(() => {
-    applyFilters(); 
+    applyFilters();
     sortProperties();
   });
 });
 
 window.clearAllFilters = clearAllFilters;
-
 
 function formatPeso(n) {
   return `₱ ${Number(n).toLocaleString()}`;
@@ -440,13 +440,13 @@ function computePriceSteps(min, max) {
   if (!isFinite(min) || !isFinite(max) || min >= max) {
     return [];
   }
-  
+
   const span = max - min;
-  let step = 5000; 
+  let step = 5000;
   if (span > 200000) step = 20000;
   else if (span > 120000) step = 10000;
   else if (span < 40000) step = 2000;
-  
+
   const start = Math.floor(min / step) * step;
   const end = Math.ceil(max / step) * step;
   const values = [];
@@ -455,15 +455,14 @@ function computePriceSteps(min, max) {
 }
 
 function initializePriceDropdowns(properties) {
-  const minSelect = document.getElementById('priceMinSelect');
-  const maxSelect = document.getElementById('priceMaxSelect');
+  const minSelect = document.getElementById("priceMinSelect");
+  const maxSelect = document.getElementById("priceMaxSelect");
   if (!minSelect || !maxSelect) return;
 
-  
   const rents = (properties || [])
-    .map(p => Number(p.base_rent))
-    .filter(v => Number.isFinite(v) && v > 0)
-    .sort((a,b)=>a-b);
+    .map((p) => Number(p.base_rent))
+    .filter((v) => Number.isFinite(v) && v > 0)
+    .sort((a, b) => a - b);
 
   if (rents.length === 0) {
     minSelect.disabled = true;
@@ -477,22 +476,21 @@ function initializePriceDropdowns(properties) {
   const max = rents[rents.length - 1];
   const steps = computePriceSteps(min, max);
 
-  
   const buildOptions = (select, isMin) => {
     const current = select.value;
-    select.innerHTML = '';
-    const anyOpt = document.createElement('option');
-    anyOpt.value = '';
-    anyOpt.textContent = isMin ? 'Min (Any)' : 'Max (Any)';
+    select.innerHTML = "";
+    const anyOpt = document.createElement("option");
+    anyOpt.value = "";
+    anyOpt.textContent = isMin ? "Min (Any)" : "Max (Any)";
     select.appendChild(anyOpt);
-    steps.forEach(v => {
-      const opt = document.createElement('option');
+    steps.forEach((v) => {
+      const opt = document.createElement("option");
       opt.value = String(v);
       opt.textContent = formatPeso(v);
       select.appendChild(opt);
     });
-    
-    if ([...select.options].some(o => o.value === current)) {
+
+    if ([...select.options].some((o) => o.value === current)) {
       select.value = current;
     }
   };
@@ -501,11 +499,10 @@ function initializePriceDropdowns(properties) {
   buildOptions(maxSelect, false);
 
   const applyRange = () => {
-    const minVal = minSelect.value === '' ? null : Number(minSelect.value);
-    const maxVal = maxSelect.value === '' ? null : Number(maxSelect.value);
-    
+    const minVal = minSelect.value === "" ? null : Number(minSelect.value);
+    const maxVal = maxSelect.value === "" ? null : Number(maxSelect.value);
+
     if (minVal != null && maxVal != null && minVal > maxVal) {
-      
       maxSelect.value = String(minVal);
       activeFilters.minPrice = minVal;
       activeFilters.maxPrice = minVal;
@@ -516,9 +513,153 @@ function initializePriceDropdowns(properties) {
     applyFilters();
   };
 
-  minSelect.addEventListener('change', applyRange);
-  maxSelect.addEventListener('change', applyRange);
-
+  minSelect.addEventListener("change", applyRange);
+  maxSelect.addEventListener("change", applyRange);
 }
 
 window.toggleFilters = toggleFilters;
+
+function getTokenFromCookie() {
+  try {
+    return (document.cookie.match(/(?:^|; )token=([^;]+)/) || [])[1] || null;
+  } catch {
+    return null;
+  }
+}
+function decodeJwtPayload(t) {
+  try {
+    const parts = String(t || "").split(".");
+    if (parts.length < 2) return null;
+    let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (payload.length % 4) payload += "=";
+    const json = decodeURIComponent(
+      atob(payload)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+function getUserRole() {
+  let role = null;
+  try {
+    const token = getTokenFromCookie() || localStorage.getItem("token");
+    const p = decodeJwtPayload(token);
+    role = p && (p.role || p.userRole || p.user_role);
+    if (!role) {
+      const uStr = localStorage.getItem("user");
+      if (uStr) {
+        const u = JSON.parse(uStr);
+        role = u.role;
+      }
+    }
+  } catch { }
+  return String(role || "").toUpperCase();
+}
+function wishlistIconSvg(active) {
+  return active
+    ? '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="#e11d48"><path d="M11.645 20.91l-.007-.007C5.4 15.43 2 12.36 2 8.5 2 6.015 4.014 4 6.5 4c1.74 0 3.41 1.01 4.145 2.57C12.09 5.01 13.76 4 15.5 4 18.486 4 20.5 6.015 20.5 8.5c0 3.86-3.4 6.93-9.138 12.403l-.007.007a1 1 0 01-1.41 0z"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 6.01 4.01 4 6.5 4c1.74 0 3.41 1.01 4.5 2.09C12.09 5.01 13.76 4 15.5 4 17.99 4 20 6.01 20 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+}
+function getWishlist() {
+  try {
+    return JSON.parse(localStorage.getItem("wishlist") || "[]");
+  } catch {
+    return [];
+  }
+}
+function setWishlist(list) {
+  try {
+    localStorage.setItem("wishlist", JSON.stringify(Array.from(new Set(list))));
+  } catch { }
+}
+function isWishlisted(id) {
+  const list = getWishlist();
+  return list.includes(String(id));
+}
+function toggleWishlist(id) {
+  const list = getWishlist();
+  const sid = String(id);
+  const idx = list.indexOf(sid);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.push(sid);
+  setWishlist(list);
+}
+function initWishlistButtons() {
+  const role = getUserRole();
+  if (role !== "TENANT") return;
+  document.querySelectorAll(".wishlist-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.getAttribute("data-id");
+      toggleWishlist(id);
+      const active = isWishlisted(id);
+      btn.innerHTML = wishlistIconSvg(active);
+      btn.classList.toggle("active", active);
+      try {
+        showToast(
+          active ? "Added to wishlist" : "Removed from wishlist",
+          active ? "success" : "info"
+        );
+      } catch { }
+    });
+
+    btn.style.display = "inline-flex";
+    btn.style.alignItems = "center";
+    btn.style.justifyContent = "center";
+    const svg = btn.querySelector("svg");
+    if (svg) svg.style.display = "block";
+  });
+}
+
+function showToast(message, type = "info") {
+  try {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toast-container";
+      container.style.position = "fixed";
+      container.style.top = "20px";
+      container.style.right = "20px";
+      container.style.zIndex = 10000;
+      container.style.display = "flex";
+      container.style.flexDirection = "column";
+      container.style.gap = "10px";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.style.padding = "10px 14px";
+    toast.style.borderRadius = "10px";
+    toast.style.color = "#fff";
+    toast.style.fontWeight = "600";
+    toast.style.boxShadow = "0 8px 30px rgba(0,0,0,0.12)";
+    toast.style.maxWidth = "320px";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(12px)";
+    toast.style.transition = "transform 220ms ease, opacity 220ms ease";
+    if (type === "success")
+      toast.style.background = "linear-gradient(135deg,#10b981,#059669)";
+    else if (type === "error")
+      toast.style.background = "linear-gradient(135deg,#ef4444,#dc2626)";
+    else toast.style.background = "linear-gradient(135deg,#3b82f6,#1d4ed8)";
+    toast.textContent = String(message || "");
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+      toast.style.opacity = "1";
+      toast.style.transform = "translateX(0)";
+    });
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateX(12px)";
+      setTimeout(() => {
+        try {
+          toast.remove();
+        } catch { }
+      }, 280);
+    }, 2000);
+  } catch { }
+}

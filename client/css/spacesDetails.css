@@ -40,12 +40,10 @@ body {
   width: 100%;
   height: 600px;
   object-fit: cover;
-  background: linear-gradient(
-    135deg,
-    rgba(102, 126, 234, 0.9) 0%,
-    rgba(118, 75, 162, 0.9) 50%,
-    rgba(240, 147, 251, 0.9) 100%
-  );
+  background: linear-gradient(135deg,
+      rgba(102, 126, 234, 0.9) 0%,
+      rgba(118, 75, 162, 0.9) 50%,
+      rgba(240, 147, 251, 0.9) 100%);
 }
 
 .thumbnail-row {
@@ -65,11 +63,9 @@ body {
   cursor: pointer;
   border: 3px solid transparent;
   transition: all 0.3s ease;
-  background: linear-gradient(
-    135deg,
-    rgba(102, 126, 234, 0.7) 0%,
-    rgba(118, 75, 162, 0.7) 100%
-  );
+  background: linear-gradient(135deg,
+      rgba(102, 126, 234, 0.7) 0%,
+      rgba(118, 75, 162, 0.7) 100%);
 }
 
 .thumbnail:hover,
@@ -261,11 +257,9 @@ body {
   text-align: center;
   margin-bottom: 30px;
   padding: 20px;
-  background: linear-gradient(
-    135deg,
-    rgba(49, 130, 206, 0.1),
-    rgba(44, 90, 160, 0.1)
-  );
+  background: linear-gradient(135deg,
+      rgba(49, 130, 206, 0.1),
+      rgba(44, 90, 160, 0.1));
   border-radius: 16px;
   border: 1px solid rgba(49, 130, 206, 0.2);
 }
@@ -287,11 +281,9 @@ body {
 }
 
 .deposit-info {
-  background: linear-gradient(
-    135deg,
-    rgba(245, 158, 11, 0.1),
-    rgba(217, 119, 6, 0.1)
-  );
+  background: linear-gradient(135deg,
+      rgba(245, 158, 11, 0.1),
+      rgba(217, 119, 6, 0.1));
   border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 12px;
   padding: 16px;
@@ -417,11 +409,9 @@ body {
 
 /* Form submission states */
 .form-success {
-  background: linear-gradient(
-    135deg,
-    rgba(16, 185, 129, 0.1),
-    rgba(5, 150, 105, 0.1)
-  );
+  background: linear-gradient(135deg,
+      rgba(16, 185, 129, 0.1),
+      rgba(5, 150, 105, 0.1));
   border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 12px;
   padding: 16px;
@@ -432,11 +422,9 @@ body {
 }
 
 .form-error {
-  background: linear-gradient(
-    135deg,
-    rgba(239, 68, 68, 0.1),
-    rgba(220, 38, 38, 0.1)
-  );
+  background: linear-gradient(135deg,
+      rgba(239, 68, 68, 0.1),
+      rgba(220, 38, 38, 0.1));
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 12px;
   padding: 16px;
@@ -488,7 +476,7 @@ body {
 .property-desc-card {
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(49,130,206,0.07);
+  box-shadow: 0 2px 12px rgba(49, 130, 206, 0.07);
   padding: 22px 28px;
   margin-bottom: 28px;
   font-size: 1.08rem;
@@ -549,11 +537,11 @@ body {
     grid-template-columns: 1fr 300px;
     gap: 30px;
   }
-  
+
   .details-right {
     padding: 25px;
   }
-  
+
   .main-image {
     height: 450px;
   }
@@ -565,11 +553,11 @@ body {
     margin-top: 30px;
     padding: 30px 0;
   }
-  
+
   .container {
     padding: 0 15px;
   }
-  
+
   .property-details {
     grid-template-columns: 1fr;
     gap: 25px;
@@ -597,50 +585,50 @@ body {
   .nav-arrow.next {
     right: 15px;
   }
-  
+
   .property-gallery {
     border-radius: 16px;
     margin-bottom: 30px;
   }
-  
+
   .section {
     border-radius: 16px;
   }
-  
+
   .section-header {
     padding: 18px 25px;
     font-size: 15px;
   }
-  
+
   .section-content {
     padding: 25px;
   }
-  
+
   .property-name-emphasized {
     font-size: 1.8rem;
     margin-bottom: 15px;
   }
-  
+
   .property-desc-card {
     padding: 18px 22px;
     font-size: 1rem;
     margin-bottom: 22px;
   }
-  
+
   .price-main {
     font-size: 28px;
   }
-  
+
   .thumbnail-row {
     padding: 15px;
     gap: 10px;
   }
-  
+
   .thumbnail {
     width: 70px;
     height: 52px;
   }
-  
+
   .action-buttons {
     gap: 10px;
   }
@@ -652,17 +640,17 @@ body {
     margin-top: 20px;
     padding: 20px 0;
   }
-  
+
   .main-image {
     height: 280px;
   }
-  
+
   .nav-arrow {
     width: 40px;
     height: 40px;
     font-size: 16px;
   }
-  
+
   .nav-arrow.prev {
     left: 10px;
   }
@@ -670,12 +658,12 @@ body {
   .nav-arrow.next {
     right: 10px;
   }
-  
+
   .property-gallery {
     border-radius: 12px;
     margin-bottom: 25px;
   }
-  
+
   .thumbnail-row {
     padding: 12px;
     gap: 8px;
@@ -686,11 +674,11 @@ body {
     height: 45px;
     border-radius: 8px;
   }
-  
+
   .section {
     border-radius: 12px;
   }
-  
+
   .section-header {
     padding: 15px 20px;
     font-size: 14px;
@@ -703,12 +691,12 @@ body {
   .details-right {
     padding: 20px;
   }
-  
+
   .property-name-emphasized {
     font-size: 1.5rem;
     margin-bottom: 12px;
   }
-  
+
   .property-desc-card {
     padding: 16px 20px;
     font-size: 0.95rem;
@@ -719,7 +707,7 @@ body {
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .action-buttons .btn {
     width: 100%;
   }
@@ -727,16 +715,16 @@ body {
   .price-main {
     font-size: 26px;
   }
-  
+
   .price-section {
     padding: 18px;
   }
-  
+
   .deposit-info {
     padding: 14px;
     font-size: 12px;
   }
-  
+
   .spec-row {
     flex-direction: column;
     align-items: flex-start;
@@ -747,13 +735,13 @@ body {
   .spec-value {
     text-align: left;
   }
-  
+
   .policy-list li {
     font-size: 13px;
     padding: 10px 0;
     padding-left: 22px;
   }
-  
+
   .policy-list li:before {
     top: 10px;
   }
@@ -764,26 +752,26 @@ body {
   body {
     font-size: 14px;
   }
-  
+
   .container {
     padding: 0 12px;
   }
-  
+
   .property-detail-wrapper {
     margin-top: 15px;
     padding: 15px 0;
   }
-  
+
   .main-image {
     height: 220px;
   }
-  
+
   .nav-arrow {
     width: 36px;
     height: 36px;
     font-size: 14px;
   }
-  
+
   .nav-arrow.prev {
     left: 8px;
   }
@@ -791,13 +779,13 @@ body {
   .nav-arrow.next {
     right: 8px;
   }
-  
+
   .property-gallery {
     border-radius: 10px;
     margin-bottom: 20px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
   }
-  
+
   .thumbnail-row {
     padding: 10px;
     gap: 6px;
@@ -809,11 +797,11 @@ body {
     border-radius: 6px;
     border-width: 2px;
   }
-  
+
   .section {
     border-radius: 10px;
   }
-  
+
   .section-header {
     padding: 12px 16px;
     font-size: 13px;
@@ -828,13 +816,13 @@ body {
     padding: 16px;
     border-radius: 10px;
   }
-  
+
   .property-name-emphasized {
     font-size: 1.3rem;
     margin-bottom: 10px;
     letter-spacing: 0.5px;
   }
-  
+
   .property-desc-card {
     padding: 14px 16px;
     font-size: 0.9rem;
@@ -845,64 +833,64 @@ body {
   .price-main {
     font-size: 24px;
   }
-  
+
   .price-sub {
     font-size: 13px;
   }
-  
+
   .price-section {
     padding: 16px;
     border-radius: 10px;
     margin-bottom: 20px;
   }
-  
+
   .deposit-info {
     padding: 12px;
     font-size: 11px;
     border-radius: 10px;
     margin: 15px 0;
   }
-  
+
   .availability-status {
     padding: 5px 12px;
     font-size: 10px;
   }
-  
+
   .btn {
     padding: 10px 18px;
     font-size: 11px;
     border-radius: 10px;
   }
-  
+
   .contact-submit-btn {
     padding: 14px;
     font-size: 13px;
   }
-  
+
   .spec-row {
     padding: 8px 0;
   }
-  
+
   .spec-label,
   .spec-value {
     font-size: 13px;
   }
-  
+
   .policy-list li {
     font-size: 12px;
     padding: 8px 0;
     padding-left: 20px;
   }
-  
+
   .policy-list li:before {
     top: 8px;
     font-size: 12px;
   }
-  
+
   .form-group label {
     font-size: 13px;
   }
-  
+
   .form-group input,
   .form-group select,
   .form-group textarea {
@@ -910,38 +898,38 @@ body {
     font-size: 13px;
     border-radius: 10px;
   }
-  
+
   .form-group textarea {
     min-height: 80px;
   }
-  
+
   .form-success,
   .form-error {
     padding: 14px;
     font-size: 13px;
     border-radius: 10px;
   }
-  
+
   .contact-form {
     gap: 16px;
   }
-  
+
   /* Disable hover effects on small mobile */
   .section:hover {
     transform: none;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
-  
+
   .btn-primary:hover,
   .btn-secondary:hover,
   .contact-submit-btn:hover {
     transform: none;
   }
-  
+
   .thumbnail:hover {
     transform: none;
   }
-  
+
   .nav-arrow:hover {
     transform: translateY(-50%);
   }
@@ -952,39 +940,39 @@ body {
   .container {
     padding: 0 10px;
   }
-  
+
   .main-image {
     height: 200px;
   }
-  
+
   .property-name-emphasized {
     font-size: 1.2rem;
   }
-  
+
   .property-desc-card {
     font-size: 0.85rem;
     padding: 12px 14px;
   }
-  
+
   .price-main {
     font-size: 22px;
   }
-  
+
   .thumbnail {
     width: 45px;
     height: 34px;
   }
-  
+
   .nav-arrow {
     width: 32px;
     height: 32px;
     font-size: 12px;
   }
-  
+
   .section-content {
     padding: 14px;
   }
-  
+
   .details-right {
     padding: 14px;
   }
@@ -995,13 +983,38 @@ body {
   .main-image {
     height: 300px;
   }
-  
+
   .property-detail-wrapper {
     margin-top: 20px;
   }
-  
+
   .nav-arrow {
     width: 40px;
     height: 40px;
   }
+}
+
+/* Wishlist button beside property name on details page */
+.wishlist-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow .15s ease, transform .15s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
+}
+
+.wishlist-btn:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+  transform: translateY(-1px);
+}
+
+.wishlist-btn .heart {
+  display: block;
+  pointer-events: none;
 }
