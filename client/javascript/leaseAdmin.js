@@ -1638,14 +1638,14 @@ async function loadDetailView(lease) {
       if (historyCard) historyCard.style.display = "none";
     }
 
-    // Dynamic Documents (Contract) Rendering (list + contract via secure proxy)
+    
     try {
       const documentsListEl = document.getElementById("documentsList");
       if (documentsListEl) {
         const baseLeaseProxy = `/api/v1/assistant/view?lease_id=${encodeURIComponent(lease.lease_id)}`;
         const contractUrl = lease && lease.contract && lease.contract.url ? lease.contract.url : null;
 
-        // Fetch additional documents list (if any)
+        
         let extraFiles = [];
         try {
           const listRes = await fetch(`${baseLeaseProxy}&list=1`);
@@ -1693,15 +1693,15 @@ async function loadDetailView(lease) {
         documentsListEl.innerHTML = parts.join('');
         try {
           const token = (() => {
-            // localStorage direct token
+            
             const direct = localStorage.getItem('token');
             if (direct) return direct;
-            // user object token
+            
             try {
               const userObj = JSON.parse(localStorage.getItem('user') || '{}');
               if (userObj && userObj.token) return userObj.token;
             } catch {}
-            // cookie token (non-httpOnly only)
+            
             try {
               const match = document.cookie.match(/(?:^|; )token=([^;]+)/);
               if (match) return decodeURIComponent(match[1]);

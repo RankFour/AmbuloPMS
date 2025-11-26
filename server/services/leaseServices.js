@@ -636,9 +636,11 @@ const terminateLease = async (leaseId, terminationData = {}, io = null) => {
 
     const [leaseRows] = await conn.query(
       `SELECT l.lease_id, l.user_id, l.property_id, l.lease_status,
-        CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name, u.suffix) AS tenant_name
+        CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name, u.suffix) AS tenant_name,
+        p.property_name
         FROM leases l
         LEFT JOIN users u ON l.user_id = u.user_id
+        LEFT JOIN properties p ON l.property_id = p.property_id
         WHERE l.lease_id = ? LIMIT 1`,
       [leaseId]
     );
@@ -723,10 +725,18 @@ const terminateLease = async (leaseId, terminationData = {}, io = null) => {
             user_id: lease.user_id,
             type: "LEASE",
             title: "Lease Terminated",
-            body: `${lease.tenant_name || "Your"
-              } lease has been terminated (Reason: ${termination_reason}).`,
+            body: `Lease ${leaseId} for property ${lease.property_name || "(Unknown Property)"} has been terminated. Reason: ${termination_reason}. Advance Payment: ${advance_payment_status}. Security Deposit: ${security_deposit_status}. Date: ${termination_date}.`,
             link: "/leaseTenant.html",
-            meta: { lease_id: leaseId, termination_id },
+            meta: {
+              lease_id: leaseId,
+              termination_id,
+              property_id: lease.property_id,
+              property_name: lease.property_name,
+              termination_reason,
+              advance_payment_status,
+              security_deposit_status,
+              termination_date,
+            },
           },
           io
         );
@@ -746,14 +756,18 @@ const terminateLease = async (leaseId, terminationData = {}, io = null) => {
               user_id: admin.user_id,
               type: "LEASE",
               title: "Lease Terminated",
-              body: `Lease ${leaseId} (${lease.tenant_name || "Tenant"
-                }) terminated. Reason: ${termination_reason}. Advance: ${advance_payment_status}. Security Deposit: ${security_deposit_status}. Date: ${termination_date}.`,
+              body: `Lease ${leaseId} (${lease.tenant_name || "Tenant"} – ${lease.property_name || "Property"}) terminated. Reason: ${termination_reason}. Advance: ${advance_payment_status}. Security Deposit: ${security_deposit_status}. Date: ${termination_date}.`,
               link: "/leaseAdmin.html",
               meta: {
                 lease_id: leaseId,
                 termination_id,
                 reason: termination_reason,
                 tenant_name: lease.tenant_name,
+                property_id: lease.property_id,
+                property_name: lease.property_name,
+                advance_payment_status,
+                security_deposit_status,
+                termination_date,
               },
             },
             io
@@ -789,9 +803,10 @@ const renewLease = async (leaseId, renewalData = {}, io = null) => {
     await conn.beginTransaction();
 
     const [leaseRows] = await conn.query(
-      `SELECT l.*, CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name, u.suffix) AS tenant_name
+      `SELECT l.*, CONCAT_WS(' ', u.first_name, u.middle_name, u.last_name, u.suffix) AS tenant_name, p.property_name, p.property_id
         FROM leases l
         LEFT JOIN users u ON l.user_id = u.user_id
+        LEFT JOIN properties p ON l.property_id = p.property_id
         WHERE l.lease_id = ? LIMIT 1`,
       [leaseId]
     );
@@ -861,10 +876,18 @@ const renewLease = async (leaseId, renewalData = {}, io = null) => {
             user_id: lease.user_id,
             type: "LEASE",
             title: "Lease Renewed",
-            body: `${lease.tenant_name || "Your"
-              } lease has been renewed. New end date: ${new_end_date}.`,
+            body: `Lease ${leaseId} for property ${lease.property_name || "(Unknown Property)"} renewed. New end date: ${new_end_date}. New rent: ₱${newMonthlyRent.toLocaleString()} (${rentIncreasePct}% change).`,
             link: "/leaseTenant.html",
-            meta: { lease_id: leaseId },
+            meta: {
+              lease_id: leaseId,
+              property_id: lease.property_id,
+              property_name: lease.property_name,
+              previous_end_date: lease.lease_end_date,
+              new_end_date,
+              previous_rent: oldRent,
+              new_rent: newMonthlyRent,
+              rent_increase_pct: rentIncreasePct,
+            },
           },
           io
         );
@@ -884,14 +907,12 @@ const renewLease = async (leaseId, renewalData = {}, io = null) => {
               user_id: admin.user_id,
               type: "LEASE",
               title: "Lease Renewed",
-              body: `Lease ${leaseId} (${lease.tenant_name || "Tenant"
-                }) renewed. Old end: ${lease.lease_end_date?.split
-                  ? lease.lease_end_date.split("T")[0]
-                  : lease.lease_end_date
-                } → New end: ${new_end_date}. Rent: ₱${oldRent.toLocaleString()} → ₱${newMonthlyRent.toLocaleString()} (${rentIncreasePct}% change).`,
+              body: `Lease ${leaseId} (${lease.tenant_name || "Tenant"} – ${lease.property_name || "Property"}) renewed. Old end: ${lease.lease_end_date?.split ? lease.lease_end_date.split("T")[0] : lease.lease_end_date} → New end: ${new_end_date}. Rent: ₱${oldRent.toLocaleString()} → ₱${newMonthlyRent.toLocaleString()} (${rentIncreasePct}% change).`,
               link: "/leaseAdmin.html",
               meta: {
                 lease_id: leaseId,
+                property_id: lease.property_id,
+                property_name: lease.property_name,
                 previous_end_date: lease.lease_end_date,
                 new_end_date,
                 previous_rent: oldRent,
