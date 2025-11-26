@@ -1,4 +1,22 @@
 (function () {
+  
+  window.__clientNotifQueue = window.__clientNotifQueue || [];
+  function addClientNotification(n) {
+    try {
+      const item = {
+        notification_id: `client_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        title: String(n.title||''),
+        body: String(n.body||''),
+        type: String(n.type||'INFO').toUpperCase(),
+        created_at: n.created_at || new Date().toISOString(),
+        is_read: false,
+        _client: true,
+        link: n.link || null,
+      };
+      window.__clientNotifQueue.unshift(item);
+      return item;
+    } catch(_) { return null; }
+  }
   function getCookie(name) {
     if (!document || !document.cookie) return null;
     const match = document.cookie.match("(^|;)s*" + name + "s*=s*([^;]+)");
@@ -278,6 +296,7 @@
                 new TenantNavigationManager();
             }
           }
+          try { await startWishlistStatusWatcher('tenant'); } catch(_) {}
           return;
         }
       }
@@ -296,12 +315,111 @@
     )
       TenantNavigationManager.initializeTenantNavigation();
     else console.warn("No navigation manager available to initialize");
+    try { await startWishlistStatusWatcher(target); } catch(_) {}
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initUnifiedNavigation);
   } else {
     initUnifiedNavigation();
+  }
+
+  
+  
+  
+  async function startWishlistStatusWatcher(role) {
+    try {
+      if (role && String(role).toLowerCase() !== 'tenant') return; 
+      if (window.__wishlistWatcherRunning) return;
+      window.__wishlistWatcherRunning = true;
+
+      const API_BASE_URL = "/api/v1/properties";
+      const getWishlist = () => {
+        try { return JSON.parse(localStorage.getItem('wishlist')||'[]'); } catch { return []; }
+      };
+      const getStatusMap = () => {
+        try { return JSON.parse(localStorage.getItem('wishlistStatusMap')||'{}'); } catch { return {}; }
+      };
+      const setStatusMap = (m) => {
+        try { localStorage.setItem('wishlistStatusMap', JSON.stringify(m||{})); } catch {}
+      };
+      const fetchStatus = async (id) => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/${encodeURIComponent(id)}`, { credentials: 'include', headers: { 'Accept':'application/json' } });
+          if (!res.ok) return null;
+          const data = await res.json();
+          const p = data && (data.property || data.data || data);
+          if (!p) return null;
+          return { id: p.property_id || p.id || id, name: p.property_name || p.name || `Property ${id}`, status: String(p.property_status || p.status || '').toLowerCase() };
+        } catch(_) { return null; }
+      };
+      const showToast = (msg) => {
+        try {
+          let c = document.getElementById('toast-container');
+          if (!c) { c = document.createElement('div'); c.id='toast-container'; c.style.position='fixed'; c.style.top='20px'; c.style.right='20px'; c.style.zIndex=10000; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='10px'; document.body.appendChild(c); }
+          const t=document.createElement('div'); t.style.padding='10px 14px'; t.style.borderRadius='10px'; t.style.color='#fff'; t.style.fontWeight='600'; t.style.boxShadow='0 8px 30px rgba(0,0,0,0.12)'; t.style.maxWidth='320px'; t.style.opacity='0'; t.style.transform='translateX(12px)'; t.style.transition='transform 220ms ease, opacity 220ms ease'; t.style.background='linear-gradient(135deg,#1d4ed8,#3b82f6)'; t.textContent=String(msg||''); c.appendChild(t); requestAnimationFrame(()=>{ t.style.opacity='1'; t.style.transform='translateX(0)'; }); setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(12px)'; setTimeout(()=>{ try{t.remove();}catch{} }, 260); }, 2200);
+        } catch {}
+      };
+      const pushNotification = ({ title, body, link }) => {
+        try {
+          const badge = document.getElementById('notificationBadge');
+          const menu = document.getElementById('notificationMenu');
+          if (badge) {
+            const cur = parseInt(badge.textContent||'0',10)||0;
+            const next = cur+1; badge.textContent=String(next); badge.style.display = 'flex';
+          }
+          if (menu) {
+            addClientNotification({ title, body, type:'INFO', link });
+            try {
+              const mgr = window.navigationManager || window.tenantNavigationManager;
+              if (mgr && typeof mgr.renderNotifications === 'function') {
+                const merged = ((mgr._notifCache || []).slice());
+                (window.__clientNotifQueue||[]).forEach(q => merged.unshift(q));
+                mgr.renderNotifications(merged);
+              }
+            } catch(_) {}
+          }
+        } catch(_) {}
+      };
+
+      const run = async (isFirst=false) => {
+        const ids = (getWishlist()||[]).slice(0, 12); 
+        if (!ids.length) return;
+        const map = getStatusMap();
+        const results = await Promise.all(ids.map(id => fetchStatus(id)));
+        let changed = 0;
+        results.filter(Boolean).forEach(p => {
+          const old = map[String(p.id)];
+          const cur = p.status || '';
+          if (old == null) {
+            map[String(p.id)] = cur; 
+            return;
+          }
+          if (old !== cur) {
+            map[String(p.id)] = cur;
+            
+              const pretty = (s)=> (String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1));
+              const title = `Wishlist update: ${p.name}`;
+              const body = `Status changed from ${pretty(old)} to ${pretty(cur)}`;
+              const link = `/spacesDetails.html?id=${encodeURIComponent(p.id)}`;
+              pushNotification({ title, body, link });
+              showToast(`${p.name}: ${body}`);
+              changed++;
+          }
+        });
+        setStatusMap(map);
+        return changed;
+      };
+
+      
+      await run(true);
+      const tick = () => { if (document.visibilityState === 'visible') run(false); };
+      window.__wishlistWatcherInterval = setInterval(tick, 60000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') run(false); });
+      try { document.addEventListener('navbar:loaded', ()=> run(false)); } catch(_) {}
+    } catch (e) {
+      console.debug('wishlist watcher error', e);
+    }
   }
 
   async function setupAdminNavbar() {
@@ -1279,6 +1397,23 @@
         }
         const s = window.__ambuloSocket;
         if (!s.__notifListenerAttached) {
+          
+          try {
+            const sendSubs = () => {
+              try {
+                const ids = JSON.parse(localStorage.getItem('wishlist')||'[]');
+                if (Array.isArray(ids) && ids.length) {
+                  s.emit('wishlist_subscribe', { ids });
+                }
+              } catch(_) {}
+            };
+            s.on('connect', sendSubs);
+            
+            window.addEventListener('wishlist:updated', sendSubs);
+            window.addEventListener('storage', (e) => { if (e && e.key === 'wishlist') sendSubs(); });
+            
+            sendSubs();
+          } catch(_) {}
           s.on('notification', (payload) => {
             try {
               const type = String(
@@ -1293,6 +1428,51 @@
             } catch(_) {}
             
             try { this.refreshNotifications && this.refreshNotifications(); } catch(_) {}
+          });
+
+          
+          s.on('property_status_changed', (p) => {
+            try {
+              const getWishlist = () => { try { return JSON.parse(localStorage.getItem('wishlist')||'[]'); } catch { return []; } };
+              const ids = getWishlist().map(String);
+              const pid = String((p && (p.property_id || p.id)) || '');
+              if (!pid || !ids.includes(pid)) return; 
+
+              const name = (p && (p.property_name || p.name)) || `Property ${pid}`;
+              const oldS = String((p && p.old_status) || '').toLowerCase();
+              const newS = String((p && p.new_status) || '').toLowerCase();
+              const pretty = (s)=> (String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1));
+              const title = `Wishlist update: ${name}`;
+              const body = oldS && newS ? `Status changed from ${pretty(oldS)} to ${pretty(newS)}` : `Status updated to ${pretty(newS||oldS)}`;
+              const link = `/spacesDetails.html?id=${encodeURIComponent(pid)}`;
+
+              
+              try {
+                const badge = document.getElementById('notificationBadge');
+                if (badge) { const cur = parseInt(badge.textContent||'0',10)||0; const next = cur+1; badge.textContent=String(next); badge.style.display='flex'; }
+                const menu = document.getElementById('notificationMenu');
+                if (menu) {
+                  const item = document.createElement('div');
+                  item.className = 'notification-item unread';
+                  item.style.cursor = 'pointer';
+                  item.innerHTML = `
+                    <div class="notification-title">${title}</div>
+                    ${body ? `<div class="notification-body">${body}</div>` : ''}
+                    <div class="notification-meta"><span class="notification-type type-info">INFO</span><span class="notification-time">just now</span></div>
+                  `;
+                  item.addEventListener('click', ()=>{ try { if (link) window.location.href = link; } catch(_) {} });
+                  const list = menu.querySelector('.notification-list');
+                  if (list) list.prepend(item); else menu.prepend(item);
+                }
+              } catch(_) {}
+
+              
+              try {
+                let c = document.getElementById('toast-container');
+                if (!c) { c = document.createElement('div'); c.id='toast-container'; c.style.position='fixed'; c.style.top='20px'; c.style.right='20px'; c.style.zIndex=10000; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='10px'; document.body.appendChild(c); }
+                const t=document.createElement('div'); t.style.padding='10px 14px'; t.style.borderRadius='10px'; t.style.color='#fff'; t.style.fontWeight='600'; t.style.boxShadow='0 8px 30px rgba(0,0,0,0.12)'; t.style.maxWidth='320px'; t.style.opacity='0'; t.style.transform='translateX(12px)'; t.style.transition='transform 220ms ease, opacity 220ms ease'; t.style.background='linear-gradient(135deg,#10b981,#059669)'; t.textContent=`${name}: ${body}`; c.appendChild(t); requestAnimationFrame(()=>{ t.style.opacity='1'; t.style.transform='translateX(0)'; }); setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(12px)'; setTimeout(()=>{ try{t.remove();}catch{} }, 260); }, 2200);
+              } catch {}
+            } catch (e) { /* ignore */ }
           });
           
           s.on && s.on('new_message', (msg) => {
@@ -1390,6 +1570,8 @@
       if (!menu) return;
       const filter = this._ensureNotifFilter();
       
+      const clientList = Array.isArray(window.__clientNotifQueue) ? window.__clientNotifQueue.slice() : [];
+      let combined = ([]).concat(clientList, list || []);
   const chips = ['INQUIRY','PAYMENT','TICKET','LEASE','INFO'];
       const headerHtml = `
         <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
@@ -1405,7 +1587,7 @@
             return `<button type="button" class="chip ${selected ? 'selected' : ''} chip-${t.toLowerCase()}" data-type="${t}">${t}</button>`;
           }).join('')}
         </div>`;
-      if (!Array.isArray(list) || list.length === 0) {
+      if (!Array.isArray(combined) || combined.length === 0) {
         menu.innerHTML = `${headerHtml}<div class="dropdown-item empty">No notifications</div>`;
         if (this.notificationBadge) {
           this.notificationBadge.textContent = '0';
@@ -1413,8 +1595,8 @@
         }
         return;
       }
-  
-  const unreadCount = (this._notifCache || list).filter(n => !n.is_read && String(n.type).toUpperCase() !== 'MESSAGE').length;
+      combined = this._applyTypeFilter ? this._applyTypeFilter(combined) : combined;
+      const unreadCount = combined.filter(n => !n.is_read && String(n.type).toUpperCase() !== 'MESSAGE').length;
     if (this.notificationBadge) {
       this.notificationBadge.textContent = String(unreadCount);
       this.notificationBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
@@ -1422,7 +1604,7 @@
       menu.innerHTML = `
         ${headerHtml}
         <div class="notification-list">
-          ${list.map(n => `
+          ${combined.map(n => `
             <div class="notification-item ${n.is_read || String(n.type).toUpperCase()==='MESSAGE' ? '' : 'unread'}" data-id="${n.notification_id}">
               <div class="notification-title">${(n.title||'').toString()}</div>
               ${n.body ? `<div class="notification-body">${(n.body||'').toString()}</div>` : ''}
@@ -1467,11 +1649,20 @@
       menu.querySelectorAll('.notification-item').forEach(el => {
         el.addEventListener('click', async () => {
           const id = el.getAttribute('data-id');
-          const notif = (this._notifCache || []).find(x => String(x.notification_id) === String(id));
+          const notif = (window.__clientNotifQueue || []).find(x => String(x.notification_id) === String(id)) || (this._notifCache || []).find(x => String(x.notification_id) === String(id));
           const targetUrl = this._resolveNotificationUrl ? this._resolveNotificationUrl(notif || {}) : null;
           try {
             const notifType = (notif && notif.type) ? String(notif.type).toUpperCase() : '';
-            if (notifType !== 'MESSAGE') {
+            if (notif && notif._client) {
+              try { el.classList.remove('unread'); } catch(_) {}
+              window.__clientNotifQueue = (window.__clientNotifQueue || []).filter(x => String(x.notification_id) !== String(id));
+              if (this.notificationBadge) {
+                const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
+                const next = Math.max(0, current - 1);
+                this.notificationBadge.textContent = String(next);
+                this.notificationBadge.style.display = next > 0 ? 'flex' : 'none';
+              }
+            } else if (notifType !== 'MESSAGE') {
               await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
               el.classList.remove('unread');
               if (this.notificationBadge) {
@@ -1479,7 +1670,6 @@
                 this.notificationBadge.textContent = String(Math.max(0, current - 1));
               }
             } else {
-              
               try { el.classList.remove('unread'); } catch(_) {}
             }
           } catch {}
@@ -1687,7 +1877,9 @@
       if (!menu) return;
       const filter = this._ensureNotifFilter ? this._ensureNotifFilter() : { unreadOnly: false };
       
-      const filtered = (list || []).filter(n => String(n.type || '').toUpperCase() !== 'MESSAGE');
+      const clientList = Array.isArray(window.__clientNotifQueue) ? window.__clientNotifQueue.slice() : [];
+      let combined = ([]).concat(clientList, list || []);
+      const filtered = (combined || []).filter(n => String(n.type || '').toUpperCase() !== 'MESSAGE');
       const headerHtml = `
         <div class="dropdown-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
           <span>Notifications</span>
@@ -1742,16 +1934,27 @@
       menu.querySelectorAll('.notification-item').forEach(el => {
         el.addEventListener('click', async () => {
           const id = el.getAttribute('data-id');
-          const notif = (this._notifCache || []).find(x => String(x.notification_id) === String(id));
+          const notif = (window.__clientNotifQueue || []).find(x => String(x.notification_id) === String(id)) || (this._notifCache || []).find(x => String(x.notification_id) === String(id));
           const targetUrl = this._resolveNotificationUrl ? this._resolveNotificationUrl(notif || {}) : null;
           try {
-            await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
-            el.classList.remove('unread');
-            if (this.notificationBadge) {
-              const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
-              const next = Math.max(0, current - 1);
-              this.notificationBadge.textContent = String(next);
-              this.notificationBadge.style.display = next > 0 ? 'flex' : 'none';
+            if (notif && notif._client) {
+              try { el.classList.remove('unread'); } catch(_) {}
+              window.__clientNotifQueue = (window.__clientNotifQueue || []).filter(x => String(x.notification_id) !== String(id));
+              if (this.notificationBadge) {
+                const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
+                const next = Math.max(0, current - 1);
+                this.notificationBadge.textContent = String(next);
+                this.notificationBadge.style.display = next > 0 ? 'flex' : 'none';
+              }
+            } else {
+              await fetch(`/api/${(window.API_VERSION||'v1')}/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
+              el.classList.remove('unread');
+              if (this.notificationBadge) {
+                const current = parseInt(this.notificationBadge.textContent||'0', 10) || 0;
+                const next = Math.max(0, current - 1);
+                this.notificationBadge.textContent = String(next);
+                this.notificationBadge.style.display = next > 0 ? 'flex' : 'none';
+              }
             }
           } catch {}
           if (targetUrl) {
@@ -1777,7 +1980,9 @@
     async refreshNotifications() {
       const filter = this._ensureNotifFilter ? this._ensureNotifFilter() : { unreadOnly: false };
       const { notifications } = await this.fetchNotifications({ unreadOnly: !!filter.unreadOnly });
-      this.renderNotifications((notifications || []).filter(n => String(n.type||'').toUpperCase() !== 'MESSAGE'));
+      const serverList = (notifications || []).filter(n => String(n.type||'').toUpperCase() !== 'MESSAGE');
+      const combined = ([]).concat((window.__clientNotifQueue||[]), serverList);
+      this.renderNotifications(combined);
     }
     addKeyboardShortcuts() {
       document.addEventListener("keydown", (e) => {
@@ -2761,6 +2966,21 @@
         }
         const s = window.__ambuloSocket;
         if (!s.__notifListenerAttached) {
+          
+          try {
+            const sendSubs = () => {
+              try {
+                const ids = JSON.parse(localStorage.getItem('wishlist')||'[]');
+                if (Array.isArray(ids) && ids.length) {
+                  s.emit('wishlist_subscribe', { ids });
+                }
+              } catch(_) {}
+            };
+            s.on('connect', sendSubs);
+            window.addEventListener('wishlist:updated', sendSubs);
+            window.addEventListener('storage', (e) => { if (e && e.key === 'wishlist') sendSubs(); });
+            sendSubs();
+          } catch(_) {}
           s.on('notification', (payload) => {
             try {
               const type = String(
@@ -2804,6 +3024,88 @@
                 inboxContent.prepend(el);
               }
             } catch (e) {}
+          });
+          
+          s.on('property_status_changed', (p) => {
+            try {
+              const getWishlist = () => { try { return JSON.parse(localStorage.getItem('wishlist')||'[]'); } catch { return []; } };
+              const ids = getWishlist().map(String);
+              const pid = String((p && (p.property_id || p.id)) || '');
+              if (!pid || !ids.includes(pid)) return;
+
+              const name = (p && (p.property_name || p.name)) || `Property ${pid}`;
+              const oldS = String((p && p.old_status) || '').toLowerCase();
+              const newS = String((p && p.new_status) || '').toLowerCase();
+              const pretty = (s)=> (String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1));
+              const title = `Wishlist update: ${name}`;
+              const body = oldS && newS ? `Status changed from ${pretty(oldS)} to ${pretty(newS)}` : `Status updated to ${pretty(newS||oldS)}`;
+              const link = `/spacesDetails.html?id=${encodeURIComponent(pid)}`;
+
+              try {
+                const badge = document.getElementById('notificationBadge');
+                if (badge) { const cur = parseInt(badge.textContent||'0',10)||0; const next = cur+1; badge.textContent=String(next); badge.style.display='flex'; }
+                const menu = document.getElementById('notificationMenu');
+                if (menu) {
+                  const item = document.createElement('div');
+                  item.className = 'notification-item unread';
+                  item.style.cursor = 'pointer';
+                  item.innerHTML = `
+                    <div class="notification-title">${title}</div>
+                    ${body ? `<div class="notification-body">${body}</div>` : ''}
+                    <div class="notification-meta"><span class="notification-type type-info">INFO</span><span class="notification-time">just now</span></div>
+                  `;
+                  item.addEventListener('click', ()=>{ try { if (link) window.location.href = link; } catch(_) {} });
+                  const list = menu.querySelector('.notification-list');
+                  if (list) list.prepend(item); else menu.prepend(item);
+                }
+              } catch(_) {}
+            } catch (e) { /* ignore */ }
+          });
+          
+          s.on('property_status_changed', (p) => {
+            try {
+              const getWishlist = () => { try { return JSON.parse(localStorage.getItem('wishlist')||'[]'); } catch { return []; } };
+              const ids = getWishlist().map(String);
+              const pid = String((p && (p.property_id || p.id)) || '');
+              if (!pid || !ids.includes(pid)) return; 
+              const name = (p && (p.property_name || p.name)) || `Property ${pid}`;
+              const oldS = String((p && p.old_status) || '').toLowerCase();
+              const newS = String((p && p.new_status) || '').toLowerCase();
+              const pretty = (s)=> (String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1));
+              const title = `Wishlist update: ${name}`;
+              const body = oldS && newS ? `Status changed from ${pretty(oldS)} to ${pretty(newS)}` : `Status updated to ${pretty(newS||oldS)}`;
+              const link = `/spacesDetails.html?id=${encodeURIComponent(pid)}`;
+              addClientNotification({ title, body, type: 'INFO', link });
+              const badge = document.getElementById('notificationBadge');
+              if (badge) { const cur = parseInt(badge.textContent||'0',10)||0; const next = cur+1; badge.textContent=String(next); badge.style.display='flex'; }
+              try {
+                const merged = ([]).concat((window.__clientNotifQueue||[]), (this._notifCache||[]));
+                this.renderNotifications(merged);
+              } catch(_) {}
+            } catch (_) {}
+          });
+          
+          s.on('property_status_changed', (p) => {
+            try {
+              const getWishlist = () => { try { return JSON.parse(localStorage.getItem('wishlist')||'[]'); } catch { return []; } };
+              const ids = getWishlist().map(String);
+              const pid = String((p && (p.property_id || p.id)) || '');
+              if (!pid || !ids.includes(pid)) return;
+              const name = (p && (p.property_name || p.name)) || `Property ${pid}`;
+              const oldS = String((p && p.old_status) || '').toLowerCase();
+              const newS = String((p && p.new_status) || '').toLowerCase();
+              const pretty = (s)=> (String(s||'').charAt(0).toUpperCase()+String(s||'').slice(1));
+              const title = `Wishlist update: ${name}`;
+              const body = oldS && newS ? `Status changed from ${pretty(oldS)} to ${pretty(newS)}` : `Status updated to ${pretty(newS||oldS)}`;
+              const link = `/spacesDetails.html?id=${encodeURIComponent(pid)}`;
+              addClientNotification({ title, body, type: 'INFO', link });
+              const badge = document.getElementById('notificationBadge');
+              if (badge) { const cur = parseInt(badge.textContent||'0',10)||0; const next = cur+1; badge.textContent=String(next); badge.style.display='flex'; }
+              try {
+                const merged = ([]).concat((window.__clientNotifQueue||[]), (this._notifCache||[]));
+                this.renderNotifications(merged);
+              } catch(_) {}
+            } catch (_) {}
           });
           s.__notifListenerAttached = true;
         }

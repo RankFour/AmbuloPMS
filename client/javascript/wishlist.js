@@ -26,6 +26,7 @@
         if (i >= 0) l.splice(i, 1);
         else l.push(s);
         setWishlist(l);
+        try { window.dispatchEvent(new Event('wishlist:updated')); } catch { }
     }
 
     function wishlistIconSvg(active) {
