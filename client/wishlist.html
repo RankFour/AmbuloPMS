@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Wishlist</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="/css/fonts.css">
+    <link rel="stylesheet" href="/css/propertySpaces.css" />
+    <link rel="stylesheet" href="/css/navigation.css" />
+</head>
+
+<body class="wishlist-page">
+    <div id="navbarContainer"></div>
+        <div class="wishlist-shell">
+            <div class="wishlist-page-wrapper">
+                <div class="wishlist-header">
+                    <h1>My Wishlist</h1>
+                    <p id="wishlistSummary">Loading your saved properties…</p>
+                    <div class="wishlist-note"><i class="fa-regular fa-bell"></i> You'll receive notifications when the status of a wishlisted property changes (e.g., becomes available or reserved).</div>
+                </div>
+                <div id="noWishlist" class="wishlist-empty" style="display:none;">
+                    <div class="empty-icon"><i class="fa-regular fa-heart"></i></div>
+                    <h3>No saved properties yet</h3>
+                    <p>Tap the heart on a property card to save it here for quick access.</p>
+                    <button class="btn btn-primary browse-btn" onclick="window.location.href='propertySpaces.html'">Browse Properties</button>
+                </div>
+                <div class="property-grid wishlist-grid" id="wishlistGrid"></div>
+            </div>
+        </div>
+
+    <script src="/javascript/navigations.js"></script>
+    <script src="/javascript/wishlist.js"></script>
+</body>
+
+</html>
