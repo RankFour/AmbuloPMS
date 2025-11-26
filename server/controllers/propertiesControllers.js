@@ -1,5 +1,6 @@
 import expressAsync from 'express-async-handler';
 import propertiesServices from '../services/propertiesServices.js';
+import { emitToProperty } from '../config/socket.js';
 
 const createProperty = expressAsync(async (req, res) => {
   try {
@@ -120,6 +121,25 @@ const editPropertyById = expressAsync(async (req, res) => {
         
 
         const response = await propertiesServices.editPropertyById(req.params.property_id, payload);
+
+        // Emit real-time event to tenants subscribed to this property's room if status changed
+        try {
+            if (response?.statusChanged) {
+                const io = req.app.get('io');
+                if (io) {
+                    emitToProperty(io, req.params.property_id, 'property_status_changed', {
+                        property_id: req.params.property_id,
+                        property_name: response?.property?.property_name || undefined,
+                        old_status: response?.prevStatus,
+                        new_status: response?.newStatus,
+                        changed_at: new Date().toISOString()
+                    });
+                }
+            }
+        } catch (emitErr) {
+            console.warn('Socket emit failed for property status change:', emitErr?.message || emitErr);
+        }
+
         res.json(response);
     } catch (error) {
         console.error("Error updating property:", error);

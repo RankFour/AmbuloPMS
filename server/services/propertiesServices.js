@@ -348,7 +348,8 @@ const editPropertyById = async (property_id = "", propertyData = {}) => {
       throw new Error("Property ID is required");
     }
 
-    await getSinglePropertyById(property_id);
+    const existing = await getSinglePropertyById(property_id);
+    const prevStatus = existing?.property?.property_status || null;
 
     const {
       building_name,
@@ -568,10 +569,16 @@ const editPropertyById = async (property_id = "", propertyData = {}) => {
     }
 
     const updatedProperty = await getSinglePropertyById(property_id);
+    const newStatus = updatedProperty?.property?.property_status || null;
+    const statusChanged =
+      propertyData.property_status !== undefined && prevStatus !== newStatus;
 
     return {
       message: `Property ${property_id} has been successfully updated!`,
       property: updatedProperty.property,
+      prevStatus,
+      newStatus,
+      statusChanged,
       newAddressCreated: finalAddressId && !address_id ? true : false,
       newAddressId: finalAddressId && !address_id ? finalAddressId : null,
       showcaseImagesAdded: newImagesCreated,

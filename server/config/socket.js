@@ -92,6 +92,29 @@ const initializeSocket = (server) => {
       });
     });
 
+    
+    socket.on('wishlist_subscribe', (data = {}) => {
+      try {
+        const ids = Array.isArray(data.ids) ? data.ids : [];
+        ids.map(String).forEach((pid) => {
+          if (!pid) return;
+          socket.join(`property_${pid}`);
+        });
+        
+        socket.emit('wishlist_subscribed', { count: ids.length });
+      } catch (e) { /* ignore */ }
+    });
+    socket.on('wishlist_unsubscribe', (data = {}) => {
+      try {
+        const ids = Array.isArray(data.ids) ? data.ids : [];
+        ids.map(String).forEach((pid) => {
+          if (!pid) return;
+          socket.leave(`property_${pid}`);
+        });
+        socket.emit('wishlist_unsubscribed', { count: ids.length });
+      } catch (e) { /* ignore */ }
+    });
+
     socket.on('disconnect', (reason) => {
       console.log(`User disconnected: ${socket.userId} (${socket.userEmail}) - Reason: ${reason}`);
 
@@ -124,6 +147,11 @@ const emitToAllUsers = (io, event, data) => {
   io.emit(event, data);
 };
 
+
+const emitToProperty = (io, propertyId, event, data) => {
+  io.to(`property_${String(propertyId)}`).emit(event, data);
+};
+
 const getConnectedUsers = () => {
   return Array.from(connectedUsers.values());
 };
@@ -137,6 +165,7 @@ export {
   emitToUser,
   emitToConversation,
   emitToAllUsers,
+  emitToProperty,
   getConnectedUsers,
   isUserOnline
 };
