@@ -334,8 +334,25 @@
       window.__wishlistWatcherRunning = true;
 
       const API_BASE_URL = "/api/v1/properties";
+      const WL_API = "/api/v1/wishlist";
       const getWishlist = () => {
         try { return JSON.parse(localStorage.getItem('wishlist')||'[]'); } catch { return []; }
+      };
+      const syncWishlistFromServerIfEmpty = async () => {
+        try {
+          const list = getWishlist();
+          if (Array.isArray(list) && list.length) return list;
+          const res = await fetch(WL_API, { credentials: 'include' });
+          if (!res.ok) return list;
+          const data = await res.json();
+          const ids = (data && (data.wishlist || data.ids)) || [];
+          if (Array.isArray(ids)) {
+            localStorage.setItem('wishlist', JSON.stringify(ids));
+            try { window.dispatchEvent(new Event('wishlist:updated')); } catch {}
+            return ids;
+          }
+          return list;
+        } catch { return getWishlist(); }
       };
       const getStatusMap = () => {
         try { return JSON.parse(localStorage.getItem('wishlistStatusMap')||'{}'); } catch { return {}; }
@@ -412,6 +429,8 @@
       };
 
       
+      // Seed wishlist from server if empty, then run
+      try { await syncWishlistFromServerIfEmpty(); } catch {}
       await run(true);
       const tick = () => { if (document.visibilityState === 'visible') run(false); };
       window.__wishlistWatcherInterval = setInterval(tick, 60000);

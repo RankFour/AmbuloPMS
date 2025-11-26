@@ -1325,7 +1325,7 @@ body {
   border: 1px dashed #cbd5e1;
   border-radius: 24px;
   max-width: 720px;
-  margin: 0 auto 18px;
+  margin: 20px auto 18px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
 }
 
