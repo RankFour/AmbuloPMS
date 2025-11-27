@@ -331,9 +331,106 @@
         });
         bindWishlistButtons();
         updateSummary();
+        try { await initSuggestions(list); } catch (e) { console.warn('suggestions init failed', e); }
     }
 
     if (document.readyState === "loading")
         document.addEventListener("DOMContentLoaded", init);
     else init();
+
+    
+    async function initSuggestions(wishlistIds) {
+        const section = document.getElementById('suggestionsSection');
+        const container = document.getElementById('suggestionsContainer');
+        const listEl = document.getElementById('suggestionsList');
+        if (!section || !listEl || !container) return;
+        const all = await fetchAll();
+        const props = (all && all.properties) || [];
+        const wlSet = new Set((wishlistIds || []).map(String));
+        const pool = props.filter(p => {
+            const pid = String(p.property_id != null ? p.property_id : (p.id != null ? p.id : (p.space_id != null ? p.space_id : '')));
+            if (!pid || wlSet.has(pid)) return false;
+            const status = String(p.property_status || p.status || '').toLowerCase();
+            return status === 'available';
+        });
+        if (!pool.length) return;
+        
+        const dateKey = getLocalDateKey();
+        pool.sort((a, b) => dailyHash(getId(a) + '|' + dateKey) - dailyHash(getId(b) + '|' + dateKey));
+        const suggestions = pool.slice(0, 3);
+        listEl.innerHTML = suggestions.map(renderSuggestionCard).join('');
+        container.style.display = '';
+        bindSuggestionWishlistButtons(listEl);
+        syncSuggestionsHeight();
+        window.addEventListener('resize', debounce(syncSuggestionsHeight, 150));
+    }
+
+    function getId(p){
+        return String(p.property_id != null ? p.property_id : (p.id != null ? p.id : (p.space_id != null ? p.space_id : '')));
+    }
+
+    function getLocalDateKey(){
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        const day = String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function dailyHash(str){
+        let h = 5381;
+        for (let i=0;i<str.length;i++){
+            h = ((h << 5) + h) ^ str.charCodeAt(i);
+        }
+        return h >>> 0; 
+    }
+
+    function syncSuggestionsHeight() {
+        const wrapper = document.querySelector('.wishlist-page-wrapper');
+        const container = document.getElementById('suggestionsContainer');
+        if (!wrapper || !container) return;
+        container.style.minHeight = wrapper.offsetHeight + 'px';
+    }
+
+    function debounce(fn, wait) {
+        let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
+    }
+
+    function renderSuggestionCard(p) {
+        const pid = p.property_id != null ? p.property_id : (p.id != null ? p.id : (p.space_id != null ? p.space_id : ''));
+        const imageUrl = p.display_image || (p.property_pictures && p.property_pictures[0] && p.property_pictures[0].image_url) || p.image_url || '/assets/default-property.jpg';
+        const price = formatPrice(p.base_rent || p.price);
+        const area = formatArea(p.floor_area_sqm || p.area_sqm);
+        const wished = isWishlisted(pid);
+        return `<div class="suggestion-card" data-id="${pid}">
+            <div class="suggestion-image" style="background-image:url('${imageUrl}');">
+                <button class="suggest-wishlist-btn" data-id="${pid}" aria-label="${wished ? 'Remove from wishlist' : 'Add to wishlist'}">${wishlistIconSvg(wished)}</button>
+            </div>
+            <div class="suggest-body">
+                <div class="suggest-title">${p.property_name || p.name || 'Property'}</div>
+                <div class="suggest-meta">
+                    <span><i class="fa-solid fa-ruler-combined"></i>${area}</span>
+                    <span><i class="fa-solid fa-coins"></i>${price}/mo</span>
+                </div>
+                <button class="btn btn-primary suggest-view-btn" onclick="window.location.href='spacesDetails.html?id=${pid}'">View Details</button>
+            </div>
+        </div>`;
+    }
+
+    
+
+    function bindSuggestionWishlistButtons(root) {
+        root.querySelectorAll('.suggest-wishlist-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault(); e.stopPropagation();
+                const id = btn.getAttribute('data-id');
+                const before = isWishlisted(id);
+                toggleWishlist(id);
+                const after = isWishlisted(id);
+                btn.innerHTML = wishlistIconSvg(after);
+                btn.classList.toggle('active', after);
+                showToast(after ? 'Added to wishlist' : 'Removed from wishlist', after ? 'success' : 'info');
+            });
+        });
+    }
 })();

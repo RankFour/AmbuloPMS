@@ -15,6 +15,7 @@
 
 <body class="wishlist-page">
     <div id="navbarContainer"></div>
+    <div class="wishlist-layout">
         <div class="wishlist-shell">
             <div class="wishlist-page-wrapper">
                 <div class="wishlist-header">
@@ -31,9 +32,48 @@
                 <div class="property-grid wishlist-grid" id="wishlistGrid"></div>
             </div>
         </div>
+        <aside class="suggestions-outer" id="suggestionsOuter">
+            <div class="suggestions-card-container" id="suggestionsContainer" style="display:none;">
+                <div class="suggestions-section" id="suggestionsSection">
+                    <h2>Suggested Available Properties</h2>
+                    <div class="suggestions-list" id="suggestionsList"></div>
+                </div>
+            </div>
+        </aside>
+    </div>
 
     <script src="/javascript/navigations.js"></script>
-    <script src="/javascript/wishlist.js"></script>
+        <script type="module">
+            import fetchCompanyDetails from '/api/loadCompanyInfo.js';
+            (async () => {
+                try {
+                    const company = await fetchCompanyDetails();
+                    if (!company) return;
+                    const name = company.company_name || company.name || null;
+                    if (name) {
+                        document.title = name + ' — My Wishlist';
+                        const titleEl = document.getElementById('pageTitle');
+                        if (titleEl && titleEl.textContent && titleEl.textContent.trim().length > 0) {
+                            
+                        }
+                    }
+                    const iconUrl = company.icon_logo_url || company.alt_logo_url || null;
+                    if (iconUrl) {
+                        let link = document.querySelector('link[rel="icon"]');
+                        if (!link) {
+                            link = document.createElement('link');
+                            link.rel = 'icon';
+                            link.type = 'image/png';
+                            document.head.appendChild(link);
+                        }
+                        link.href = iconUrl;
+                    }
+                } catch (e) {
+                    console.debug('Company details tab render failed', e);
+                }
+            })();
+        </script>
+    <script type= "module" src="/javascript/wishlist.js"></script>
 </body>
 
 </html>

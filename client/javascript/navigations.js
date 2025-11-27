@@ -429,7 +429,7 @@
       };
 
       
-      // Seed wishlist from server if empty, then run
+      
       try { await syncWishlistFromServerIfEmpty(); } catch {}
       await run(true);
       const tick = () => { if (document.visibilityState === 'visible') run(false); };
@@ -782,6 +782,8 @@
       this.pageTitles = {
         "dashboard.html": "Dashboard",
         adminDashboard: "Dashboard",
+        "wishlist.html": "My Wishlist",
+        wishlist: "My Wishlist",
         "propertyAdmin.html": "Properties",
         propertyAdmin: "Properties",
         "tenants.html": "Tenants",
@@ -832,6 +834,8 @@
       this.pageIcons = {
         "dashboard.html": "fas fa-chart-line",
         adminDashboard: "fas fa-chart-line",
+        "wishlist.html": "fa-regular fa-heart",
+        wishlist: "fa-regular fa-heart",
         "propertyAdmin.html": "fas fa-building",
         propertyAdmin: "fas fa-building",
         "tenants.html": "fas fa-users",
@@ -2507,6 +2511,8 @@
         adminDashboard: "Dashboard",
         "tenantDashboard.html": "Dashboard",
         tenantDashboard: "Dashboard",
+        "wishlist.html": "My Wishlist",
+        wishlist: "My Wishlist",
         "leaseTenant.html": "Lease Information",
         leaseTenant: "Lease Information",
         "paymentTenant.html": "Payments",
@@ -2540,6 +2546,8 @@
         maintenanceTenant: "fas fa-tools",
         "messages.html": "fas fa-envelope",
         messages: "fas fa-envelope",
+        "wishlist.html": "fas fa-heart",
+        wishlist: "fas fa-heart",
         dashboard: "fas fa-chart-line",
         leaseTenant: "fas fa-file-contract",
         paymentTenant: "fas fa-credit-card",
@@ -2596,6 +2604,8 @@
           "Manage your account settings, personal information, and preferences",
         accountProfile:
           "Manage your account settings, personal information, and preferences",
+        "wishlist.html": "Manage properties you've wishlisted for easy access",
+        wishlist: "Manage properties you've wishlisted for easy access",
         "wishlistTenant.html": "Manage properties you've wishlisted for easy access",
         wishlistTenant: "Manage properties you've wishlisted for easy access",
       };
